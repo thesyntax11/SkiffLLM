@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <fstream>
+#include <filesystem>
 #include <utility>
 
 namespace skifflm {
@@ -111,7 +112,8 @@ bool Session::save(std::string& error) const {
         }
     }
 
-    std::ofstream output(config_.history_path, std::ios::binary | std::ios::trunc);
+    const std::filesystem::path temporary_path = config_.history_path.string() + ".tmp";
+    std::ofstream output(temporary_path, std::ios::binary | std::ios::trunc);
     if (!output.is_open()) {
         error = "cannot open history file for writing: " + config_.history_path.string();
         return false;
@@ -130,6 +132,20 @@ bool Session::save(std::string& error) const {
 
     if (!output) {
         error = "failed to write history file";
+        std::filesystem::remove(temporary_path, ec);
+        return false;
+    }
+    output.close();
+
+    std::filesystem::rename(temporary_path, config_.history_path, ec);
+    if (ec) {
+        std::error_code remove_error;
+        std::filesystem::remove(config_.history_path, remove_error);
+        std::filesystem::rename(temporary_path, config_.history_path, ec);
+    }
+    if (ec) {
+        error = "cannot replace history file: " + config_.history_path.string();
+        std::filesystem::remove(temporary_path, ec);
         return false;
     }
     return true;

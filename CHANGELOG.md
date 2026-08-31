@@ -8,6 +8,7 @@
 - Added `--benchmark <runs>` with real measured prompt and generation timing.
 - Generation now reserves the exact context budget and stops before the
   context window fills instead of failing mid-generation.
+- Session history writes are now atomic using a temporary file and rename.
 - Added CLI tests for server and benchmark flags.
 
 ## 1.3.0
