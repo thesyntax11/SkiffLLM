@@ -5,17 +5,27 @@
 
 #include <algorithm>
 #include <csignal>
+#include <cstdio>
 #include <cstring>
 #include <fstream>
 #include <iostream>
 #include <memory>
 #include <sstream>
 
+#ifdef _WIN32
+#include <io.h>
+#else
+#include <unistd.h>
+#endif
+
 #include <llama.h>
 
 namespace {
 
-const char* kVersion = "1.0.0";
+#ifndef SKIFFLLM_VERSION
+#define SKIFFLLM_VERSION "1.1.0"
+#endif
+const char* kVersion = SKIFFLLM_VERSION;
 volatile std::sig_atomic_t g_interrupted = 0;
 
 void signal_handler(int) {
@@ -75,6 +85,81 @@ std::string read_stdin() {
     return buffer.str();
 }
 
+std::string json_escape(const std::string& value) {
+    std::ostringstream out;
+    out << '"';
+    for (const unsigned char ch : value) {
+        switch (ch) {
+            case '"':
+                out << "\\\"";
+                break;
+            case '\\':
+                out << "\\\\";
+                break;
+            case '\b':
+                out << "\\b";
+                break;
+            case '\f':
+                out << "\\f";
+                break;
+            case '\n':
+                out << "\\n";
+                break;
+            case '\r':
+                out << "\\r";
+                break;
+            case '\t':
+                out << "\\t";
+                break;
+            default:
+                if (ch < 0x20) {
+                    char buffer[8] = {0};
+                    std::snprintf(buffer, sizeof(buffer), "\\u%04x", ch);
+                    out << buffer;
+                } else {
+                    out << static_cast<char>(ch);
+                }
+                break;
+        }
+    }
+    out << '"';
+    return out.str();
+}
+
+bool write_text_file(const std::filesystem::path& path,
+                     const std::string& content,
+                     std::string& error) {
+    std::error_code ec;
+    const auto parent = path.parent_path();
+    if (!parent.empty()) {
+        std::filesystem::create_directories(parent, ec);
+        if (ec) {
+            error = "cannot create output directory: " + parent.string();
+            return false;
+        }
+    }
+    std::ofstream output(path, std::ios::binary | std::ios::trunc);
+    if (!output.is_open()) {
+        error = "cannot open output file for writing: " + path.string();
+        return false;
+    }
+    output << content;
+    if (!output) {
+        error = "failed to write output file: " + path.string();
+        return false;
+    }
+    return true;
+}
+
+int print_models(const skifflm::Config& cfg) {
+    std::string error;
+    std::vector<std::filesystem::path> models = skifflm::discover_models(cfg, error);
+    for (const auto& model : models) {
+        std::cout << model.string() << "\n";
+    }
+    return 0;
+}
+
 std::string strip_command(const std::string& command) {
     const size_t first = command.find_first_not_of(" \t");
     if (first == std::string::npos) {
@@ -98,23 +183,22 @@ std::string command_argument(const std::string& command) {
 
 bool choose_model(skifflm::Config& cfg,
                   std::unique_ptr<skifflm::LlmEngine>& engine,
-                  const skifflm::Terminal& terminal) {
+                  std::string& error) {
+    error.clear();
     if (engine) {
         return true;
     }
 
-    std::string error;
     std::vector<std::filesystem::path> models = skifflm::discover_models(cfg, error);
     if (!error.empty() && models.empty()) {
-        terminal.error(error);
-        terminal.error("Pass a GGUF model with --model or place one in the model directory.");
+        error += "\nPass a GGUF model with --model or place one in the model directory.";
         return false;
     }
 
     if (models.size() > 1) {
-        terminal.warning("Multiple GGUF models found. Choose one with --model:");
+        error = "Multiple GGUF models found. Choose one with --model:";
         for (const auto& path : models) {
-            terminal.write("  " + path.string() + "\n");
+            error += "\n  " + path.string();
         }
         return false;
     }
@@ -122,7 +206,6 @@ bool choose_model(skifflm::Config& cfg,
     cfg.model_path = models.front();
     engine = std::make_unique<skifflm::LlmEngine>(cfg);
     if (!engine->load(error)) {
-        terminal.error(error);
         engine.reset();
         return false;
     }
@@ -206,7 +289,9 @@ int run_interactive(skifflm::Config& cfg,
                     skifflm::Session& session,
                     skifflm::Terminal& terminal,
                     skifflm::GenerationOptions& options) {
-    if (!choose_model(cfg, engine, terminal)) {
+    std::string model_error;
+    if (!choose_model(cfg, engine, model_error)) {
+        terminal.error(model_error);
         return 1;
     }
 
@@ -285,6 +370,47 @@ int run_interactive(skifflm::Config& cfg,
                 rebuild_engine(cfg, engine, argument, terminal);
                 continue;
             }
+            if (command == "/profile") {
+                if (argument.empty()) {
+                    terminal.error("Usage: /profile <balanced|fast|creative|code|precise>");
+                    continue;
+                }
+                std::string profile_error;
+                if (!skifflm::apply_profile(cfg, argument, profile_error)) {
+                    terminal.error(profile_error);
+                    continue;
+                }
+                options.n_predict = cfg.n_predict;
+                options.temperature = cfg.temperature;
+                options.top_p = cfg.top_p;
+                options.min_p = cfg.min_p;
+                options.typical_p = cfg.typical_p;
+                options.top_k = cfg.top_k;
+                options.repeat_penalty = cfg.repeat_penalty;
+                options.repeat_last_n = cfg.repeat_last_n;
+                terminal.success("Profile set to " + cfg.profile_name);
+                continue;
+            }
+            if (command == "/stop") {
+                if (argument.empty()) {
+                    if (options.stop_sequences.empty()) {
+                        terminal.write("No stop sequences configured.\n");
+                    } else {
+                        terminal.write("Stop sequences: ", skifflm::Color::Cyan);
+                        for (size_t i = 0; i < options.stop_sequences.size(); ++i) {
+                            if (i != 0) {
+                                terminal.write(", ");
+                            }
+                            terminal.write(options.stop_sequences[i]);
+                        }
+                        terminal.write("\n");
+                    }
+                    continue;
+                }
+                options.stop_sequences.push_back(argument);
+                terminal.success("Stop sequence added: " + argument);
+                continue;
+            }
             if (command == "/temp" || command == "/temperature") {
                 bool ok = false;
                 const double value = parse_double(argument, ok);
@@ -316,6 +442,48 @@ int run_interactive(skifflm::Config& cfg,
                 }
                 options.top_k = value;
                 terminal.success("Top-k set to " + std::to_string(options.top_k));
+                continue;
+            }
+            if (command == "/min-p") {
+                bool ok = false;
+                const double value = parse_double(argument, ok);
+                if (!ok || value < 0.0 || value > 1.0) {
+                    terminal.error("Usage: /min-p <value in [0,1]>");
+                    continue;
+                }
+                options.min_p = static_cast<float>(value);
+                terminal.success("Min-p set to " + std::to_string(options.min_p));
+                continue;
+            }
+            if (command == "/typical") {
+                bool ok = false;
+                const double value = parse_double(argument, ok);
+                if (!ok || value < 0.0 || value > 1.0) {
+                    terminal.error("Usage: /typical <value in [0,1]>");
+                    continue;
+                }
+                options.typical_p = static_cast<float>(value);
+                terminal.success("Typical-p set to " + std::to_string(options.typical_p));
+                continue;
+            }
+            if (command == "/ctx") {
+                bool ok = false;
+                const int value = parse_int(argument, ok);
+                if (!ok || value < 64) {
+                    terminal.error("Usage: /ctx <context size >= 64>");
+                    continue;
+                }
+                const int previous_ctx = cfg.context_size;
+                cfg.context_size = value;
+                std::string ctx_error;
+                auto candidate = std::make_unique<skifflm::LlmEngine>(cfg);
+                if (!candidate->load(ctx_error)) {
+                    cfg.context_size = previous_ctx;
+                    terminal.error(ctx_error);
+                    continue;
+                }
+                engine = std::move(candidate);
+                terminal.success("Context set to " + std::to_string(value));
                 continue;
             }
             if (command == "/n" || command == "/n-predict") {
@@ -395,7 +563,15 @@ int run_one_shot(skifflm::Config& cfg,
                  skifflm::Terminal& terminal,
                  const skifflm::GenerationOptions& options,
                  const std::string& prompt) {
-    if (!choose_model(cfg, engine, terminal)) {
+    std::string model_error;
+    if (!choose_model(cfg, engine, model_error)) {
+        if (cfg.json_output) {
+            std::ostringstream out;
+            out << "{\"error\":" << json_escape(model_error) << "}\n";
+            std::cout << out.str();
+        } else {
+            terminal.error(model_error);
+        }
         return 1;
     }
 
@@ -403,14 +579,15 @@ int run_one_shot(skifflm::Config& cfg,
     ask.push_back({"user", prompt});
 
     skifflm::GenerationOptions current = options;
-    current.token_callback = [&terminal](const std::string& part) {
-        terminal.write_raw(part);
-        std::cout.flush();
-    };
+    if (!cfg.json_output) {
+        current.token_callback = [&terminal](const std::string& part) {
+            terminal.write_raw(part);
+            std::cout.flush();
+        };
+        terminal.write("User: " + prompt + "\n", skifflm::Color::Cyan);
+    }
 
-    terminal.write("User: " + prompt + "\n", skifflm::Color::Cyan);
     skifflm::GenerationResult result;
-
     std::string error;
     const bool ok = engine->generate(ask,
                                      current,
@@ -420,13 +597,44 @@ int run_one_shot(skifflm::Config& cfg,
                                      },
                                      error);
     if (!ok) {
-        terminal.error(error);
+        if (cfg.json_output) {
+            std::ostringstream out;
+            out << "{\"error\":" << json_escape(error) << "}\n";
+            std::cout << out.str();
+        } else {
+            terminal.error(error);
+        }
         return 1;
     }
-    if (!result.text.empty() && result.text.back() != '\n') {
-        terminal.write_raw("\n");
+
+    if (cfg.json_output) {
+        std::ostringstream out;
+        out << "{\n";
+        out << "  \"text\":" << json_escape(result.text) << ",\n";
+        out << "  \"model\":" << json_escape(cfg.model_path.string()) << ",\n";
+        out << "  \"prompt_tokens\":" << result.prompt_tokens << ",\n";
+        out << "  \"generated_tokens\":" << result.generated_tokens << ",\n";
+        out << "  \"prompt_ms\":" << result.prompt_ms << ",\n";
+        out << "  \"generation_ms\":" << result.generation_ms << ",\n";
+        out << "  \"tokens_per_second\":" << result.tokens_per_second << ",\n";
+        out << "  \"stopped\":" << (result.stopped ? "true" : "false") << "\n";
+        out << "}\n";
+        std::cout << out.str();
+    } else {
+        if (!result.text.empty() && result.text.back() != '\n') {
+            terminal.write_raw("\n");
+        }
+        terminal.print_stats(result, "Generated");
     }
-    terminal.print_stats(result, "Generated");
+
+    if (!cfg.output_path.empty()) {
+        std::string write_error;
+        if (!write_text_file(cfg.output_path, result.text, write_error)) {
+            terminal.error(write_error);
+        } else if (!cfg.json_output) {
+            terminal.success("Answer written to " + cfg.output_path.string());
+        }
+    }
 
     session.messages().push_back({"user", prompt});
     session.messages().push_back({"assistant", result.text});
@@ -445,7 +653,7 @@ int main(int argc, char** argv) {
     skifflm::Config cfg = skifflm::default_config();
     skifflm::apply_environment(cfg);
 
-    std::string config_path = "";
+    std::string config_path = cfg.config_path.string();
     for (int i = 1; i < argc; ++i) {
         const std::string arg = argv[i];
         if (arg.compare(0, 9, "--config=") == 0) {
@@ -488,6 +696,14 @@ int main(int argc, char** argv) {
         return 0;
     }
 
+    if (cfg.list_models) {
+        return print_models(cfg);
+    }
+
+    if (cfg.json_output) {
+        cfg.interactive = false;
+    }
+
     if (cfg.model_path.empty() && cfg.model_dir.empty()) {
         std::cerr << "No model configured. Use --model <path.gguf>.\n";
         return 2;
@@ -506,6 +722,10 @@ int main(int argc, char** argv) {
     }
 
     std::signal(SIGINT, signal_handler);
+    std::signal(SIGTERM, signal_handler);
+#ifndef _WIN32
+    std::signal(SIGQUIT, signal_handler);
+#endif
 
     skifflm::Terminal terminal(cfg);
 
@@ -528,10 +748,15 @@ int main(int argc, char** argv) {
     options.n_predict = cfg.n_predict;
     options.temperature = cfg.temperature;
     options.top_p = cfg.top_p;
+    options.min_p = cfg.min_p;
+    options.typical_p = cfg.typical_p;
     options.top_k = cfg.top_k;
     options.repeat_penalty = cfg.repeat_penalty;
     options.repeat_last_n = cfg.repeat_last_n;
     options.seed = cfg.seed;
+    options.auto_trim = cfg.auto_trim;
+    options.reserve_ctx = cfg.reserve_ctx;
+    options.stop_sequences = cfg.stop_sequences;
     options.token_callback = nullptr;
 
     if (!cfg.interactive && !cfg.one_shot.empty()) {

@@ -22,3 +22,4 @@ third_party/
 *.bin
 *.skif
 *.log
+.DS_Store

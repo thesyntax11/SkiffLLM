@@ -1,6 +1,7 @@
 #include "skifflm/config.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
@@ -99,218 +100,42 @@ std::string option_value(int& index,
     return argv[index];
 }
 
-bool apply_key_value(Config& cfg,
-                     const std::string& key,
-                     const std::string& value,
-                     std::string& error) {
-    auto set_flag = [&error](bool& target,
-                             bool default_value,
-                             bool invert,
-                             const std::string& raw,
-                             const std::string& option_name) -> bool {
-        bool enabled = default_value;
-        if (!raw.empty()) {
-            if (!parse_bool_value(raw, enabled)) {
-                error = "invalid boolean for --" + option_name + ": " + raw;
-                return false;
-            }
-        }
-        target = invert ? !enabled : enabled;
-        return true;
-    };
-
-    if (key == "model") {
-        cfg.model_path = expand_path(value);
-    } else if (key == "model-dir") {
-        cfg.model_dir = expand_path(value);
-    } else if (key == "config") {
-        cfg.config_path = expand_path(value);
-    } else if (key == "history") {
-        cfg.history_path = expand_path(value);
-    } else if (key == "system" || key == "system-prompt") {
-        cfg.system_prompt = value;
-    } else if (key == "ctx" || key == "context") {
-        if (!parse_int_value(value, cfg.context_size)) {
-            error = "invalid integer for --ctx: " + value;
-            return false;
-        }
-        if (cfg.context_size < 64) {
-            error = "context size must be at least 64";
-            return false;
-        }
-    } else if (key == "batch") {
-        if (!parse_int_value(value, cfg.batch_size)) {
-            error = "invalid integer for --batch: " + value;
-            return false;
-        }
-        if (cfg.batch_size < 1) {
-            error = "batch size must be at least 1";
-            return false;
-        }
-    } else if (key == "threads") {
-        if (!parse_int_value(value, cfg.n_threads)) {
-            error = "invalid integer for --threads: " + value;
-            return false;
-        }
-        if (cfg.n_threads < 0) {
-            error = "threads must be zero or positive";
-            return false;
-        }
-    } else if (key == "gpu-layers") {
-        if (!parse_int_value(value, cfg.n_gpu_layers)) {
-            error = "invalid integer for --gpu-layers: " + value;
-            return false;
-        }
-    } else if (key == "temp" || key == "temperature") {
-        if (!parse_float_value(value, cfg.temperature)) {
-            error = "invalid number for --temp: " + value;
-            return false;
-        }
-        if (cfg.temperature < 0.0f) {
-            error = "temperature must be zero or positive";
-            return false;
-        }
-    } else if (key == "top-p") {
-        if (!parse_float_value(value, cfg.top_p)) {
-            error = "invalid number for --top-p: " + value;
-            return false;
-        }
-        if (cfg.top_p <= 0.0f || cfg.top_p > 1.0f) {
-            error = "top-p must be in (0, 1]";
-            return false;
-        }
-    } else if (key == "top-k") {
-        if (!parse_int_value(value, cfg.top_k)) {
-            error = "invalid integer for --top-k: " + value;
-            return false;
-        }
-    } else if (key == "repeat-penalty") {
-        if (!parse_float_value(value, cfg.repeat_penalty)) {
-            error = "invalid number for --repeat-penalty: " + value;
-            return false;
-        }
-        if (cfg.repeat_penalty <= 0.0f) {
-            error = "repeat-penalty must be positive";
-            return false;
-        }
-    } else if (key == "repeat-last-n") {
-        if (!parse_int_value(value, cfg.repeat_last_n)) {
-            error = "invalid integer for --repeat-last-n: " + value;
-            return false;
-        }
-        if (cfg.repeat_last_n < 0) {
-            error = "repeat-last-n must be zero or positive";
-            return false;
-        }
-    } else if (key == "n" || key == "n-predict") {
-        if (!parse_int_value(value, cfg.n_predict)) {
-            error = "invalid integer for --n-predict: " + value;
-            return false;
-        }
-        if (cfg.n_predict < 1) {
-            error = "n-predict must be at least 1";
-            return false;
-        }
-    } else if (key == "seed") {
-        if (!parse_uint_value(value, cfg.seed)) {
-            error = "invalid value for --seed: " + value;
-            return false;
-        }
-    } else if (key == "prompt-file") {
-        cfg.prompt_file = expand_path(value);
-    } else if (key == "color") {
-        if (!set_flag(cfg.color, true, false, value, key)) {
-            return false;
-        }
-    } else if (key == "no-color") {
-        if (!set_flag(cfg.color, true, true, value, key)) {
-            return false;
-        }
-    } else if (key == "mmap") {
-        if (!set_flag(cfg.use_mmap, true, false, value, key)) {
-            return false;
-        }
-    } else if (key == "no-mmap") {
-        if (!set_flag(cfg.use_mmap, true, true, value, key)) {
-            return false;
-        }
-    } else if (key == "mlock") {
-        if (!set_flag(cfg.use_mlock, true, false, value, key)) {
-            return false;
-        }
-    } else if (key == "save") {
-        if (!set_flag(cfg.save_history, true, false, value, key)) {
-            return false;
-        }
-    } else if (key == "no-save") {
-        if (!set_flag(cfg.save_history, true, true, value, key)) {
-            return false;
-        }
-    } else if (key == "interactive") {
-        if (!set_flag(cfg.interactive, true, false, value, key)) {
-            return false;
-        }
-    } else if (key == "non-interactive") {
-        if (!set_flag(cfg.interactive, true, true, value, key)) {
-            return false;
-        }
-    } else if (key == "verbose") {
-        if (!set_flag(cfg.log_llama, true, false, value, key)) {
-            return false;
-        }
-    } else if (key == "quiet") {
-        if (!set_flag(cfg.log_llama, true, true, value, key)) {
-            return false;
-        }
-    } else if (key == "info") {
-        if (!set_flag(cfg.show_info, true, false, value, key)) {
-            return false;
-        }
-    } else if (key == "no-info") {
-        if (!set_flag(cfg.show_info, true, true, value, key)) {
-            return false;
-        }
-    } else if (key == "stdin") {
-        bool enabled = true;
-        if (!value.empty() && !parse_bool_value(value, enabled)) {
-            error = "invalid boolean for --stdin: " + value;
-            return false;
-        }
-        cfg.read_stdin = enabled;
-        cfg.interactive = !enabled;
-    } else if (key == "prompt") {
-        cfg.one_shot = value;
-        cfg.interactive = false;
-    } else if (key == "reset-history") {
-        if (!set_flag(cfg.reset_history, true, false, value, key)) {
-            return false;
-        }
-    } else if (key == "help") {
-        if (!set_flag(cfg.show_help, true, false, value, key)) {
-            return false;
-        }
-    } else if (key == "version") {
-        if (!set_flag(cfg.show_version, true, false, value, key)) {
-            return false;
-        }
-    } else if (key == "show-config") {
-        if (!set_flag(cfg.show_config, true, false, value, key)) {
-            return false;
-        }
-    } else if (key == "debug") {
-        if (!set_flag(cfg.debug, true, false, value, key)) {
-            return false;
-        }
-    } else {
-        error = "unknown option: " + key;
-        return false;
-    }
-    return true;
-}
-
 bool starts_with(const std::string& text, const std::string& prefix) {
     return text.size() >= prefix.size() &&
            text.compare(0, prefix.size(), prefix) == 0;
+}
+
+std::string sanitize_session(const std::string& name) {
+    std::string result;
+    result.reserve(name.size());
+    for (const unsigned char ch : name) {
+        if (std::isalnum(ch) || ch == '-' || ch == '_' || ch == '.') {
+            result.push_back(static_cast<char>(ch));
+        } else {
+            result.push_back('_');
+        }
+    }
+    const std::string cleaned = trim(result);
+    return cleaned.empty() ? "default" : cleaned;
+}
+
+std::filesystem::path resolve_session_path(const std::string& name,
+                                           const std::filesystem::path& parent) {
+    if (!name.empty()) {
+        const bool has_separator = name.find('/') != std::string::npos ||
+                                   name.find('\\') != std::string::npos;
+        const bool has_skif = name.size() > 5 && name.compare(name.size() - 5, 5, ".skif") == 0;
+        if (has_separator || has_skif) {
+            return expand_path(name);
+        }
+    }
+
+    std::filesystem::path base = parent;
+    if (base.empty()) {
+        const std::string home = home_directory();
+        base = std::filesystem::path(home) / ".local/share/skifflm";
+    }
+    return base / (sanitize_session(name) + ".skif");
 }
 
 }
@@ -404,7 +229,9 @@ std::vector<std::filesystem::path> discover_models(const Config& cfg, std::strin
         if (!std::filesystem::exists(root, ec)) {
             continue;
         }
-        for (auto it = std::filesystem::recursive_directory_iterator(root, ec); it != std::filesystem::recursive_directory_iterator(); it.increment(ec)) {
+        for (auto it = std::filesystem::recursive_directory_iterator(root, ec);
+             it != std::filesystem::recursive_directory_iterator();
+             it.increment(ec)) {
             if (ec) {
                 break;
             }
@@ -419,7 +246,345 @@ std::vector<std::filesystem::path> discover_models(const Config& cfg, std::strin
         return {};
     }
 
+    std::sort(paths.begin(), paths.end());
     return paths;
+}
+
+bool apply_profile(Config& cfg, const std::string& name, std::string& error) {
+    const std::string normalized = lower(trim(name));
+    cfg.profile_name = normalized;
+
+    if (normalized == "balanced") {
+        cfg.temperature = 0.70f;
+        cfg.top_p = 0.95f;
+        cfg.top_k = 40;
+        cfg.min_p = 0.00f;
+        cfg.typical_p = 0.00f;
+        cfg.repeat_penalty = 1.10f;
+        cfg.n_predict = 512;
+        return true;
+    }
+    if (normalized == "fast") {
+        cfg.temperature = 0.60f;
+        cfg.top_p = 0.90f;
+        cfg.top_k = 30;
+        cfg.min_p = 0.00f;
+        cfg.typical_p = 0.00f;
+        cfg.repeat_penalty = 1.05f;
+        cfg.n_predict = 256;
+        return true;
+    }
+    if (normalized == "creative") {
+        cfg.temperature = 1.00f;
+        cfg.top_p = 0.98f;
+        cfg.top_k = 60;
+        cfg.min_p = 0.05f;
+        cfg.typical_p = 0.00f;
+        cfg.repeat_penalty = 1.20f;
+        cfg.n_predict = 512;
+        return true;
+    }
+    if (normalized == "code") {
+        cfg.temperature = 0.20f;
+        cfg.top_p = 0.90f;
+        cfg.top_k = 20;
+        cfg.min_p = 0.00f;
+        cfg.typical_p = 0.00f;
+        cfg.repeat_penalty = 1.20f;
+        cfg.n_predict = 1024;
+        return true;
+    }
+    if (normalized == "precise") {
+        cfg.temperature = 0.00f;
+        cfg.top_p = 0.90f;
+        cfg.top_k = 20;
+        cfg.min_p = 0.00f;
+        cfg.typical_p = 0.00f;
+        cfg.repeat_penalty = 1.00f;
+        cfg.n_predict = 650;
+        return true;
+    }
+
+    error = "unknown profile: " + name + " (use balanced, fast, creative, code or precise)";
+    return false;
+}
+
+bool apply_key_value(Config& cfg,
+                     const std::string& key,
+                     const std::string& value,
+                     std::string& error) {
+    auto set_flag = [&error](bool& target,
+                             bool default_value,
+                             bool invert,
+                             const std::string& raw,
+                             const std::string& option_name) -> bool {
+        bool enabled = default_value;
+        if (!raw.empty()) {
+            if (!parse_bool_value(raw, enabled)) {
+                error = "invalid boolean for --" + option_name + ": " + raw;
+                return false;
+            }
+        }
+        target = invert ? !enabled : enabled;
+        return true;
+    };
+
+    if (key == "model") {
+        cfg.model_path = expand_path(value);
+    } else if (key == "model-dir") {
+        cfg.model_dir = expand_path(value);
+    } else if (key == "config") {
+        cfg.config_path = expand_path(value);
+    } else if (key == "history") {
+        cfg.history_path = expand_path(value);
+    } else if (key == "system" || key == "system-prompt") {
+        cfg.system_prompt = value;
+    } else if (key == "session") {
+        cfg.session_name = value;
+        cfg.history_path = resolve_session_path(value, cfg.history_path.parent_path());
+    } else if (key == "profile") {
+        if (!apply_profile(cfg, value, error)) {
+            return false;
+        }
+    } else if (key == "stop") {
+        const std::string stop = trim(value);
+        if (!stop.empty()) {
+            cfg.stop_sequences.push_back(stop);
+        }
+    } else if (key == "output") {
+        cfg.output_path = expand_path(value);
+    } else if (key == "ctx" || key == "context") {
+        if (!parse_int_value(value, cfg.context_size)) {
+            error = "invalid integer for --ctx: " + value;
+            return false;
+        }
+        if (cfg.context_size < 64) {
+            error = "context size must be at least 64";
+            return false;
+        }
+    } else if (key == "batch") {
+        if (!parse_int_value(value, cfg.batch_size)) {
+            error = "invalid integer for --batch: " + value;
+            return false;
+        }
+        if (cfg.batch_size < 1) {
+            error = "batch size must be at least 1";
+            return false;
+        }
+    } else if (key == "ubatch") {
+        if (!parse_int_value(value, cfg.n_ubatch)) {
+            error = "invalid integer for --ubatch: " + value;
+            return false;
+        }
+        if (cfg.n_ubatch < 0) {
+            error = "ubatch must be zero or positive";
+            return false;
+        }
+    } else if (key == "reserve-ctx") {
+        if (!parse_int_value(value, cfg.reserve_ctx)) {
+            error = "invalid integer for --reserve-ctx: " + value;
+            return false;
+        }
+        if (cfg.reserve_ctx < 0) {
+            error = "reserve-ctx must be zero or positive";
+            return false;
+        }
+    } else if (key == "threads") {
+        if (!parse_int_value(value, cfg.n_threads)) {
+            error = "invalid integer for --threads: " + value;
+            return false;
+        }
+        if (cfg.n_threads < 0) {
+            error = "threads must be zero or positive";
+            return false;
+        }
+    } else if (key == "gpu-layers") {
+        if (!parse_int_value(value, cfg.n_gpu_layers)) {
+            error = "invalid integer for --gpu-layers: " + value;
+            return false;
+        }
+    } else if (key == "temp" || key == "temperature") {
+        if (!parse_float_value(value, cfg.temperature)) {
+            error = "invalid number for --temp: " + value;
+            return false;
+        }
+        if (cfg.temperature < 0.0f) {
+            error = "temperature must be zero or positive";
+            return false;
+        }
+    } else if (key == "top-p") {
+        if (!parse_float_value(value, cfg.top_p)) {
+            error = "invalid number for --top-p: " + value;
+            return false;
+        }
+        if (cfg.top_p <= 0.0f || cfg.top_p > 1.0f) {
+            error = "top-p must be in (0, 1]";
+            return false;
+        }
+    } else if (key == "min-p") {
+        if (!parse_float_value(value, cfg.min_p)) {
+            error = "invalid number for --min-p: " + value;
+            return false;
+        }
+        if (cfg.min_p < 0.0f || cfg.min_p > 1.0f) {
+            error = "min-p must be in [0, 1]";
+            return false;
+        }
+    } else if (key == "typical") {
+        if (!parse_float_value(value, cfg.typical_p)) {
+            error = "invalid number for --typical: " + value;
+            return false;
+        }
+        if (cfg.typical_p < 0.0f || cfg.typical_p > 1.0f) {
+            error = "typical must be in [0, 1]";
+            return false;
+        }
+    } else if (key == "top-k") {
+        if (!parse_int_value(value, cfg.top_k)) {
+            error = "invalid integer for --top-k: " + value;
+            return false;
+        }
+    } else if (key == "repeat-penalty") {
+        if (!parse_float_value(value, cfg.repeat_penalty)) {
+            error = "invalid number for --repeat-penalty: " + value;
+            return false;
+        }
+        if (cfg.repeat_penalty <= 0.0f) {
+            error = "repeat-penalty must be positive";
+            return false;
+        }
+    } else if (key == "repeat-last-n") {
+        if (!parse_int_value(value, cfg.repeat_last_n)) {
+            error = "invalid integer for --repeat-last-n: " + value;
+            return false;
+        }
+        if (cfg.repeat_last_n < 0) {
+            error = "repeat-last-n must be zero or positive";
+            return false;
+        }
+    } else if (key == "n" || key == "n-predict") {
+        if (!parse_int_value(value, cfg.n_predict)) {
+            error = "invalid integer for --n-predict: " + value;
+            return false;
+        }
+        if (cfg.n_predict < 1) {
+            error = "n-predict must be at least 1";
+            return false;
+        }
+    } else if (key == "seed") {
+        if (!parse_uint_value(value, cfg.seed)) {
+            error = "invalid value for --seed: " + value;
+            return false;
+        }
+    } else if (key == "prompt-file") {
+        cfg.prompt_file = expand_path(value);
+    } else if (key == "color") {
+        if (!set_flag(cfg.color, true, false, value, key)) {
+            return false;
+        }
+    } else if (key == "no-color") {
+        if (!set_flag(cfg.color, true, true, value, key)) {
+            return false;
+        }
+    } else if (key == "mmap") {
+        if (!set_flag(cfg.use_mmap, true, false, value, key)) {
+            return false;
+        }
+    } else if (key == "no-mmap") {
+        if (!set_flag(cfg.use_mmap, true, true, value, key)) {
+            return false;
+        }
+    } else if (key == "mlock") {
+        if (!set_flag(cfg.use_mlock, true, false, value, key)) {
+            return false;
+        }
+    } else if (key == "save") {
+        if (!set_flag(cfg.save_history, true, false, value, key)) {
+            return false;
+        }
+    } else if (key == "no-save") {
+        if (!set_flag(cfg.save_history, true, true, value, key)) {
+            return false;
+        }
+    } else if (key == "interactive") {
+        if (!set_flag(cfg.interactive, true, false, value, key)) {
+            return false;
+        }
+    } else if (key == "non-interactive") {
+        if (!set_flag(cfg.interactive, true, true, value, key)) {
+            return false;
+        }
+    } else if (key == "verbose") {
+        if (!set_flag(cfg.log_llama, true, false, value, key)) {
+            return false;
+        }
+    } else if (key == "quiet") {
+        if (!set_flag(cfg.log_llama, true, true, value, key)) {
+            return false;
+        }
+    } else if (key == "info") {
+        if (!set_flag(cfg.show_info, true, false, value, key)) {
+            return false;
+        }
+    } else if (key == "no-info" || key == "no-banner") {
+        if (!set_flag(cfg.show_info, true, true, value, key)) {
+            return false;
+        }
+    } else if (key == "auto-trim") {
+        if (!set_flag(cfg.auto_trim, true, false, value, key)) {
+            return false;
+        }
+    } else if (key == "no-auto-trim") {
+        if (!set_flag(cfg.auto_trim, true, true, value, key)) {
+            return false;
+        }
+    } else if (key == "json") {
+        if (!set_flag(cfg.json_output, true, false, value, key)) {
+            return false;
+        }
+        if (cfg.json_output) {
+            cfg.interactive = false;
+        }
+    } else if (key == "list-models") {
+        if (!set_flag(cfg.list_models, true, false, value, key)) {
+            return false;
+        }
+    } else if (key == "stdin") {
+        bool enabled = true;
+        if (!value.empty() && !parse_bool_value(value, enabled)) {
+            error = "invalid boolean for --stdin: " + value;
+            return false;
+        }
+        cfg.read_stdin = enabled;
+        cfg.interactive = !enabled;
+    } else if (key == "prompt") {
+        cfg.one_shot = value;
+        cfg.interactive = false;
+    } else if (key == "reset-history") {
+        if (!set_flag(cfg.reset_history, true, false, value, key)) {
+            return false;
+        }
+    } else if (key == "help") {
+        if (!set_flag(cfg.show_help, true, false, value, key)) {
+            return false;
+        }
+    } else if (key == "version") {
+        if (!set_flag(cfg.show_version, true, false, value, key)) {
+            return false;
+        }
+    } else if (key == "show-config") {
+        if (!set_flag(cfg.show_config, true, false, value, key)) {
+            return false;
+        }
+    } else if (key == "debug") {
+        if (!set_flag(cfg.debug, true, false, value, key)) {
+            return false;
+        }
+    } else {
+        error = "unknown option: " + key;
+        return false;
+    }
+    return true;
 }
 
 bool parse_config_file(const std::filesystem::path& path, Config& cfg, std::string& error) {
@@ -491,27 +656,21 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
         const std::string name = lower(arg.substr(2));
         const size_t eq = name.find('=');
         const std::string key = eq == std::string::npos ? name : name.substr(0, eq);
+        const bool has_value = eq != std::string::npos;
 
         if (key == "help" || key == "version" || key == "show-config" ||
-            key == "no-color" || key == "mmap" || key == "no-mmap" ||
-            key == "mlock" || key == "save" || key == "no-save" ||
-            key == "interactive" || key == "non-interactive" ||
+            key == "color" || key == "no-color" || key == "mmap" ||
+            key == "no-mmap" || key == "mlock" || key == "save" ||
+            key == "no-save" || key == "interactive" || key == "non-interactive" ||
             key == "verbose" || key == "quiet" || key == "info" ||
-            key == "no-info" || key == "stdin" || key == "reset-history" ||
-            key == "debug" || key == "color") {
-            const std::string value = eq == std::string::npos ? std::string() : name.substr(eq + 1);
-            const std::string option_key = key;
-            if (!value.empty()) {
-                if (key == "stdin" || key == "verbose" || key == "no-color" || key == "no-mmap" ||
-                    key == "mlock" || key == "no-save" || key == "non-interactive" ||
-                    key == "reset-history" || key == "debug" || key == "quiet" ||
-                    key == "no-info" || key == "interactive" || key == "save" ||
-                    key == "mmap" || key == "color") {
-                    error = "option --" + key + " does not take a value";
-                    return false;
-                }
+            key == "no-info" || key == "no-banner" || key == "stdin" ||
+            key == "reset-history" || key == "debug" || key == "auto-trim" ||
+            key == "no-auto-trim" || key == "json" || key == "list-models") {
+            if (has_value) {
+                error = "option --" + key + " does not take a value";
+                return false;
             }
-            if (!apply_key_value(cfg, option_key, value, error)) {
+            if (!apply_key_value(cfg, key, {}, error)) {
                 return false;
             }
             continue;
@@ -519,7 +678,8 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
 
         if (key == "model" || key == "model-dir" || key == "config" ||
             key == "history" || key == "system" || key == "system-prompt" ||
-            key == "prompt" || key == "prompt-file") {
+            key == "session" || key == "profile" || key == "stop" ||
+            key == "output" || key == "prompt" || key == "prompt-file") {
             const std::string value = option_value(i, argc, argv, "--" + key, error);
             if (!error.empty()) {
                 return false;
@@ -530,9 +690,10 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
             continue;
         }
 
-        if (key == "ctx" || key == "context" || key == "batch" || key == "threads" ||
-            key == "gpu-layers" || key == "top-k" || key == "repeat-last-n" ||
-            key == "n" || key == "n-predict" || key == "seed") {
+        if (key == "ctx" || key == "context" || key == "batch" || key == "ubatch" ||
+            key == "reserve-ctx" || key == "threads" || key == "gpu-layers" ||
+            key == "top-k" || key == "repeat-last-n" || key == "n" ||
+            key == "n-predict" || key == "seed") {
             const std::string value = option_value(i, argc, argv, "--" + key, error);
             if (!error.empty()) {
                 return false;
@@ -544,7 +705,7 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
         }
 
         if (key == "temp" || key == "temperature" || key == "top-p" ||
-            key == "repeat-penalty") {
+            key == "min-p" || key == "typical" || key == "repeat-penalty") {
             const std::string value = option_value(i, argc, argv, "--" + key, error);
             if (!error.empty()) {
                 return false;
@@ -577,42 +738,60 @@ void apply_environment(Config& cfg) {
     if (const char* value = std::getenv("SKIFFLLM_SYSTEM")) {
         cfg.system_prompt = value;
     }
+    if (const char* value = std::getenv("SKIFFLLM_PROFILE")) {
+        std::string error;
+        apply_profile(cfg, value, error);
+    }
 }
 
 std::string usage(const std::string& program) {
     std::ostringstream out;
-    out << "SkiffLLM - A fully offline local LLM terminal assistant built on llama.cpp\n\n";
+    out << "SkiffLLM - An offline-first local LLM terminal assistant built on llama.cpp\n\n";
     out << "Usage: " << program << " [options] [model.gguf]\n\n";
-    out << "Model options:\n";
+    out << "Core options:\n";
     out << "  --model <path>             Path to a GGUF model file\n";
     out << "  --model-dir <path>         Directory scanned for a GGUF model\n";
+    out << "  --list-models              Print discovered GGUF models\n";
+    out << "  --profile <name>           balanced, fast, creative, code or precise\n";
+    out << "  --session <name>           Use a named conversation\n";
+    out << "  --system <text>            System prompt\n";
+    out << "  --stop <text>              Stop sequence; can be repeated\n\n";
+    out << "Inference options:\n";
     out << "  --ctx <n>                  Context size (default: 4096)\n";
     out << "  --batch <n>                Batch size (default: 512)\n";
+    out << "  --ubatch <n>               Physical batch size (default: auto)\n";
     out << "  --threads <n>              CPU threads (0 means auto)\n";
     out << "  --gpu-layers <n>           GPU layers to offload (-1 means all)\n";
     out << "  --mmap                     Enable mmap (default)\n";
     out << "  --no-mmap                  Disable mmap\n";
     out << "  --mlock                    Lock model memory\n\n";
-    out << "Generation options:\n";
+    out << "Sampling options:\n";
     out << "  --temp <t>                 Sampling temperature (default: 0.70)\n";
     out << "  --top-p <p>                Nucleus sampling (default: 0.95)\n";
     out << "  --top-k <n>                Top-K sampling (default: 40)\n";
+    out << "  --min-p <p>                Minimum probability filter\n";
+    out << "  --typical <p>              Locally typical sampling\n";
     out << "  --repeat-penalty <p>       Repeat penalty (default: 1.10)\n";
     out << "  --repeat-last-n <n>        Repeat penalty window (default: 64)\n";
     out << "  --n-predict <n>            Max generated tokens (default: 512)\n";
     out << "  --seed <n|random>          Sampling seed (default: random)\n\n";
     out << "Session options:\n";
-    out << "  --system <text>            System prompt\n";
     out << "  --history <path>           Session history file\n";
     out << "  --reset-history            Ignore and overwrite saved history\n";
-    out << "  --no-save                  Do not persist the session\n\n";
+    out << "  --no-save                  Do not persist the session\n";
+    out << "  --auto-trim                Trim old history when context is full (default)\n";
+    out << "  --no-auto-trim             Fail instead of trimming\n";
+    out << "  --reserve-ctx <n>          Reserve tokens for generation\n\n";
     out << "Program options:\n";
     out << "  --prompt <text>            Single prompt mode\n";
     out << "  --prompt-file <path>       Read the single prompt from a file\n";
     out << "  --stdin                    Read the single prompt from stdin\n";
+    out << "  --json                     Machine-readable JSON output\n";
+    out << "  --output <path>            Write the text answer to a file\n";
     out << "  --non-interactive          Disable the interactive shell\n";
     out << "  --color                    Force ANSI colors (default: auto)\n";
     out << "  --no-color                 Disable ANSI colors\n";
+    out << "  --no-banner                Hide the startup banner\n";
     out << "  --verbose                  Print llama.cpp logs\n";
     out << "  --config <path>            Config file path\n";
     out << "  --show-config              Print the effective configuration\n";
@@ -627,14 +806,21 @@ void print_config(const Config& cfg) {
     std::cout << "model_dir        " << cfg.model_dir.string() << "\n";
     std::cout << "config_path      " << cfg.config_path.string() << "\n";
     std::cout << "history_path     " << cfg.history_path.string() << "\n";
+    std::cout << "output_path      " << (cfg.output_path.empty() ? "(none)" : cfg.output_path.string()) << "\n";
+    std::cout << "session_name     " << (cfg.session_name.empty() ? "(default)" : cfg.session_name) << "\n";
+    std::cout << "profile          " << (cfg.profile_name.empty() ? "(none)" : cfg.profile_name) << "\n";
     std::cout << "system_prompt    " << (cfg.system_prompt.empty() ? "(none)" : cfg.system_prompt) << "\n";
     std::cout << "context_size     " << cfg.context_size << "\n";
     std::cout << "batch_size       " << cfg.batch_size << "\n";
+    std::cout << "ubatch           " << (cfg.n_ubatch == 0 ? "auto" : std::to_string(cfg.n_ubatch)) << "\n";
+    std::cout << "reserve_ctx      " << cfg.reserve_ctx << "\n";
     std::cout << "threads          " << (cfg.n_threads == 0 ? "auto" : std::to_string(cfg.n_threads)) << "\n";
     std::cout << "gpu_layers       " << cfg.n_gpu_layers << "\n";
     std::cout << "temperature      " << cfg.temperature << "\n";
     std::cout << "top_p            " << cfg.top_p << "\n";
     std::cout << "top_k            " << cfg.top_k << "\n";
+    std::cout << "min_p            " << cfg.min_p << "\n";
+    std::cout << "typical_p        " << cfg.typical_p << "\n";
     std::cout << "repeat_penalty   " << cfg.repeat_penalty << "\n";
     std::cout << "repeat_last_n    " << cfg.repeat_last_n << "\n";
     std::cout << "n_predict        " << cfg.n_predict << "\n";
@@ -644,6 +830,21 @@ void print_config(const Config& cfg) {
     std::cout << "color            " << (cfg.color ? "yes" : "no") << "\n";
     std::cout << "interactive      " << (cfg.interactive ? "yes" : "no") << "\n";
     std::cout << "save_history     " << (cfg.save_history ? "yes" : "no") << "\n";
+    std::cout << "auto_trim        " << (cfg.auto_trim ? "yes" : "no") << "\n";
+    std::cout << "json_output      " << (cfg.json_output ? "yes" : "no") << "\n";
+    std::cout << "debug            " << (cfg.debug ? "yes" : "no") << "\n";
+    std::cout << "stop_sequences   ";
+    if (cfg.stop_sequences.empty()) {
+        std::cout << "(none)";
+    } else {
+        for (size_t i = 0; i < cfg.stop_sequences.size(); ++i) {
+            if (i != 0) {
+                std::cout << ", ";
+            }
+            std::cout << cfg.stop_sequences[i];
+        }
+    }
+    std::cout << "\n";
 }
 
 }

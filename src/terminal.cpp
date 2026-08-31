@@ -257,10 +257,15 @@ void Terminal::print_help() const {
     write("  /reset                Clear history and restore the default system prompt\n");
     write("  /system <text>        Set or show the system prompt\n");
     write("  /model <path>         Reload the model from a GGUF file\n");
+    write("  /profile <name>       Use balanced, fast, creative, code or precise\n");
+    write("  /stop <text>          Add a stop sequence; /stop shows current stops\n");
     write("  /temp <value>         Change sampling temperature\n");
     write("  /top-p <value>        Change nucleus sampling threshold\n");
     write("  /top-k <value>        Change top-k sampling value\n");
+    write("  /min-p <value>        Change minimum probability filter\n");
+    write("  /typical <value>      Change locally typical sampling value\n");
     write("  /n <value>            Change maximum generated tokens\n");
+    write("  /ctx <value>          Change the context size\n");
     write("  /save                 Save the session history now\n");
     write("  /exit or /quit        Exit SkiffLLM\n");
     write("  Anything else         Send the text to the local model\n");

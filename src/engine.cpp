@@ -71,7 +71,10 @@ bool LlmEngine::load(std::string& error) {
     llama_context_params context_params = llama_context_default_params();
     context_params.n_ctx = static_cast<uint32_t>(config_.context_size);
     context_params.n_batch = static_cast<uint32_t>(std::min(config_.batch_size, config_.context_size));
-    context_params.n_ubatch = std::min(context_params.n_batch, 512u);
+    const uint32_t ubatch = config_.n_ubatch > 0
+                                ? static_cast<uint32_t>(config_.n_ubatch)
+                                : std::min(context_params.n_batch, 512u);
+    context_params.n_ubatch = std::min(ubatch, context_params.n_batch);
     context_params.n_seq_max = 1;
     context_params.n_threads = threads;
     context_params.n_threads_batch = threads;
@@ -269,6 +272,12 @@ bool LlmEngine::build_sampler(const GenerationOptions& options, std::string& err
     if (options.top_p > 0.0f && options.top_p <= 1.0f) {
         llama_sampler_chain_add(sampler_, llama_sampler_init_top_p(options.top_p, 1));
     }
+    if (options.min_p > 0.0f && options.min_p <= 1.0f) {
+        llama_sampler_chain_add(sampler_, llama_sampler_init_min_p(options.min_p, 1));
+    }
+    if (options.typical_p > 0.0f && options.typical_p <= 1.0f) {
+        llama_sampler_chain_add(sampler_, llama_sampler_init_typical(options.typical_p, 1));
+    }
     if (options.repeat_penalty > 0.0f && options.repeat_penalty != 1.0f) {
         llama_sampler_chain_add(sampler_,
                                 llama_sampler_init_penalties(llama_vocab_n_tokens(vocab_),
@@ -279,8 +288,10 @@ bool LlmEngine::build_sampler(const GenerationOptions& options, std::string& err
     }
     if (options.temperature > 0.0f) {
         llama_sampler_chain_add(sampler_, llama_sampler_init_temp(options.temperature));
+        llama_sampler_chain_add(sampler_, llama_sampler_init_dist(resolve_seed(options.seed)));
+    } else {
+        llama_sampler_chain_add(sampler_, llama_sampler_init_greedy());
     }
-    llama_sampler_chain_add(sampler_, llama_sampler_init_dist(resolve_seed(options.seed)));
 
     return true;
 }
@@ -325,20 +336,54 @@ bool LlmEngine::generate(const std::vector<ChatMessage>& messages,
         return false;
     }
 
-    const std::string prompt = build_prompt(messages, error);
-    if (prompt.empty()) {
-        return false;
-    }
+    std::vector<ChatMessage> active_messages = messages;
+    std::string prompt;
+    std::vector<llama_token> prompt_tokens;
 
-    std::vector<llama_token> prompt_tokens = encode(prompt, error);
-    if (prompt_tokens.empty()) {
+    auto encode_active = [&]() -> bool {
+        const std::string candidate = build_prompt(active_messages, error);
+        if (candidate.empty()) {
+            return false;
+        }
+        std::vector<llama_token> tokens = encode(candidate, error);
+        if (tokens.empty()) {
+            return false;
+        }
+        prompt = std::move(candidate);
+        prompt_tokens = std::move(tokens);
+        return true;
+    };
+
+    if (!encode_active()) {
         return false;
     }
 
     const uint32_t context_size = llama_n_ctx(ctx_);
-    if (prompt_tokens.size() >= context_size) {
-        error = "prompt exceeds the context window; increase --ctx or shorten the conversation";
-        return false;
+    uint32_t max_tokens = context_size;
+    if (options.reserve_ctx > 0) {
+        const uint32_t reserve = static_cast<uint32_t>(std::min(options.reserve_ctx, 64));
+        max_tokens = context_size > reserve ? context_size - reserve : 1;
+    }
+
+    if (prompt_tokens.size() > max_tokens) {
+        if (!options.auto_trim || active_messages.size() <= 1) {
+            error = "prompt exceeds the context window; increase --ctx, raise --reserve-ctx or shorten the conversation";
+            return false;
+        }
+        while (prompt_tokens.size() > max_tokens && active_messages.size() > 1) {
+            if (active_messages.size() <= 2) {
+                break;
+            }
+            const size_t remove_index = active_messages[0].role == "system" ? 1 : 0;
+            active_messages.erase(active_messages.begin() + static_cast<std::ptrdiff_t>(remove_index));
+            if (!encode_active()) {
+                return false;
+            }
+        }
+        if (prompt_tokens.size() > max_tokens) {
+            error = "prompt still exceeds the context window after trimming; increase --ctx or shorten the conversation";
+            return false;
+        }
     }
 
     if (!build_sampler(options, error)) {
@@ -397,6 +442,22 @@ bool LlmEngine::generate(const std::vector<ChatMessage>& messages,
             if (options.token_callback) {
                 options.token_callback(piece);
             }
+        }
+
+        bool matched_stop = false;
+        for (const auto& stop : options.stop_sequences) {
+            if (stop.empty() || result.text.size() < stop.size()) {
+                continue;
+            }
+            const size_t start = result.text.size() - stop.size();
+            if (result.text.compare(start, stop.size(), stop) == 0) {
+                result.text.erase(start);
+                matched_stop = true;
+                break;
+            }
+        }
+        if (matched_stop) {
+            break;
         }
 
         generated += 1;

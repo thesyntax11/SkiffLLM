@@ -26,10 +26,15 @@ struct GenerationOptions {
     int n_predict = 512;
     float temperature = 0.7f;
     float top_p = 0.95f;
+    float min_p = 0.0f;
+    float typical_p = 0.0f;
     int top_k = 40;
     float repeat_penalty = 1.1f;
     int repeat_last_n = 64;
     uint32_t seed = 0xFFFFFFFFu;
+    bool auto_trim = true;
+    int reserve_ctx = 0;
+    std::vector<std::string> stop_sequences;
     std::function<void(const std::string&)> token_callback;
 };
 

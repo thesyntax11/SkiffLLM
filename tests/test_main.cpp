@@ -22,6 +22,14 @@ bool approx(float left, float right) {
     return diff > -0.0001f && diff < 0.0001f;
 }
 
+std::vector<char*> args_from(std::vector<std::string>& storage) {
+    std::vector<char*> result;
+    for (auto& value : storage) {
+        result.push_back(value.data());
+    }
+    return result;
+}
+
 void test_config_file() {
     const auto dir = std::filesystem::temp_directory_path() / "skifflm-tests";
     std::filesystem::create_directories(dir);
@@ -32,8 +40,11 @@ void test_config_file() {
         out << "ctx=2048\n";
         out << "temp=0.42\n";
         out << "top-p=0.9\n";
+        out << "min-p=0.05\n";
         out << "no-color\n";
         out << "system=Be concise.\n";
+        out << "stop=END\n";
+        out << "reserve-ctx=128\n";
     }
 
     skifflm::Config cfg = skifflm::default_config();
@@ -43,8 +54,12 @@ void test_config_file() {
     check(cfg.context_size == 2048, "ctx should be 2048");
     check(approx(cfg.temperature, 0.42f), "temperature should be 0.42");
     check(approx(cfg.top_p, 0.9f), "top_p should be 0.9");
+    check(approx(cfg.min_p, 0.05f), "min_p should be 0.05");
     check(!cfg.color, "color should be disabled");
     check(cfg.system_prompt == "Be concise.", "system prompt should be set");
+    check(cfg.stop_sequences.size() == 1, "stop sequence should be stored");
+    check(cfg.stop_sequences[0] == "END", "stop sequence should match");
+    check(cfg.reserve_ctx == 128, "reserve_ctx should be 128");
 
     std::filesystem::remove_all(dir);
 }
@@ -63,10 +78,7 @@ void test_parse_args() {
         "--seed",
         "1234",
     };
-    std::vector<char*> args;
-    for (auto& value : storage) {
-        args.push_back(value.data());
-    }
+    auto args = args_from(storage);
 
     std::string error;
     const bool ok = skifflm::parse_args(static_cast<int>(args.size()), args.data(), cfg, error);
@@ -77,6 +89,65 @@ void test_parse_args() {
     check(approx(cfg.repeat_penalty, 1.05f), "repeat penalty should be 1.05");
     check(!cfg.color, "color should be disabled");
     check(cfg.seed == 1234u, "seed should be 1234");
+}
+
+void test_profiles() {
+    skifflm::Config cfg = skifflm::default_config();
+    std::string error;
+
+    check(skifflm::apply_profile(cfg, "fast", error), "fast profile should apply");
+    check(approx(cfg.temperature, 0.60f), "fast temperature");
+    check(approx(cfg.top_p, 0.90f), "fast top_p");
+    check(cfg.top_k == 30, "fast top_k");
+    check(cfg.n_predict == 256, "fast n_predict");
+
+    check(skifflm::apply_profile(cfg, "code", error), "code profile should apply");
+    check(approx(cfg.temperature, 0.20f), "code temperature");
+    check(cfg.n_predict == 1024, "code n_predict");
+
+    check(!skifflm::apply_profile(cfg, "missing", error), "unknown profile should fail");
+    check(!error.empty(), "unknown profile should set an error");
+}
+
+void test_parse_args_new_features() {
+    skifflm::Config cfg = skifflm::default_config();
+    std::vector<std::string> storage = {
+        "skifflm",
+        "--session",
+        "writing",
+        "--profile=creative",
+        "--stop",
+        "END",
+        "--stop=OK",
+        "--min-p",
+        "0.08",
+        "--typical",
+        "0.5",
+        "--ubatch",
+        "256",
+        "--reserve-ctx",
+        "96",
+        "--json",
+        "--no-banner",
+    };
+    auto args = args_from(storage);
+
+    std::string error;
+    const bool ok = skifflm::parse_args(static_cast<int>(args.size()), args.data(), cfg, error);
+    check(ok, "new feature arguments should parse");
+    check(cfg.session_name == "writing", "session name should be set");
+    check(cfg.json_output, "json output should be enabled");
+    check(!cfg.interactive, "json mode should disable interactive mode");
+    check(!cfg.show_info, "no-banner should disable info");
+    check(cfg.stop_sequences.size() == 2, "two stop sequences should be stored");
+    check(cfg.stop_sequences[0] == "END", "first stop sequence");
+    check(cfg.stop_sequences[1] == "OK", "second stop sequence");
+    check(approx(cfg.min_p, 0.08f), "min-p should be set");
+    check(approx(cfg.typical_p, 0.5f), "typical should be set");
+    check(cfg.n_ubatch == 256, "ubatch should be set");
+    check(cfg.reserve_ctx == 96, "reserve_ctx should be set");
+    check(cfg.profile_name == "creative", "profile name should be set");
+    check(approx(cfg.temperature, 1.0f), "creative temperature should apply");
 }
 
 void test_session_roundtrip() {
@@ -129,12 +200,27 @@ void test_formatting() {
     check(skifflm::to_human_count(1500u) == "1.50 K", "count should format");
 }
 
+void test_session_resolution() {
+    skifflm::Config cfg = skifflm::default_config();
+    std::vector<std::string> storage = {"skifflm", "--session", "writing"};
+    auto args = args_from(storage);
+    std::string error;
+    check(skifflm::parse_args(static_cast<int>(args.size()), args.data(), cfg, error),
+          "session argument should parse");
+    check(cfg.session_name == "writing", "session name should be retained");
+    check(!cfg.history_path.empty(), "session should resolve a history path");
+    check(cfg.history_path.filename() == "writing.skif", "session history should use the name");
+}
+
 }
 
 int main() {
     test_config_file();
     test_parse_args();
+    test_profiles();
+    test_parse_args_new_features();
     test_session_roundtrip();
     test_formatting();
+    test_session_resolution();
     return 0;
 }

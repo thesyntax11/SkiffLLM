@@ -1,0 +1,141 @@
+.TH SKIFFLLM 1 "2026-08-31" "SkiffLLM 1.1.0" "User Commands"
+.SH NAME
+skifflm \- offline-first local LLM terminal assistant built on llama.cpp
+.SH SYNOPSIS
+.B skifflm
+[\fIOPTIONS\fR] [\fImodel.gguf\fR]
+.SH DESCRIPTION
+SkiffLLM runs a local GGUF language model entirely on your machine. It supports
+interactive chat, one-shot prompts, named sessions, JSON output, sampling
+profiles, stop sequences, and automatic context management.
+.SH OPTIONS
+.TP
+\fB\-\-model <path>\fR
+Path to a GGUF model file.
+.TP
+\fB\-\-model-dir <path>\fR
+Directory scanned for a GGUF model.
+.TP
+\fB\-\-list-models\fR
+Print discovered GGUF models.
+.TP
+\fB\-\-profile <name>\fR
+Use balanced, fast, creative, code, or precise sampling profile.
+.TP
+\fB\-\-session <name>\fR
+Use a named conversation.
+.TP
+\fB\-\-system <text>\fR
+Set the system prompt.
+.TP
+\fB\-\-stop <text>\fR
+Add a stop sequence. May be repeated.
+.TP
+\fB\-\-ctx <n>\fR
+Context size. Default is 4096.
+.TP
+\fB\-\-batch <n>\fR
+Batch size. Default is 512.
+.TP
+\fB\-\-ubatch <n>\fR
+Physical batch size.
+.TP
+\fB\-\-threads <n>\fR
+CPU threads. Zero means auto.
+.TP
+\fB\-\-gpu-layers <n>\fR
+GPU layers to offload. Negative means all.
+.TP
+\fB\-\-mmap / \-\-no-mmap\fR
+Enable or disable mmap.
+.TP
+\fB\-\-mlock\fR
+Lock model memory into RAM.
+.TP
+\fB\-\-temp <t>\fR
+Sampling temperature.
+.TP
+\fB\-\-top-p <p>\fR
+Nucleus sampling probability.
+.TP
+\fB\-\-top-k <n>\fR
+Top-k sampling value.
+.TP
+\fB\-\-min-p <p>\fR
+Minimum probability filter.
+.TP
+\fB\-\-typical <p>\fR
+Locally typical sampling value.
+.TP
+\fB\-\-repeat-penalty <p>\fR
+Repeat penalty.
+.TP
+\fB\-\-repeat-last-n <n>\fR
+Repeat penalty window.
+.TP
+\fB\-\-n-predict <n>\fR
+Maximum generated tokens.
+.TP
+\fB\-\-seed <n|random>\fR
+Sampling seed.
+.TP
+\fB\-\-prompt <text>\fR
+Run a single prompt.
+.TP
+\fB\-\-prompt-file <path>\fR
+Read the prompt from a file.
+.TP
+\fB\-\-stdin\fR
+Read the prompt from stdin.
+.TP
+\fB\-\-json\fR
+Emit machine-readable JSON output.
+.TP
+\fB\-\-output <path>\fR
+Write the answer to a file.
+.TP
+\fB\-\-config <path>\fR
+Use the given config file.
+.TP
+\fB\-\-show-config\fR
+Print the effective configuration.
+.TP
+\fB\-\-help\fR
+Show help.
+.TP
+\fB\-\-version\fR
+Show version.
+.SH ENVIRONMENT
+.TP
+\fBSKIFFLLM_MODEL\fR
+Default model path.
+.TP
+\fBSKIFFLLM_MODEL_DIR\fR
+Default model directory.
+.TP
+\fBSKIFFLLM_CONFIG\fR
+Config file path.
+.TP
+\fBSKIFFLLM_HISTORY\fR
+History file path.
+.TP
+\fBSKIFFLLM_SYSTEM\fR
+Default system prompt.
+.TP
+\fBSKIFFLLM_PROFILE\fR
+Default sampling profile.
+.SH FILES
+.TP
+\fB~/.config/skifflm/config\fR
+Default configuration file.
+.TP
+\fB~/.local/share/skifflm/models/\fR
+Default model directory.
+.TP
+\fB~/.local/share/skifflm/history.skif\fR
+Default session history.
+.SH EXIT STATUS
+0 on success. Non-zero on configuration or inference errors.
+.SH SEE ALSO
+.BR llama.cpp
+local inference documentation, and the project README for full usage.

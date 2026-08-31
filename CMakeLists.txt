@@ -1,16 +1,19 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(SkiffLLM VERSION 1.0.0 LANGUAGES C CXX)
+project(SkiffLLM VERSION 1.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+include(GNUInstallDirs)
+
 option(SKIFFLLM_BUILD_TESTS "Build SkiffLLM unit tests" ON)
 option(SKIFFLLM_FETCH_LLAMA "Download and build llama.cpp automatically" ON)
 option(SKIFFLLM_BUILD_SHARED_LLAMA "Build llama.cpp as a shared library" OFF)
-set(SKIFFLLM_LLAMA_GIT_TAG "5d4a3be26de60093263b2d41ca24c3a49de95cd5" CACHE STRING "llama.cpp git revision")
+option(SKIFFLLM_ENABLE_ROOTFS_CHECK "Allow the CMake configure step to continue when running as root" OFF)
+set(SKIFFLLM_LLAMA_GIT_TAG "85c55223caf0a2ad0d1d88e5a73ab3fe36107867" CACHE STRING "llama.cpp git revision")
 set(SKIFFLLM_LLAMA_SOURCE_DIR "" CACHE PATH "Path to an existing llama.cpp checkout")
 
 if(SKIFFLLM_BUILD_SHARED_LLAMA)
@@ -44,7 +47,7 @@ if(SKIFFLLM_FETCH_LLAMA OR SKIFFLLM_LLAMA_SOURCE_DIR)
     endif()
     FetchContent_MakeAvailable(llama)
 else()
-    message(FATAL_ERROR "Set SKIFFLLM_LLAMA_SOURCE_DIR or enable SKIFFLLM_FETCH_LLAMA")
+    find_package(llama CONFIG REQUIRED)
 endif()
 
 add_library(skifflm_core
@@ -56,10 +59,13 @@ add_library(skifflm_core
 
 target_include_directories(skifflm_core
     PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
 target_link_libraries(skifflm_core PUBLIC llama)
+
+target_compile_features(skifflm_core PUBLIC cxx_std_17)
 
 if(MSVC)
     target_compile_options(skifflm_core PRIVATE /W4 /permissive-)
@@ -69,6 +75,7 @@ endif()
 
 add_executable(skifflm src/main.cpp)
 target_link_libraries(skifflm PRIVATE skifflm_core)
+target_compile_definitions(skifflm PRIVATE SKIFFLLM_VERSION="${PROJECT_VERSION}")
 
 if(MSVC)
     target_compile_options(skifflm PRIVATE /W4 /permissive-)
@@ -87,7 +94,17 @@ if(SKIFFLLM_BUILD_TESTS)
     endif()
     add_test(NAME unit COMMAND skifflm_tests)
     add_test(NAME help COMMAND skifflm --help)
+    add_test(NAME version COMMAND skifflm --version)
+    add_test(NAME config COMMAND skifflm --show-config)
+    add_test(NAME list_models COMMAND skifflm --list-models)
 endif()
 
-install(TARGETS skifflm RUNTIME DESTINATION bin)
-install(TARGETS skifflm_core ARCHIVE DESTINATION lib LIBRARY DESTINATION lib)
+install(TARGETS skifflm RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(TARGETS skifflm_core
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(DIRECTORY scripts/completions/ DESTINATION ${CMAKE_INSTALL_DATADIR}/skifflm/completions)
+install(FILES configs/skifflm.example.conf DESTINATION ${CMAKE_INSTALL_DATADIR}/skifflm)
+install(DIRECTORY docs/ DESTINATION ${CMAKE_INSTALL_DATADIR}/skifflm/docs)
+install(FILES docs/skifflm.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1)

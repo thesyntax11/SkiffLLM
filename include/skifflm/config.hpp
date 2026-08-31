@@ -12,19 +12,30 @@ struct Config {
     std::filesystem::path model_dir;
     std::filesystem::path config_path;
     std::filesystem::path history_path;
+    std::filesystem::path output_path;
+    std::filesystem::path prompt_file;
     std::string system_prompt;
     std::string model_name;
+    std::string session_name;
+    std::string profile_name;
+    std::vector<std::string> stop_sequences;
+
     int context_size = 4096;
     int batch_size = 512;
+    int n_ubatch = 0;
     int n_threads = 0;
     int n_gpu_layers = 0;
+    int reserve_ctx = 0;
     float temperature = 0.7f;
     float top_p = 0.95f;
+    float min_p = 0.0f;
+    float typical_p = 0.0f;
     int top_k = 40;
     float repeat_penalty = 1.1f;
     int repeat_last_n = 64;
     int n_predict = 512;
     uint32_t seed = 0xFFFFFFFFu;
+
     bool use_mmap = true;
     bool use_mlock = false;
     bool color = true;
@@ -32,14 +43,16 @@ struct Config {
     bool save_history = true;
     bool interactive = true;
     bool show_info = true;
+    bool auto_trim = true;
     bool debug = false;
     bool reset_history = false;
     bool show_help = false;
     bool show_version = false;
     bool show_config = false;
+    bool list_models = false;
+    bool json_output = false;
     bool read_stdin = false;
     std::string one_shot;
-    std::filesystem::path prompt_file;
 };
 
 Config default_config();
@@ -49,6 +62,7 @@ std::string lower(std::string value);
 std::string to_human_bytes(uint64_t bytes);
 std::string to_human_count(uint64_t count);
 std::vector<std::filesystem::path> discover_models(const Config& cfg, std::string& error);
+bool apply_profile(Config& cfg, const std::string& name, std::string& error);
 bool parse_config_file(const std::filesystem::path& path, Config& cfg, std::string& error);
 bool parse_args(int argc, char** argv, Config& cfg, std::string& error);
 void apply_environment(Config& cfg);
