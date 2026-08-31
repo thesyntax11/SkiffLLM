@@ -697,6 +697,29 @@ int run_interactive(skifflm::Config& cfg,
                 terminal.success("Max generated tokens set to " + std::to_string(options.n_predict));
                 continue;
             }
+            if (command == "/export") {
+                if (argument.empty()) {
+                    terminal.error("Usage: /export <path>");
+                    continue;
+                }
+                std::ostringstream markdown;
+                markdown << "# SkiffLLM Conversation\n\n";
+                const auto conversation = session.conversation();
+                for (const auto& message : conversation) {
+                    const std::string role = message.role == "system" ? "System"
+                                             : message.role == "user" ? "User"
+                                             : message.role == "assistant" ? "Assistant"
+                                             : message.role;
+                    markdown << "## " << role << "\n\n" << message.content << "\n\n";
+                }
+                std::string export_error;
+                if (!write_text_file(argument, markdown.str(), export_error)) {
+                    terminal.error(export_error);
+                } else {
+                    terminal.success("Conversation exported to " + argument);
+                }
+                continue;
+            }
             if (command == "/save") {
                 std::string error;
                 if (!session.save(error)) {
@@ -888,7 +911,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     if (cfg.show_version) {
-        std::cout << "SkiffLLM " << kVersion << "\n";
+        std::cout << "SkiffLLM " << kVersion << " (llama.cpp " << llama_version() << ")\n";
         return 0;
     }
     if (cfg.show_config) {

@@ -253,6 +253,7 @@ void Terminal::print_help() const {
     write("  /help                 Show this help\n");
     write("  /info                 Show model and session information\n");
     write("  /history              Show the current conversation\n");
+    write("  /export <path>        Export the conversation as Markdown\n");
     write("  /clear                Clear the conversation history\n");
     write("  /reset                Clear history and restore the default system prompt\n");
     write("  /system <text>        Set or show the system prompt\n");

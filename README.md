@@ -191,6 +191,7 @@ Interactive commands: /help /info /history /settings /tokenize /clear /reset /sy
 /help                 Show the command list
 /info                 Show model and session information
 /history              Show the current conversation
+/export <path>        Export the conversation as Markdown
 /settings             Show the current sampling settings
 /tokenize <text>      Show the token count for the text
 /clear                Clear the conversation history
