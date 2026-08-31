@@ -69,6 +69,7 @@ public:
                   GenerationResult& result,
                   const std::function<bool()>& should_stop,
                   std::string& error);
+    bool warmup(std::string& error);
 
 private:
     std::vector<llama_token> encode(const std::string& text,

@@ -153,6 +153,7 @@ class EngineController(private val appContext: Context) {
                     uiHandler.post { onError(message) }
                     return@execute
                 }
+                SkiffNative.warmup(handle)
                 currentModelPath = file.absolutePath
                 prefs.edit().putString(KEY_MODEL_PATH, file.absolutePath).apply()
                 uiHandler.post { onLoaded(file.name) }

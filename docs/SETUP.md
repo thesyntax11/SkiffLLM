@@ -36,8 +36,19 @@ cmake --install build --prefix /usr/local
 
 ## Get a model
 
-SkiffLLM never downloads a model. Copy a GGUF file you already have into the
-model directory or pass its path directly:
+The SkiffLLM runtime never downloads a model. You can copy a GGUF file you
+already have into the model directory or pass its path directly. If you want a
+recommended quantized model, run the optional fetch helper once:
+
+```bash
+python3 scripts/model_fetch.py --list
+python3 scripts/model_fetch.py --model qwen2.5-0.5b
+```
+
+The helper stores the file in `~/.local/share/skifflm/models`. Inference stays
+fully offline.
+
+Or copy one yourself:
 
 ```bash
 mkdir -p ~/.local/share/skifflm/models

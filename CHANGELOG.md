@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Desktop
+
+- Added `scripts/model_fetch.py` to fetch a recommended GGUF model once over
+  HTTPS. The runtime itself still never downloads or registers models.
+- Moved model warmup into the engine so the desktop `--warmup` path and the
+  Android app share one optimized warm-up pass.
+
 ### Android 1.6.0
 
 - Added a native Android app under `android/` built with Kotlin, Jetpack
@@ -10,6 +17,7 @@
 - Downloads recommended GGUF models from Hugging Face over HTTPS with progress
   and cancel; inference, chat, and export remain offline.
 - Streams tokens into a dark chat UI with stop, clear, export, and settings.
+- Warms the model after loading to reduce first-answer latency.
 - Remembers the last loaded model and reloads it on the next launch.
 - Persists conversations locally and restores them on the next launch.
 - Adds a model catalog with measured quantities and real generation

@@ -35,8 +35,10 @@ Documentation: [Setup](docs/SETUP.md) &middot; [Usage](docs/usage.md) &middot; [
   assistant experience on top of it: named sessions, file context, export,
   profiles, streaming UX, benchmarks, and a small local API.
 - **Ollama** is a model manager and runtime with a registry. SkiffLLM is a
-  single binary that operates directly on a GGUF file you already own. It does
-  not download, pull, or register models, and it does not run a daemon.
+  single binary that operates directly on a GGUF file you already own. Its
+  runtime does not download, pull, or register models, and it does not run a
+  daemon. An optional `scripts/model_fetch.py` helper can fetch a recommended
+  GGUF for you once; inference itself stays fully offline.
 - **A cloud API** sends prompts to a remote service. SkiffLLM keeps every token
   on the machine at runtime.
 
@@ -109,14 +111,23 @@ cmake --build build --config Release -j
 
 ### 2. Get a small GGUF model
 
-Place it in the model directory:
+Option A — fetch a recommended model:
+
+```bash
+python3 scripts/model_fetch.py --list
+python3 scripts/model_fetch.py --model qwen2.5-0.5b
+```
+
+Files are saved to `~/.local/share/skifflm/models` by default.
+
+Option B — use an existing file:
 
 ```bash
 mkdir -p ~/.local/share/skifflm/models
 cp /path/to/my-model-q4_k_m.gguf ~/.local/share/skifflm/models/
 ```
 
-or pass the path directly.
+or pass the path directly with `--model`.
 
 Good starting points for a small, fast, fully offline setup:
 

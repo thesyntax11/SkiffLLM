@@ -5,6 +5,7 @@
 #include "skifflm/terminal.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <csignal>
 #include <cstdio>
 #include <cstring>
@@ -568,27 +569,13 @@ private:
 };
 
 bool warmup_model(skifflm::LlmEngine& engine,
-                  const skifflm::GenerationOptions& options,
                   const skifflm::Terminal& terminal,
                   bool quiet = false) {
     std::string error;
-    skifflm::GenerationOptions warm = options;
-    warm.n_predict = 1;
-    warm.temperature = 0.0f;
-    warm.token_callback = nullptr;
-    warm.stop_sequences.clear();
-
-    std::vector<skifflm::ChatMessage> ask;
-    ask.push_back({"user", "Warmup."});
-
-    skifflm::GenerationResult result;
-    const bool ok = engine.generate(ask,
-                                    warm,
-                                    result,
-                                    []() {
-                                        return g_interrupted != 0;
-                                    },
-                                    error);
+    const auto start = std::chrono::steady_clock::now();
+    const bool ok = engine.warmup(error);
+    const auto end = std::chrono::steady_clock::now();
+    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
     if (!ok) {
         if (!quiet) {
             terminal.warning("Warmup failed: " + error);
@@ -596,9 +583,7 @@ bool warmup_model(skifflm::LlmEngine& engine,
         return false;
     }
     if (!quiet) {
-        terminal.success(std::string("Warmup complete in ") +
-                         std::to_string(static_cast<int>(result.prompt_ms + result.generation_ms)) +
-                         " ms.");
+        terminal.success("Warmup complete in " + std::to_string(elapsed) + " ms.");
     }
     return true;
 }
@@ -650,7 +635,7 @@ int run_interactive(skifflm::Config& cfg,
     }
 
     if (cfg.warmup) {
-        warmup_model(*engine, options, terminal);
+        warmup_model(*engine, terminal);
     }
 
     std::vector<std::filesystem::path> attached = cfg.attach_paths;
@@ -1045,7 +1030,7 @@ int run_benchmark(skifflm::Config& cfg,
     }
 
     if (cfg.warmup) {
-        warmup_model(*engine, options, terminal, cfg.json_output);
+        warmup_model(*engine, terminal, cfg.json_output);
     }
 
     const std::string prompt_text = "Write a short poem about the sea.";
@@ -1174,7 +1159,7 @@ int run_one_shot(skifflm::Config& cfg,
     }
 
     if (cfg.warmup) {
-        warmup_model(*engine, options, terminal, cfg.json_output);
+        warmup_model(*engine, terminal, cfg.json_output);
     }
 
     std::string attach_error;
@@ -1439,7 +1424,7 @@ int main(int argc, char** argv) {
             return 1;
         }
         if (cfg.warmup) {
-            warmup_model(*engine, options, terminal, cfg.json_output);
+            warmup_model(*engine, terminal, cfg.json_output);
         }
         const int status = skifflm::run_server(cfg,
                                                *engine,

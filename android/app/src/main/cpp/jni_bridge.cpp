@@ -111,6 +111,20 @@ Java_com_skifflm_app_SkiffNative_loadError(JNIEnv* env, jobject, jlong handle) {
     return to_jstring(env, "model is not loaded");
 }
 
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_skifflm_app_SkiffNative_warmup(JNIEnv*, jobject, jlong handle) {
+    NativeState* state = state_from(handle);
+    if (state == nullptr || state->engine == nullptr) {
+        return JNI_FALSE;
+    }
+    std::string error;
+    if (!state->engine->warmup(error)) {
+        state->last_error = error;
+        return JNI_FALSE;
+    }
+    return JNI_TRUE;
+}
+
 extern "C" JNIEXPORT jstring JNICALL
 Java_com_skifflm_app_SkiffNative_infoJson(JNIEnv* env, jobject, jlong handle) {
     NativeState* state = state_from(handle);

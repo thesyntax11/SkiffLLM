@@ -18,6 +18,8 @@ object SkiffNative {
 
     external fun loadError(handle: Long): String?
 
+    external fun warmup(handle: Long): Boolean
+
     external fun infoJson(handle: Long): String?
 
     external fun stop(handle: Long)

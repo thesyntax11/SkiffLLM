@@ -510,4 +510,32 @@ bool LlmEngine::generate(const std::vector<ChatMessage>& messages,
     return true;
 }
 
+bool LlmEngine::warmup(std::string& error) {
+    if (model_ == nullptr || ctx_ == nullptr || vocab_ == nullptr) {
+        error = "the model is not loaded";
+        return false;
+    }
+
+    std::vector<ChatMessage> ask;
+    ask.push_back({"user", "Warmup."});
+
+    GenerationOptions warm;
+    warm.n_predict = 1;
+    warm.temperature = 0.0f;
+    warm.top_p = 1.0f;
+    warm.top_k = 1;
+    warm.min_p = 0.0f;
+    warm.typical_p = 0.0f;
+    warm.repeat_penalty = 1.0f;
+    warm.repeat_last_n = 0;
+    warm.seed = 0xFFFFFFFFu;
+    warm.auto_trim = false;
+    warm.reserve_ctx = 0;
+    warm.token_callback = nullptr;
+    warm.stop_sequences.clear();
+
+    GenerationResult result;
+    return generate(ask, warm, result, []() { return false; }, error);
+}
+
 }

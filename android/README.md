@@ -101,6 +101,8 @@ RAM they need. Start with a Q4_K_M model in the 0.5B to 1.7B range.
 
 - Inference runs on a background single thread so the interface stays
   responsive.
+- Each loaded model is warmed with one short pass to reduce first-answer
+  latency.
 - Downloads run on a separate thread so chat and local model loading stay
   usable while a GGUF is downloading.
 - Download progress is shown per model and can be cancelled.

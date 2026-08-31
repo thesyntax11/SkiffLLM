@@ -27,6 +27,11 @@ ctest --test-dir "${BUILD_DIR}" --output-on-failure
 "${BUILD_DIR}/skifflm" --help >/dev/null
 "${BUILD_DIR}/skifflm" --doctor >/dev/null
 
+if command -v python3 >/dev/null 2>&1; then
+    python3 -m py_compile scripts/model_fetch.py scripts/api_client.py
+    python3 scripts/model_fetch.py --list >/dev/null
+fi
+
 if command -v clang-format >/dev/null 2>&1; then
     clang-format --dry-run --Werror \
         include/skifflm/*.hpp \
