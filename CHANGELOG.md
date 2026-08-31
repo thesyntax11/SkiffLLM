@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Android 1.6.0
+
+- Added a native Android app under `android/` built with Kotlin, Jetpack
+  Compose, and a llama.cpp JNI bridge.
+- Runs supported GGUF models on device with no network permission.
+- Streams tokens into a dark chat UI with stop, clear, export, and settings.
+- Remembers the last loaded model and reloads it on the next launch.
+- Real generation measurements are shown after each response (tokens, time,
+  tokens per second).
+- Added an Android model guide with quantified recommendations for phones.
+
 ## 1.5.0
 
 - Added `docs/SETUP.md`, `docs/ARCHITECTURE.md`, `docs/RELEASING.md`, and
