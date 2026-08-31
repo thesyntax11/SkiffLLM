@@ -26,3 +26,5 @@ skifflm-*.zip
 *.skif
 *.log
 .DS_Store
+__pycache__/
+*.pyc
