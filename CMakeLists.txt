@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(SkiffLLM VERSION 1.2.0 LANGUAGES C CXX)
+project(SkiffLLM VERSION 1.3.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -13,6 +13,7 @@ option(SKIFFLLM_BUILD_TESTS "Build SkiffLLM unit tests" ON)
 option(SKIFFLLM_FETCH_LLAMA "Download and build llama.cpp automatically" ON)
 option(SKIFFLLM_BUILD_SHARED_LLAMA "Build llama.cpp as a shared library" OFF)
 option(SKIFFLLM_ENABLE_ROOTFS_CHECK "Allow the CMake configure step to continue when running as root" OFF)
+option(SKIFFLLM_USE_READLINE "Use GNU Readline for line editing when available" ON)
 set(SKIFFLLM_LLAMA_GIT_TAG "85c55223caf0a2ad0d1d88e5a73ab3fe36107867" CACHE STRING "llama.cpp git revision")
 set(SKIFFLLM_LLAMA_SOURCE_DIR "" CACHE PATH "Path to an existing llama.cpp checkout")
 
@@ -65,6 +66,17 @@ target_include_directories(skifflm_core
 
 target_link_libraries(skifflm_core PUBLIC llama)
 
+if(SKIFFLLM_USE_READLINE)
+    find_package(Readline QUIET)
+    if(Readline_FOUND)
+        target_compile_definitions(skifflm_core PRIVATE SKIFFLLM_HAVE_READLINE)
+        target_link_libraries(skifflm_core PRIVATE Readline::Readline)
+        message(STATUS "SkiffLLM: GNU Readline line editing enabled")
+    else()
+        message(STATUS "SkiffLLM: GNU Readline not found; falling back to getline")
+    endif()
+endif()
+
 target_compile_features(skifflm_core PUBLIC cxx_std_17)
 
 if(MSVC)
@@ -98,6 +110,7 @@ if(SKIFFLLM_BUILD_TESTS)
     add_test(NAME config COMMAND skifflm --show-config)
     add_test(NAME list_models COMMAND skifflm --list-models)
     add_test(NAME doctor COMMAND skifflm --doctor)
+    add_test(NAME export COMMAND skifflm --export ${CMAKE_CURRENT_BINARY_DIR}/export-test.md --no-save --quiet)
 endif()
 
 install(TARGETS skifflm RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

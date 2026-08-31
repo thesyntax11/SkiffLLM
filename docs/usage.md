@@ -38,6 +38,42 @@ skifflm --model model.gguf --profile code
 
 Available profiles: `balanced`, `fast`, `creative`, `code`, `precise`.
 
+## File Context
+
+```bash
+skifflm --model model.gguf --attach notes.txt --prompt "Summarize these notes."
+skifflm --model model.gguf --prompt "Read @notes.txt and list the tasks."
+```
+
+Repeat `--attach`, use `@path` in the prompt, or manage attachments inside the
+shell with `/file` and `/clear-attach`.
+
+## Conversation Export
+
+```bash
+skifflm --export conversation.md
+```
+
+Exporting the loaded session needs no model and writes Markdown. Inside the
+shell use `/export <path>`.
+
+## Chat Template and Warmup
+
+```bash
+skifflm --model model.gguf --chat-template chatml
+skifflm --model model.gguf --warmup
+```
+
+`--chat-template` overrides the model's built-in prompt format name.
+`--warmup` runs a one-token generation on startup to reduce first-answer latency.
+
+## Interactive Line Editing
+
+When GNU Readline is available, SkiffLLM enables arrow-key navigation, history
+lookup, and editable input lines. Without Readline it falls back to plain
+`getline`. Streaming output also shows a live token counter on interactive
+terminals.
+
 ## Stop Sequences
 
 ```bash

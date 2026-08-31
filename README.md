@@ -33,7 +33,11 @@ so it works with any GGUF model, on the CPU or your GPU, with no internet connec
 
 | Capability | Description |
 | --- | --- |
-| Interactive shell | Streaming token output with slash commands |
+| Interactive shell | Streaming token output, history, and live token counters |
+| File context | `--attach`, `/file`, and `@file` expansion in any prompt |
+| Conversation export | `--export` and `/export` save sessions as Markdown |
+| Chat template override | `--chat-template` for models with custom prompt formats |
+| Model warmup | `--warmup` reduces first-answer latency |
 | Named sessions | Keep separate conversations, even across different models |
 | Model discovery | Automatically find GGUF files in your model directory |
 | Sampling profiles | `balanced`, `fast`, `creative`, `code`, `precise` |
@@ -109,6 +113,10 @@ Good starting points for a small, fast, fully offline setup:
 echo "Summarize this" | ./build/skifflm --model model.gguf
 ./build/skifflm --model model.gguf --prompt-file prompt.txt --output answer.md
 ./build/skifflm --model model.gguf --prompt "Explain." --json
+./build/skifflm --model model.gguf --attach paper.txt --prompt "Summarize this file."
+./build/skifflm --model model.gguf --prompt "Read @TODO.md and list the tasks."
+./build/skifflm --model model.gguf --warmup --prompt "Say hello."
+./build/skifflm --export conversation.md
 ```
 
 ## Command Line
@@ -122,10 +130,19 @@ Core options:
   --model <path>             Path to a GGUF model file
   --model-dir <path>         Directory scanned for a GGUF model
   --list-models              Print discovered GGUF models
+  --model-info               Print model metadata and exit
+  --smoke                    Run a quick generation smoke test
+  --warmup                   Warm the model before the first answer
+  --doctor                   Print system diagnostics
+  --tokenize <text>          Tokenize text and print token counts
   --profile <name>           balanced, fast, creative, code or precise
   --session <name>           Use a named conversation
   --system <text>            System prompt
   --stop <text>              Stop sequence; can be repeated
+  --attach <path>            Attach a file; can be repeated
+  --file <path>             Alias for --attach; can be repeated
+  --chat-template <name>     Override the model chat template
+  --export <path>            Export the loaded conversation as Markdown
 
 Inference options:
   --ctx <n>                  Context size (default: 4096)
@@ -168,10 +185,6 @@ Program options:
   --stdin                    Read the single prompt from stdin
   --json                     Machine-readable JSON output
   --output <path>            Write the text answer to a file
-  --model-info               Print model metadata and exit
-  --smoke                    Run a quick generation smoke test
-  --tokenize <text>          Tokenize text and print token counts
-  --doctor                   Print system diagnostics
   --non-interactive          Disable the interactive shell
   --color                    Force ANSI colors (default: auto)
   --no-color                 Disable ANSI colors
@@ -183,7 +196,7 @@ Program options:
   --help                     Show this help
   --version                  Show the version
 
-Interactive commands: /help /info /history /settings /tokenize /clear /reset /system /model /profile /stop /temp /top-p /top-k /min-p /typical /n /ctx /save /exit
+Interactive commands: /help /info /history /settings /tokenize /file /clear-attach /clear /reset /system /model /profile /stop /temp /top-p /top-k /min-p /typical /n /ctx /export /save /exit
 ```
 
 ## Interactive Commands
@@ -199,6 +212,8 @@ Interactive commands: /help /info /history /settings /tokenize /clear /reset /sy
 /reset                Clear history and restore the default system prompt
 /system <text>        Set or show the system prompt
 /model <path>         Reload the model from a GGUF file
+/file <path>          Attach a file for upcoming messages
+/clear-attach         Remove all attached files
 /profile <name>       Use balanced, fast, creative, code or precise
 /stop <text>          Add a stop sequence; /stop shows current stops
 /temp <value>         Change sampling temperature
@@ -213,6 +228,44 @@ Interactive commands: /help /info /history /settings /tokenize /clear /reset /sy
 ```
 
 Any line that is not a command is sent to the model.
+
+## File Context and Conversation Export
+
+Attach files for the next message in one-shot mode, or until cleared in
+interactive mode:
+
+```bash
+skifflm --model model.gguf --attach report.txt --prompt "Summarize the report."
+```
+
+Attach multiple files by repeating `--attach` or by writing `@path` directly in the prompt:
+
+```bash
+skifflm --model model.gguf --attach report.txt --attach data.csv \
+  --prompt "Compare @report.txt with @data.csv."
+```
+
+Interactive mode uses the same commands:
+
+```text
+/file report.txt      Attach a file to the next message
+/clear-attach         Remove all attached files
+```
+
+Attached content is wrapped in a small file tag so the model can tell where the
+file begins and ends. The file content is read locally and is never uploaded.
+
+Export any conversation as Markdown without loading a model:
+
+```bash
+skifflm --export conversation.md
+```
+
+Or export the current conversation from inside the shell:
+
+```text
+/export conversation.md
+```
 
 ## Configuration File
 
@@ -230,6 +283,10 @@ model-dir=/home/user/models
 session=main
 profile=balanced
 system=You are a helpful local assistant.
+chat-template=chatml
+warmup=yes
+attach=notes.txt
+export=last-conversation.md
 
 ctx=4096
 batch=512
@@ -335,6 +392,7 @@ Available presets: `release` and `debug`.
 | `SKIFFLLM_FETCH_LLAMA` | `ON` | Download and build a pinned llama.cpp |
 | `SKIFFLLM_LLAMA_SOURCE_DIR` | empty | Use an existing llama.cpp checkout |
 | `SKIFFLLM_BUILD_SHARED_LLAMA` | `OFF` | Build llama.cpp as a shared library |
+| `SKIFFLLM_USE_READLINE` | `ON` | Enable GNU Readline editing and history when available |
 
 ### Build with an existing llama.cpp checkout
 
@@ -443,13 +501,13 @@ scripts/                      Build helper, benchmark helper and shell completio
 
 ## Roadmap
 
-- Readline-based line editing with arrow-key navigation
-- Token-level streaming stats in the interactive UI
 - Embedding and RAG mode
 - System dependency packaging (Homebrew, apt, vcpkg)
 - GPU benchmark matrix
 - Grammar-constrained generation
 - Model download/quantization helper
+- Token-level sampling diagnostics
+- Local server mode for editor integrations
 
 ## Contributing
 

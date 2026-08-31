@@ -24,7 +24,7 @@
 namespace {
 
 #ifndef SKIFFLLM_VERSION
-#define SKIFFLLM_VERSION "1.2.0"
+#define SKIFFLLM_VERSION "1.3.0"
 #endif
 const char* kVersion = SKIFFLLM_VERSION;
 volatile std::sig_atomic_t g_interrupted = 0;
@@ -84,6 +84,87 @@ std::string read_stdin() {
     std::ostringstream buffer;
     buffer << std::cin.rdbuf();
     return buffer.str();
+}
+
+bool is_space(char ch) {
+    return ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r';
+}
+
+std::string make_attach_block(const std::vector<std::filesystem::path>& paths,
+                              std::string& error) {
+    std::ostringstream output;
+    for (const auto& path : paths) {
+        std::error_code ec;
+        if (!std::filesystem::exists(path, ec) ||
+            !std::filesystem::is_regular_file(path, ec)) {
+            error = "attached file does not exist: " + path.string();
+            return {};
+        }
+        const std::string content = read_file(path);
+        if (content.empty()) {
+            error = "attached file is empty or unreadable: " + path.string();
+            return {};
+        }
+        output << "<file path=\"" << path.string() << "\">\n"
+               << content
+               << "\n</file>\n\n";
+    }
+    return output.str();
+}
+
+std::string expand_at_paths(const std::string& text, std::string& error) {
+    std::ostringstream output;
+    size_t i = 0;
+    while (i < text.size()) {
+        if (text[i] != '@') {
+            output << text[i];
+            i += 1;
+            continue;
+        }
+        size_t end = i + 1;
+        while (end < text.size() && !is_space(text[end])) {
+            end += 1;
+        }
+        const std::string token = text.substr(i, end - i);
+        const std::string raw_path = token.substr(1);
+        if (!raw_path.empty()) {
+            const bool path_like = raw_path.find('.') != std::string::npos ||
+                                   raw_path.find('/') != std::string::npos ||
+                                   raw_path.find('\\') != std::string::npos;
+            std::error_code ec;
+            const std::filesystem::path path = skifflm::expand_path(raw_path);
+            if (std::filesystem::exists(path, ec) &&
+                std::filesystem::is_regular_file(path, ec)) {
+                const std::string content = read_file(path);
+                if (!content.empty()) {
+                    output << "<file path=\"" << path.string() << "\">\n"
+                           << content
+                           << "\n</file>\n\n";
+                    i = end;
+                    continue;
+                }
+            } else if (path_like) {
+                error = "referenced file does not exist in expansion: " + raw_path;
+                return {};
+            }
+        }
+        output << text[i];
+        i += 1;
+    }
+    return output.str();
+}
+
+std::string export_markdown(const std::vector<skifflm::ChatMessage>& messages) {
+    std::ostringstream output;
+    output << "# SkiffLLM Conversation\n\n";
+    for (const auto& message : messages) {
+        const std::string role = message.role == "system" ? "System"
+                                 : message.role == "user" ? "User"
+                                 : message.role == "assistant" ? "Assistant"
+                                 : message.role;
+        output << "## " << role << "\n\n" << message.content << "\n\n";
+    }
+    return output.str();
 }
 
 std::string json_escape(const std::string& value) {
@@ -408,19 +489,106 @@ bool rebuild_engine(skifflm::Config& cfg,
     return true;
 }
 
-bool ask_model(skifflm::LlmEngine& engine,
-               const skifflm::GenerationOptions& options,
-               const std::vector<skifflm::ChatMessage>& messages,
-               skifflm::GenerationResult& result,
-               const skifflm::Terminal& terminal) {
+class LiveStreamer {
+public:
+    explicit LiveStreamer(const skifflm::Terminal& terminal)
+        : terminal_(terminal), enabled_(terminal.live_output()) {
+    }
+
+    void reset() {
+        buffer_.clear();
+        tokens_ = 0;
+        live_ = enabled_;
+    }
+
+    void write(const std::string& part) {
+        tokens_ += 1;
+        if (!live_) {
+            terminal_.write_raw(part);
+            return;
+        }
+        buffer_ += part;
+        if (buffer_.find('\n') != std::string::npos) {
+            terminal_.write_raw_line(buffer_);
+            buffer_.clear();
+            live_ = false;
+        } else {
+            terminal_.write_live(buffer_, tokens_);
+        }
+    }
+
+    void finish() {
+        if (live_) {
+            terminal_.finish_live();
+            buffer_.clear();
+            live_ = false;
+        }
+    }
+
+private:
+    const skifflm::Terminal& terminal_;
+    bool enabled_;
+    bool live_ = false;
+    std::string buffer_;
+    std::size_t tokens_ = 0;
+};
+
+bool warmup_model(skifflm::LlmEngine& engine,
+                  const skifflm::GenerationOptions& options,
+                  const skifflm::Terminal& terminal,
+                  bool quiet = false) {
     std::string error;
-    const bool ok = engine.generate(messages,
-                                    options,
+    skifflm::GenerationOptions warm = options;
+    warm.n_predict = 1;
+    warm.temperature = 0.0f;
+    warm.token_callback = nullptr;
+    warm.stop_sequences.clear();
+
+    std::vector<skifflm::ChatMessage> ask;
+    ask.push_back({"user", "Warmup."});
+
+    skifflm::GenerationResult result;
+    const bool ok = engine.generate(ask,
+                                    warm,
                                     result,
                                     []() {
                                         return g_interrupted != 0;
                                     },
                                     error);
+    if (!ok) {
+        if (!quiet) {
+            terminal.warning("Warmup failed: " + error);
+        }
+        return false;
+    }
+    if (!quiet) {
+        terminal.success(std::string("Warmup complete in ") +
+                         std::to_string(static_cast<int>(result.prompt_ms + result.generation_ms)) +
+                         " ms.");
+    }
+    return true;
+}
+
+bool ask_model(skifflm::LlmEngine& engine,
+               const skifflm::GenerationOptions& options,
+               const std::vector<skifflm::ChatMessage>& messages,
+               skifflm::GenerationResult& result,
+               const skifflm::Terminal& terminal,
+               LiveStreamer& streamer) {
+    std::string error;
+    streamer.reset();
+    skifflm::GenerationOptions current = options;
+    current.token_callback = [&streamer](const std::string& part) {
+        streamer.write(part);
+    };
+    const bool ok = engine.generate(messages,
+                                    current,
+                                    result,
+                                    []() {
+                                        return g_interrupted != 0;
+                                    },
+                                    error);
+    streamer.finish();
     if (!ok) {
         terminal.error(error);
         return false;
@@ -446,6 +614,12 @@ int run_interactive(skifflm::Config& cfg,
     if (cfg.show_info) {
         terminal.print_banner(kVersion, engine->info(), cfg);
     }
+
+    if (cfg.warmup) {
+        warmup_model(*engine, options, terminal);
+    }
+
+    std::vector<std::filesystem::path> attached = cfg.attach_paths;
 
     while (true) {
         std::string input;
@@ -568,6 +742,27 @@ int run_interactive(skifflm::Config& cfg,
                     continue;
                 }
                 rebuild_engine(cfg, engine, argument, terminal);
+                continue;
+            }
+            if (command == "/file" || command == "/attach") {
+                if (argument.empty()) {
+                    terminal.error("Usage: /file <path>");
+                    continue;
+                }
+                const std::filesystem::path path = skifflm::expand_path(argument);
+                std::error_code ec;
+                if (!std::filesystem::exists(path, ec) ||
+                    !std::filesystem::is_regular_file(path, ec)) {
+                    terminal.error("Attached file does not exist: " + path.string());
+                    continue;
+                }
+                attached.push_back(path);
+                terminal.success("Attached " + path.string());
+                continue;
+            }
+            if (command == "/clear-attach" || command == "/detach") {
+                attached.clear();
+                terminal.success("Attached files cleared.");
                 continue;
             }
             if (command == "/profile") {
@@ -740,21 +935,34 @@ int run_interactive(skifflm::Config& cfg,
             continue;
         }
 
-        session.messages().push_back({"user", input});
+        std::string effective_input = input;
+        std::string attach_error;
+        if (!attached.empty()) {
+            const std::string block = make_attach_block(attached, attach_error);
+            if (!attach_error.empty()) {
+                terminal.error(attach_error);
+                continue;
+            }
+            effective_input = block + effective_input;
+        }
+        effective_input = expand_at_paths(effective_input, attach_error);
+        if (!attach_error.empty()) {
+            terminal.error(attach_error);
+            continue;
+        }
+
+        session.messages().push_back({"user", effective_input});
 
         std::vector<skifflm::ChatMessage> ask = session.conversation();
-        skifflm::GenerationOptions current = options;
-        current.token_callback = [&terminal](const std::string& part) {
-            terminal.write_raw(part);
-            std::cout.flush();
-        };
+        LiveStreamer streamer(terminal);
 
         skifflm::GenerationResult result;
         const bool generate_ok = ask_model(*engine,
-                                           current,
+                                           options,
                                            ask,
                                            result,
-                                           terminal);
+                                           terminal,
+                                           streamer);
         if (!generate_ok) {
             session.messages().pop_back();
             continue;
@@ -785,7 +993,7 @@ int run_one_shot(skifflm::Config& cfg,
                  skifflm::Session& session,
                  skifflm::Terminal& terminal,
                  const skifflm::GenerationOptions& options,
-                 const std::string& prompt) {
+                 const std::string& raw_prompt) {
     std::string model_error;
     if (!choose_model(cfg, engine, model_error)) {
         if (cfg.json_output) {
@@ -798,16 +1006,45 @@ int run_one_shot(skifflm::Config& cfg,
         return 1;
     }
 
+    if (cfg.warmup) {
+        warmup_model(*engine, options, terminal, cfg.json_output);
+    }
+
+    std::string attach_error;
+    std::string prompt_text = raw_prompt;
+    if (!cfg.attach_paths.empty()) {
+        const std::string block = make_attach_block(cfg.attach_paths, attach_error);
+        if (!attach_error.empty()) {
+            if (cfg.json_output) {
+                std::cout << "{\"error\":" << json_escape(attach_error) << "}\n";
+            } else {
+                terminal.error(attach_error);
+            }
+            return 1;
+        }
+        prompt_text = block + prompt_text;
+    }
+    prompt_text = expand_at_paths(prompt_text, attach_error);
+    if (!attach_error.empty()) {
+        if (cfg.json_output) {
+            std::cout << "{\"error\":" << json_escape(attach_error) << "}\n";
+        } else {
+            terminal.error(attach_error);
+        }
+        return 1;
+    }
+
     std::vector<skifflm::ChatMessage> ask = session.conversation();
-    ask.push_back({"user", prompt});
+    ask.push_back({"user", prompt_text});
 
     skifflm::GenerationOptions current = options;
+    LiveStreamer streamer(terminal);
     if (!cfg.json_output) {
-        current.token_callback = [&terminal](const std::string& part) {
-            terminal.write_raw(part);
-            std::cout.flush();
+        streamer.reset();
+        current.token_callback = [&streamer](const std::string& part) {
+            streamer.write(part);
         };
-        terminal.write("User: " + prompt + "\n", skifflm::Color::Cyan);
+        terminal.write("User: " + prompt_text + "\n", skifflm::Color::Cyan);
     }
 
     skifflm::GenerationResult result;
@@ -819,6 +1056,7 @@ int run_one_shot(skifflm::Config& cfg,
                                          return g_interrupted != 0;
                                      },
                                      error);
+    streamer.finish();
     if (!ok) {
         if (cfg.json_output) {
             std::ostringstream out;
@@ -859,7 +1097,7 @@ int run_one_shot(skifflm::Config& cfg,
         }
     }
 
-    session.messages().push_back({"user", prompt});
+    session.messages().push_back({"user", prompt_text});
     session.messages().push_back({"assistant", result.text});
     if (cfg.save_history) {
         std::string save_error;
@@ -951,6 +1189,31 @@ int main(int argc, char** argv) {
         cfg.interactive = false;
     }
 
+    if (cfg.reset_history) {
+        cfg.save_history = true;
+    }
+
+    if (!cfg.export_path.empty()) {
+        skifflm::Session export_session(cfg);
+        export_session.set_system_prompt(cfg.system_prompt);
+        error.clear();
+        if (!export_session.load(error)) {
+            terminal.error(error);
+            llama_backend_free();
+            return 1;
+        }
+        std::string export_error;
+        const std::string markdown = export_markdown(export_session.conversation());
+        if (!write_text_file(cfg.export_path, markdown, export_error)) {
+            terminal.error(export_error);
+            llama_backend_free();
+            return 1;
+        }
+        terminal.success("Conversation exported to " + cfg.export_path.string());
+        llama_backend_free();
+        return 0;
+    }
+
     if (cfg.model_path.empty() && cfg.model_dir.empty()) {
         std::cerr << "No model configured. Use --model <path.gguf>.\n";
         return 2;
@@ -973,10 +1236,6 @@ int main(int argc, char** argv) {
         engine.reset();
         llama_backend_free();
         return status;
-    }
-
-    if (cfg.reset_history) {
-        cfg.save_history = true;
     }
 
     skifflm::Session session(cfg);

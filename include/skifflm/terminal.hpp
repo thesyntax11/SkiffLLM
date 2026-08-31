@@ -24,9 +24,11 @@ enum class Color {
 class Terminal {
 public:
     explicit Terminal(const Config& config);
+    ~Terminal();
 
     bool color_enabled() const;
     void use_color(bool enabled);
+    bool live_output() const;
 
     std::string paint(const std::string& text, Color color) const;
     void write(const std::string& text, Color color = Color::Reset) const;
@@ -36,6 +38,9 @@ public:
     void warning(const std::string& text) const;
     void error(const std::string& text) const;
     void highlight(const std::string& text) const;
+    void write_live(const std::string& text, std::size_t tokens) const;
+    void write_raw_line(const std::string& text) const;
+    void finish_live() const;
 
     bool read_prompt(const std::string& prompt, std::string& output);
     void print_banner(const std::string& version, const ModelInfo& info, const Config& config);
@@ -45,6 +50,8 @@ public:
 
 private:
     bool color_;
+    mutable bool live_column_ = false;
+    std::string readline_history_path_;
 };
 
 }

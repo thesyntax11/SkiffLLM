@@ -121,6 +121,9 @@ bool LlmEngine::load(std::string& error) {
 
     const char* chat_template = llama_model_chat_template(model_, nullptr);
     info_.chat_template = chat_template == nullptr ? "" : chat_template;
+    if (!config_.chat_template.empty()) {
+        info_.chat_template = config_.chat_template;
+    }
 
     return true;
 }

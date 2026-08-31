@@ -11,6 +11,11 @@
 #include <unistd.h>
 #endif
 
+#ifdef SKIFFLLM_HAVE_READLINE
+#include <readline/history.h>
+#include <readline/readline.h>
+#endif
+
 namespace skifflm {
 namespace {
 
@@ -85,6 +90,10 @@ bool is_balanced(const std::string& text) {
 }
 
 Terminal::Terminal(const Config& config) : color_(config.color) {
+    if (!config.history_path.empty()) {
+        readline_history_path_ =
+            (config.history_path.parent_path() / "readline_history").string();
+    }
     if (!config.color) {
         return;
     }
@@ -99,10 +108,27 @@ Terminal::Terminal(const Config& config) : color_(config.color) {
     if (!is_terminal(stdout)) {
         color_ = false;
     }
+#ifdef SKIFFLLM_HAVE_READLINE
+    if (!readline_history_path_.empty()) {
+        read_history(readline_history_path_.c_str());
+    }
+#endif
+}
+
+Terminal::~Terminal() {
+#ifdef SKIFFLLM_HAVE_READLINE
+    if (!readline_history_path_.empty()) {
+        write_history(readline_history_path_.c_str());
+    }
+#endif
 }
 
 bool Terminal::color_enabled() const {
     return color_;
+}
+
+bool Terminal::live_output() const {
+    return is_terminal(stdout);
 }
 
 void Terminal::use_color(bool enabled) {
@@ -137,6 +163,42 @@ void Terminal::write_raw(const std::string& text) const {
     std::cout << text;
 }
 
+void Terminal::write_live(const std::string& text, std::size_t tokens) const {
+    if (!is_terminal(stdout)) {
+        write_raw(text);
+        return;
+    }
+    if (live_column_) {
+        std::cout << "\r\033[K";
+    }
+    live_column_ = true;
+    std::cout << text;
+    if (tokens > 0) {
+        std::cout << "  " << paint(std::to_string(tokens) + " tok", Color::Dim);
+    }
+    std::cout.flush();
+}
+
+void Terminal::write_raw_line(const std::string& text) const {
+    if (live_column_) {
+        std::cout << "\r\033[K";
+        live_column_ = false;
+    }
+    std::cout << text;
+    if (text.empty() || text.back() != '\n') {
+        std::cout << "\n";
+    }
+    std::cout.flush();
+}
+
+void Terminal::finish_live() const {
+    if (live_column_) {
+        std::cout << "\r\033[K";
+        live_column_ = false;
+    }
+    std::cout.flush();
+}
+
 void Terminal::info(const std::string& text) const {
     write(text + "\n", Color::Blue);
 }
@@ -159,11 +221,25 @@ void Terminal::highlight(const std::string& text) const {
 
 bool Terminal::read_prompt(const std::string& prompt, std::string& output) {
     std::string line;
-    write(prompt, Color::Cyan);
-    std::cout.flush();
-
-    if (!std::getline(std::cin, line)) {
-        return false;
+#ifdef SKIFFLLM_HAVE_READLINE
+    if (is_terminal(stdin)) {
+        char* input = readline(prompt.c_str());
+        if (input == nullptr) {
+            return false;
+        }
+        line = input;
+        std::free(input);
+        if (!line.empty()) {
+            add_history(line.c_str());
+        }
+    } else
+#endif
+    {
+        write(prompt, Color::Cyan);
+        std::cout.flush();
+        if (!std::getline(std::cin, line)) {
+            return false;
+        }
     }
 
     if (!line.empty() && line.front() == '/') {
@@ -258,6 +334,8 @@ void Terminal::print_help() const {
     write("  /reset                Clear history and restore the default system prompt\n");
     write("  /system <text>        Set or show the system prompt\n");
     write("  /model <path>         Reload the model from a GGUF file\n");
+    write("  /file <path>          Attach a file for upcoming messages\n");
+    write("  /clear-attach         Remove all attached files\n");
     write("  /settings             Show the current sampling settings\n");
     write("  /tokenize <text>      Show the token count for the text\n");
     write("  /profile <name>       Use balanced, fast, creative, code or precise\n");

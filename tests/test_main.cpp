@@ -45,6 +45,10 @@ void test_config_file() {
         out << "system=Be concise.\n";
         out << "stop=END\n";
         out << "reserve-ctx=128\n";
+        out << "export=out.md\n";
+        out << "attach=notes.txt\n";
+        out << "chat-template=chatml\n";
+        out << "warmup\n";
     }
 
     skifflm::Config cfg = skifflm::default_config();
@@ -60,6 +64,11 @@ void test_config_file() {
     check(cfg.stop_sequences.size() == 1, "stop sequence should be stored");
     check(cfg.stop_sequences[0] == "END", "stop sequence should match");
     check(cfg.reserve_ctx == 128, "reserve_ctx should be 128");
+    check(cfg.export_path == "out.md", "export path should be stored");
+    check(cfg.attach_paths.size() == 1, "attach path should be stored");
+    check(cfg.attach_paths[0] == "notes.txt", "attach path should match");
+    check(cfg.chat_template == "chatml", "chat template should be stored");
+    check(cfg.warmup, "warmup should be enabled");
 
     std::filesystem::remove_all(dir);
 }
@@ -230,6 +239,31 @@ void test_advanced_flags() {
     check(!cfg.interactive, "model_info should disable interactive mode");
 }
 
+void test_popularity_flags() {
+    skifflm::Config cfg = skifflm::default_config();
+    std::vector<std::string> storage = {
+        "skifflm",
+        "--attach",
+        "notes.txt",
+        "--file=guide.md",
+        "--export",
+        "chat.md",
+        "--chat-template",
+        "chatml",
+        "--warmup",
+    };
+    auto args = args_from(storage);
+    std::string error;
+    const bool ok = skifflm::parse_args(static_cast<int>(args.size()), args.data(), cfg, error);
+    check(ok, "popularity flags should parse");
+    check(cfg.attach_paths.size() == 2, "attach paths should be stored");
+    check(cfg.attach_paths[0] == "notes.txt", "first attach path");
+    check(cfg.attach_paths[1] == "guide.md", "second attach path");
+    check(cfg.export_path == "chat.md", "export path should be stored");
+    check(cfg.chat_template == "chatml", "chat template should be stored");
+    check(cfg.warmup, "warmup should be enabled");
+}
+
 void test_session_resolution() {
     skifflm::Config cfg = skifflm::default_config();
     std::vector<std::string> storage = {"skifflm", "--session", "writing"};
@@ -253,5 +287,6 @@ int main() {
     test_formatting();
     test_session_resolution();
     test_advanced_flags();
+    test_popularity_flags();
     return 0;
 }

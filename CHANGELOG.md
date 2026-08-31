@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3.0
+
+- Added file context through `--attach`, `/file`, and `@file` expansion.
+- Added Markdown conversation export through `--export` and `/export`.
+- Added `--chat-template` model prompt format override.
+- Added `--warmup` to reduce first-answer latency.
+- Added live token counters in interactive streaming output.
+- Added optional GNU Readline editing and history, with getline fallback.
+- Expanded command-line and config-file tests.
+
 ## 1.2.0
 
 - Added flash attention, NUMA, and KV offload controls.

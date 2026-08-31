@@ -13,12 +13,15 @@ struct Config {
     std::filesystem::path config_path;
     std::filesystem::path history_path;
     std::filesystem::path output_path;
+    std::filesystem::path export_path;
     std::filesystem::path prompt_file;
     std::string system_prompt;
     std::string model_name;
     std::string session_name;
     std::string profile_name;
+    std::string chat_template;
     std::vector<std::string> stop_sequences;
+    std::vector<std::filesystem::path> attach_paths;
 
     int context_size = 4096;
     int batch_size = 512;
@@ -58,6 +61,7 @@ struct Config {
     bool model_info = false;
     bool doctor = false;
     bool smoke = false;
+    bool warmup = false;
     bool json_output = false;
     bool read_stdin = false;
     std::string one_shot;

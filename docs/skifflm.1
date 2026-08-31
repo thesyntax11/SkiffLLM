@@ -1,4 +1,4 @@
-.TH SKIFFLLM 1 "2026-08-31" "SkiffLLM 1.2.0" "User Commands"
+.TH SKIFFLLM 1 "2026-08-31" "SkiffLLM 1.3.0" "User Commands"
 .SH NAME
 skifflm \- offline-first local LLM terminal assistant built on llama.cpp
 .SH SYNOPSIS
@@ -30,6 +30,21 @@ Set the system prompt.
 .TP
 \fB\-\-stop <text>\fR
 Add a stop sequence. May be repeated.
+.TP
+\fB\-\-attach <path>\fR
+Attach a file to the prompt. May be repeated.
+.TP
+\fB\-\-file <path>\fR
+Alias for --attach.
+.TP
+\fB\-\-chat-template <name>\fR
+Override the model chat template.
+.TP
+\fB\-\-export <path>\fR
+Export the loaded conversation as Markdown.
+.TP
+\fB\-\-warmup\fR
+Warm the model before the first answer.
 .TP
 \fB\-\-ctx <n>\fR
 Context size. Default is 4096.
@@ -155,6 +170,31 @@ Default model directory.
 .TP
 \fB~/.local/share/skifflm/history.skif\fR
 Default session history.
+.SH INTERACTIVE COMMANDS
+.TP
+.B /help, /info, /history
+Show help, session details, or the current conversation.
+.TP
+.B /file <path>, /clear-attach
+Attach a file or clear attached files.
+.TP
+.B /export <path>
+Export the conversation as Markdown.
+.TP
+.B /tokenize <text>
+Show the token count for the text.
+.TP
+.B /settings, /profile, /stop
+Show or change sampling settings.
+.TP
+.B /temp, /top-p, /top-k, /min-p, /typical, /n, /ctx
+Change sampling and context values.
+.TP
+.B /save, /clear, /reset, /system, /model
+Manage the session and model.
+.TP
+.B /exit or /quit
+Exit SkiffLLM.
 .SH EXIT STATUS
 0 on success. Non-zero on configuration or inference errors.
 .SH SEE ALSO

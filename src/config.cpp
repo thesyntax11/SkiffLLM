@@ -353,6 +353,15 @@ bool apply_key_value(Config& cfg,
         }
     } else if (key == "output") {
         cfg.output_path = expand_path(value);
+    } else if (key == "export") {
+        cfg.export_path = expand_path(value);
+    } else if (key == "attach" || key == "file") {
+        const std::filesystem::path path = expand_path(value);
+        if (!path.empty()) {
+            cfg.attach_paths.push_back(path);
+        }
+    } else if (key == "chat-template") {
+        cfg.chat_template = value;
     } else if (key == "ctx" || key == "context") {
         if (!parse_int_value(value, cfg.context_size)) {
             error = "invalid integer for --ctx: " + value;
@@ -611,6 +620,10 @@ bool apply_key_value(Config& cfg,
                 cfg.one_shot = "Reply with OK.";
             }
         }
+    } else if (key == "warmup") {
+        if (!set_flag(cfg.warmup, true, false, value, key)) {
+            return false;
+        }
     } else if (key == "tokenize") {
         cfg.tokenize_text = value;
         cfg.interactive = false;
@@ -722,7 +735,8 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
             key == "no-auto-trim" || key == "json" || key == "list-models" ||
             key == "flash-attn" || key == "no-flash-attn" || key == "numa" ||
             key == "kv-offload" || key == "no-kv-offload" ||
-            key == "doctor" || key == "model-info" || key == "smoke") {
+            key == "doctor" || key == "model-info" || key == "smoke" ||
+            key == "warmup") {
             if (has_value) {
                 error = "option --" + key + " does not take a value";
                 return false;
@@ -736,8 +750,9 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
         if (key == "model" || key == "model-dir" || key == "config" ||
             key == "history" || key == "system" || key == "system-prompt" ||
             key == "session" || key == "profile" || key == "stop" ||
-            key == "output" || key == "prompt" || key == "prompt-file" ||
-            key == "tokenize") {
+            key == "output" || key == "export" || key == "attach" ||
+            key == "file" || key == "chat-template" || key == "prompt" ||
+            key == "prompt-file" || key == "tokenize") {
             const std::string value = option_value(i, argc, argv, "--" + key, error);
             if (!error.empty()) {
                 return false;
@@ -812,12 +827,17 @@ std::string usage(const std::string& program) {
     out << "  --list-models              Print discovered GGUF models\n";
     out << "  --model-info              Print model metadata and exit\n";
     out << "  --smoke                   Run a quick generation smoke test\n";
+    out << "  --warmup                  Warm the model before the first answer\n";
     out << "  --doctor                  Print system diagnostics\n";
     out << "  --tokenize <text>         Tokenize text and print token counts\n";
     out << "  --profile <name>           balanced, fast, creative, code or precise\n";
     out << "  --session <name>           Use a named conversation\n";
     out << "  --system <text>            System prompt\n";
-    out << "  --stop <text>              Stop sequence; can be repeated\n\n";
+    out << "  --stop <text>              Stop sequence; can be repeated\n";
+    out << "  --attach <path>            Attach a file; can be repeated\n";
+    out << "  --file <path>             Alias for --attach; can be repeated\n";
+    out << "  --chat-template <name>     Override the model chat template\n";
+    out << "  --export <path>            Export the loaded conversation as Markdown\n\n";
     out << "Inference options:\n";
     out << "  --ctx <n>                  Context size (default: 4096)\n";
     out << "  --batch <n>                Batch size (default: 512)\n";
@@ -878,8 +898,22 @@ void print_config(const Config& cfg) {
     std::cout << "config_path      " << cfg.config_path.string() << "\n";
     std::cout << "history_path     " << cfg.history_path.string() << "\n";
     std::cout << "output_path      " << (cfg.output_path.empty() ? "(none)" : cfg.output_path.string()) << "\n";
+    std::cout << "export_path      " << (cfg.export_path.empty() ? "(none)" : cfg.export_path.string()) << "\n";
     std::cout << "session_name     " << (cfg.session_name.empty() ? "(default)" : cfg.session_name) << "\n";
     std::cout << "profile          " << (cfg.profile_name.empty() ? "(none)" : cfg.profile_name) << "\n";
+    std::cout << "chat_template    " << (cfg.chat_template.empty() ? "(model default)" : cfg.chat_template) << "\n";
+    std::cout << "attach_files     ";
+    if (cfg.attach_paths.empty()) {
+        std::cout << "(none)";
+    } else {
+        for (size_t i = 0; i < cfg.attach_paths.size(); ++i) {
+            if (i != 0) {
+                std::cout << ", ";
+            }
+            std::cout << cfg.attach_paths[i].string();
+        }
+    }
+    std::cout << "\n";
     std::cout << "system_prompt    " << (cfg.system_prompt.empty() ? "(none)" : cfg.system_prompt) << "\n";
     std::cout << "context_size     " << cfg.context_size << "\n";
     std::cout << "batch_size       " << cfg.batch_size << "\n";
@@ -908,6 +942,7 @@ void print_config(const Config& cfg) {
     std::cout << "auto_trim        " << (cfg.auto_trim ? "yes" : "no") << "\n";
     std::cout << "json_output      " << (cfg.json_output ? "yes" : "no") << "\n";
     std::cout << "smoke            " << (cfg.smoke ? "yes" : "no") << "\n";
+    std::cout << "warmup           " << (cfg.warmup ? "yes" : "no") << "\n";
     std::cout << "debug            " << (cfg.debug ? "yes" : "no") << "\n";
     std::cout << "stop_sequences   ";
     if (cfg.stop_sequences.empty()) {
