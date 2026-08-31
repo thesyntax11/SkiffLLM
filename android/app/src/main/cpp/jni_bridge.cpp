@@ -157,24 +157,6 @@ Java_com_skifflm_app_SkiffNative_generate(
         jlong seed,
         jobject callback) {
     NativeState* state = state_from(handle);
-    if (state == nullptr || state->engine == nullptr || roles == nullptr || contents == nullptr) {
-        return JNI_FALSE;
-    }
-
-    const jsize count = env->GetArrayLength(roles);
-    if (count != env->GetArrayLength(contents)) {
-        return JNI_FALSE;
-    }
-
-    std::vector<skifflm::ChatMessage> messages;
-    messages.reserve(static_cast<size_t>(count));
-    for (jsize i = 0; i < count; ++i) {
-        jobject role = env->GetObjectArrayElement(roles, i);
-        jobject content = env->GetObjectArrayElement(contents, i);
-        messages.push_back({to_string(env, role), to_string(env, content)});
-        env->DeleteLocalRef(role);
-        env->DeleteLocalRef(content);
-    }
 
     jclass callback_class = env->GetObjectClass(callback);
     if (callback_class == nullptr) {
@@ -188,6 +170,42 @@ Java_com_skifflm_app_SkiffNative_generate(
     if (on_token == nullptr || on_done == nullptr || on_error == nullptr) {
         env->DeleteLocalRef(callback_class);
         return JNI_FALSE;
+    }
+
+    if (state == nullptr || state->engine == nullptr || roles == nullptr || contents == nullptr) {
+        const char* message = state == nullptr
+                                  ? "engine is not initialized"
+                                  : state->engine == nullptr
+                                        ? "model is not loaded"
+                                        : "invalid generation arguments";
+        jstring text = env->NewStringUTF(message);
+        if (text != nullptr) {
+            env->CallVoidMethod(callback, on_error, text);
+            env->DeleteLocalRef(text);
+        }
+        env->DeleteLocalRef(callback_class);
+        return JNI_FALSE;
+    }
+
+    const jsize count = env->GetArrayLength(roles);
+    if (count != env->GetArrayLength(contents)) {
+        jstring text = env->NewStringUTF("invalid generation arguments");
+        if (text != nullptr) {
+            env->CallVoidMethod(callback, on_error, text);
+            env->DeleteLocalRef(text);
+        }
+        env->DeleteLocalRef(callback_class);
+        return JNI_FALSE;
+    }
+
+    std::vector<skifflm::ChatMessage> messages;
+    messages.reserve(static_cast<size_t>(count));
+    for (jsize i = 0; i < count; ++i) {
+        jobject role = env->GetObjectArrayElement(roles, i);
+        jobject content = env->GetObjectArrayElement(contents, i);
+        messages.push_back({to_string(env, role), to_string(env, content)});
+        env->DeleteLocalRef(role);
+        env->DeleteLocalRef(content);
     }
 
     skifflm::GenerationOptions options;

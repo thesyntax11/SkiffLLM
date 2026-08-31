@@ -181,8 +181,13 @@ class EngineController(private val appContext: Context) {
             }
         }
         executor.execute {
+            val target = handle
+            if (target == 0L) {
+                uiHandler.post { onError("Load a GGUF model first") }
+                return@execute
+            }
             SkiffNative.generate(
-                handle,
+                target,
                 roles,
                 contents,
                 params.temperature,
@@ -219,12 +224,21 @@ class EngineController(private val appContext: Context) {
         val display = queryDisplayName(uri) ?: "model.gguf"
         val safe = display.replace(Regex("[^A-Za-z0-9._-]"), "_")
         val target = File(modelDir, safe.ifBlank { "model.gguf" })
+        val temp = File(modelDir, "$safe.part")
         val stream = appContext.contentResolver.openInputStream(uri)
             ?: throw IOException("Unable to open the selected model")
         stream.use { input ->
-            FileOutputStream(target).use { output ->
+            FileOutputStream(temp).use { output ->
                 input.copyTo(output)
             }
+        }
+        if (target.exists() && !target.delete()) {
+            temp.delete()
+            throw IOException("Unable to replace the previous model file")
+        }
+        if (!temp.renameTo(target)) {
+            temp.delete()
+            throw IOException("Unable to store the model file")
         }
         return target
     }
