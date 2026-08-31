@@ -67,6 +67,10 @@ target_include_directories(skifflm_core
 
 target_link_libraries(skifflm_core PUBLIC llama)
 
+if(WIN32)
+    target_link_libraries(skifflm_core PUBLIC ws2_32)
+endif()
+
 if(SKIFFLLM_USE_READLINE)
     find_package(Readline QUIET)
     if(Readline_FOUND)

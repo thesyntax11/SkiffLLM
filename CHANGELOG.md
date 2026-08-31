@@ -16,6 +16,7 @@
 - Stopped echoing entire attached files in one-shot mode; the terminal now
   shows a concise prompt preview.
 - Made the local server read headers in bulk instead of one byte at a time.
+- Linked the Windows socket library explicitly for the local server.
 
 ## 1.4.0
 
