@@ -77,6 +77,20 @@ class EngineController(private val appContext: Context) {
         loadFile(File(path), params, onLoaded, onError)
     }
 
+    fun listDownloadedModels(): List<File> =
+        modelDir.listFiles { file -> file.isFile && file.extension.equals("gguf", true) }
+            ?.sortedBy { it.name }
+            ?: emptyList()
+
+    fun loadModelFile(
+        file: File,
+        params: LoadParams,
+        onLoaded: (String) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        loadFile(file, params, onLoaded, onError)
+    }
+
     fun loadModel(
         uri: Uri,
         params: LoadParams,

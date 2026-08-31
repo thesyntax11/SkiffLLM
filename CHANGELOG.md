@@ -6,11 +6,13 @@
 
 - Added a native Android app under `android/` built with Kotlin, Jetpack
   Compose, and a llama.cpp JNI bridge.
-- Runs supported GGUF models on device with no network permission.
+- Runs supported GGUF models on device.
+- Downloads recommended GGUF models from Hugging Face over HTTPS with progress
+  and cancel; inference, chat, and export remain offline.
 - Streams tokens into a dark chat UI with stop, clear, export, and settings.
 - Remembers the last loaded model and reloads it on the next launch.
-- Real generation measurements are shown after each response (tokens, time,
-  tokens per second).
+- Adds a model catalog with measured quantities and real generation
+  measurements (tokens, time, tokens per second).
 - Added an Android model guide with quantified recommendations for phones.
 
 ## 1.5.0

@@ -39,6 +39,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -48,6 +49,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -83,7 +85,11 @@ private fun SkiffTheme(content: @Composable () -> Unit) {
 private fun ChatScreen() {
     val context = LocalContext.current
     val controller = remember { EngineController(context.applicationContext) }
+    val downloader = remember { ModelDownloader(context.applicationContext) }
     val messages = remember { mutableStateListOf<ChatMessage>() }
+    val localModels = remember { mutableStateListOf<File>() }
+    val downloading = remember { mutableStateMapOf<String, Boolean>() }
+    val downloadProgress = remember { mutableStateMapOf<String, Float>() }
     val systemPrompt = remember { mutableStateOf("You are SkiffLLM, a helpful local assistant.") }
     val loadParams = remember { mutableStateOf(LoadParams()) }
     val sampling = remember { mutableStateOf(SamplingParams()) }
@@ -96,25 +102,42 @@ private fun ChatScreen() {
     var errorText by remember { mutableStateOf<String?>(null) }
     var modelName by remember { mutableStateOf<String?>(null) }
     var showSettings by remember { mutableStateOf(false) }
+    var showModels by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
 
+    fun refreshLocalModels() {
+        val files = controller.listDownloadedModels()
+        localModels.clear()
+        localModels.addAll(files)
+    }
+
+    fun handleModelLoaded(name: String) {
+        modelName = name
+        statusText = "Model ready"
+        errorText = null
+        refreshLocalModels()
+    }
+
+    fun handleModelError(message: String) {
+        statusText = "Model load failed"
+        errorText = message
+    }
+
     DisposableEffect(Unit) {
-        onDispose { controller.release() }
+        onDispose {
+            controller.release()
+            downloader.shutdown()
+        }
     }
 
     LaunchedEffect(Unit) {
+        refreshLocalModels()
         if (controller.hasStoredModel()) {
             statusText = "Loading saved model..."
             controller.loadStoredModel(
                 loadParams.value,
-                onLoaded = { name ->
-                    modelName = name
-                    statusText = "Model ready"
-                },
-                onError = { message ->
-                    statusText = "Model load failed"
-                    errorText = message
-                }
+                onLoaded = { handleModelLoaded(it) },
+                onError = { handleModelError(it) }
             )
         }
     }
@@ -137,17 +160,52 @@ private fun ChatScreen() {
             controller.loadModel(
                 uri,
                 loadParams.value,
-                onLoaded = { name ->
-                    modelName = name
-                    statusText = "Model ready"
-                    errorText = null
-                },
-                onError = { message ->
-                    statusText = "Model load failed"
-                    errorText = message
-                }
+                onLoaded = { handleModelLoaded(it) },
+                onError = { handleModelError(it) }
             )
         }
+    }
+
+    fun startDownload(entry: ModelCatalogEntry) {
+        errorText = null
+        downloading[entry.id] = true
+        downloadProgress[entry.id] = 0f
+        downloader.download(
+            entry,
+            onProgress = { percent, _, _ ->
+                downloadProgress[entry.id] = if (percent >= 0) {
+                    percent / 100f
+                } else {
+                    -1f
+                }
+            },
+            onDone = { file ->
+                downloading.remove(entry.id)
+                downloadProgress[entry.id] = 1f
+                statusText = "Download complete. Loading..."
+                controller.loadModelFile(
+                    file,
+                    loadParams.value,
+                    onLoaded = { handleModelLoaded(it) },
+                    onError = { handleModelError(it) }
+                )
+            },
+            onError = { message ->
+                downloading.remove(entry.id)
+                errorText = message
+            }
+        )
+    }
+
+    fun useModel(file: File) {
+        errorText = null
+        statusText = "Loading model..."
+        controller.loadModelFile(
+            file,
+            loadParams.value,
+            onLoaded = { handleModelLoaded(it) },
+            onError = { handleModelError(it) }
+        )
     }
 
     fun send() {
@@ -287,11 +345,32 @@ private fun ChatScreen() {
             onSampling = { sampling.value = it },
             systemPrompt = systemPrompt.value,
             onSystemPrompt = { systemPrompt.value = it },
-            onPickModel = {
+            onOpenModels = {
                 showSettings = false
-                modelPicker.launch(arrayOf("*/*"))
+                showModels = true
             },
             onDismiss = { showSettings = false }
+        )
+    }
+
+    if (showModels) {
+        ModelsDialog(
+            localModels = localModels.toList(),
+            downloading = downloading.toMap(),
+            downloadProgress = downloadProgress.toMap(),
+            onUse = { file ->
+                showModels = false
+                useModel(file)
+            },
+            onDownload = { entry ->
+                startDownload(entry)
+            },
+            onCancel = { entry -> downloader.cancel(entry.id) },
+            onBrowse = {
+                showModels = false
+                modelPicker.launch(arrayOf("*/*"))
+            },
+            onDismiss = { showModels = false }
         )
     }
 }
@@ -371,7 +450,7 @@ private fun SettingsDialog(
     onSampling: (SamplingParams) -> Unit,
     systemPrompt: String,
     onSystemPrompt: (String) -> Unit,
-    onPickModel: () -> Unit,
+    onOpenModels: () -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -382,8 +461,8 @@ private fun SettingsDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = { onPickModel() }) {
-                Text("Load model")
+            TextButton(onClick = { onOpenModels() }) {
+                Text("Models")
             }
         },
         title = { Text("Settings") },
@@ -450,6 +529,37 @@ private fun SettingsDialog(
                     }
                 )
                 NumberField(
+                    label = "Min-p",
+                    value = sampling.minP.toString(),
+                    decimal = true,
+                    onValue = { value ->
+                        value.toFloatOrNull()?.let { onSampling(sampling.copy(minP = it)) }
+                    }
+                )
+                NumberField(
+                    label = "Typical-p",
+                    value = sampling.typicalP.toString(),
+                    decimal = true,
+                    onValue = { value ->
+                        value.toFloatOrNull()?.let { onSampling(sampling.copy(typicalP = it)) }
+                    }
+                )
+                NumberField(
+                    label = "Repeat penalty",
+                    value = sampling.repeatPenalty.toString(),
+                    decimal = true,
+                    onValue = { value ->
+                        value.toFloatOrNull()?.let { onSampling(sampling.copy(repeatPenalty = it)) }
+                    }
+                )
+                NumberField(
+                    label = "Repeat last N",
+                    value = sampling.repeatLastN.toString(),
+                    onValue = { value ->
+                        value.toIntOrNull()?.let { onSampling(sampling.copy(repeatLastN = it)) }
+                    }
+                )
+                NumberField(
                     label = "Max tokens",
                     value = sampling.maxTokens.toString(),
                     onValue = { value ->
@@ -464,10 +574,157 @@ private fun SettingsDialog(
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "Recommended models: Qwen2.5-0.5B-Instruct-GGUF Q4_K_M, Qwen3-0.6B-Instruct-GGUF Q4_K_M, Llama-3.2-1B-Instruct-GGUF Q4_K_M, Phi-3.5-mini-instruct-GGUF Q4_K_M, SmolLM2-1.7B-Instruct-GGUF Q4_K_M",
+                    "Use Models to download a recommended Q4_K_M GGUF from Hugging Face, or load your own file from the device. Downloads use HTTPS only and no telemetry is sent.",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color(0xFF8A94A6)
                 )
+            }
+        }
+    )
+}
+
+@Composable
+private fun ModelsDialog(
+    localModels: List<File>,
+    downloading: Map<String, Boolean>,
+    downloadProgress: Map<String, Float>,
+    onUse: (File) -> Unit,
+    onDownload: (ModelCatalogEntry) -> Unit,
+    onCancel: (ModelCatalogEntry) -> Unit,
+    onBrowse: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = { onDismiss() },
+        confirmButton = {
+            TextButton(onClick = { onDismiss() }) {
+                Text("Done")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { onBrowse() }) {
+                Text("Browse device")
+            }
+        },
+        title = { Text("Models") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                if (localModels.isEmpty()) {
+                    Text(
+                        "No models downloaded yet. Pick one below or load a GGUF from your device.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF8A94A6)
+                    )
+                    Spacer(Modifier.height(8.dp))
+                } else {
+                    Text(
+                        "Downloaded on this device",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    localModels.forEach { file ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                file.name,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(vertical = 4.dp)
+                            )
+                            TextButton(onClick = { onUse(file) }) {
+                                Text("Use")
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+
+                Text(
+                    "Recommended on-device models",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.height(4.dp))
+
+                ModelCatalog.models.forEach { entry ->
+                    val isDownloaded = localModels.any { it.name == entry.file }
+                    val isDownloading = downloading[entry.id] == true
+                    val progress = downloadProgress[entry.id] ?: 0f
+
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    entry.name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    "${entry.sizeText} · ${entry.ramNote}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFF8A94A6)
+                                )
+                            }
+                            if (isDownloaded) {
+                                TextButton(onClick = { onUse(localModels.first { it.name == entry.file }) }) {
+                                    Text("Use")
+                                }
+                            } else if (isDownloading) {
+                                TextButton(onClick = { onCancel(entry) }) {
+                                    Text("Cancel")
+                                }
+                            } else {
+                                Button(onClick = { onDownload(entry) }) {
+                                    Text("Download")
+                                }
+                            }
+                        }
+                        if (!isDownloaded && isDownloading) {
+                            if (progress >= 0f) {
+                                LinearProgressIndicator(
+                                    progress = { progress },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Text(
+                                    "${(progress * 100).toInt()}%",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFF8A94A6)
+                                )
+                            } else {
+                                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                                Text(
+                                    "Downloading…",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFF8A94A6)
+                                )
+                            }
+                        }
+                        if (entry.recommended) {
+                            Text(
+                                "Recommended · ${entry.description}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF8A94A6)
+                            )
+                        } else {
+                            Text(
+                                entry.description,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF8A94A6)
+                            )
+                        }
+                        Spacer(Modifier.height(8.dp))
+                    }
+                }
             }
         }
     )

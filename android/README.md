@@ -1,8 +1,9 @@
 # SkiffLLM for Android
 
 A native Android client for SkiffLLM. It embeds llama.cpp through JNI and runs
-a GGUF model entirely on the device. The app has **no INTERNET permission**, so
-it cannot connect to the network at runtime.
+a GGUF model entirely on the device. The app uses `INTERNET` **only** when you
+download a recommended GGUF model from Hugging Face over HTTPS. Inference,
+chat, export, and file loading are fully offline; no telemetry is sent.
 
 ## Requirements
 
@@ -50,15 +51,25 @@ skifflm.llamaSourceDir=/path/to/llama.cpp
 
 ## Load a model
 
+Option A — download a recommended model:
+
+1. Open SkiffLLM.
+2. Tap `Settings` then `Models`.
+3. Pick a quantized model from the catalog and tap `Download`.
+4. The app downloads it over HTTPS, verifies the GGUF header, stores it in
+   internal storage, and loads it automatically.
+
+Option B — load your own `.gguf`:
+
 1. Copy a `.gguf` file to the phone. The simplest path is to put it in
    Downloads.
 2. Open SkiffLLM.
-3. Tap `Settings` then `Load model`.
+3. Tap `Settings`, `Models`, then `Browse device`.
 4. Pick the GGUF file from the file picker.
 5. The app copies it into internal storage and loads it.
 
-The app does not download models. It calculates token counts, generation time,
-and tokens per second from real inference.
+The app calculates token counts, generation time, and tokens per second from
+real inference.
 
 ## Recommended models
 
@@ -67,6 +78,7 @@ RAM they need. Start with a Q4_K_M model in the 0.5B to 1.7B range.
 
 ## Settings
 
+- Model catalog with one-tap Hugging Face downloads and cancel
 - Context size
 - Threads
 - GPU layers
@@ -74,6 +86,10 @@ RAM they need. Start with a Q4_K_M model in the 0.5B to 1.7B range.
 - Temperature
 - Top-p
 - Top-k
+- Min-p
+- Typical-p
+- Repeat penalty
+- Repeat last N
 - Max generated tokens
 - System prompt
 - Stop generation
@@ -84,12 +100,22 @@ RAM they need. Start with a Q4_K_M model in the 0.5B to 1.7B range.
 
 - Inference runs on a background single thread so the interface stays
   responsive.
-- Tokens stream into the conversation as they are produced.
+- Downloads run on a separate thread so chat and local model loading stay
+  usable while a GGUF is downloading.
+- Download progress is shown per model and can be cancelled.
+- Downloaded files are validated with the GGUF header before they become
+  usable.
 - The last successfully loaded model is remembered and reloaded on the next
   launch.
 - Stop signals a cancellation request to the native generator.
 - Conversation export creates a Markdown document and opens the Android share
   sheet. This is offline; it never uploads anything.
+
+## Network privacy
+
+The only Android permission is `INTERNET`, used exclusively for HTTPS downloads
+from Hugging Face. The app does not send prompts, conversation history, model
+names, analytics, or crash reports to any server.
 
 ## Performance honesty
 

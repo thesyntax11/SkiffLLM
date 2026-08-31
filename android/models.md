@@ -30,20 +30,22 @@ for the model plus the context window; it varies by phone and context size.
 - **When using the app without GPU layers**: use 1 GB or less model to avoid
   memory pressure.
 
-## Where to get them
+## Get them
 
-All projects publish GGUF files directly on Hugging Face. There is no built-in
-download client, so store the file on the phone first and load it from the
-Android file picker.
+The Android app can download these models directly from Hugging Face:
+`Settings` → `Models` → `Download`. It uses HTTPS, shows progress, can be
+cancelled, and checks the GGUF header before loading.
 
-- `Qwen/Qwen2.5-0.5B-Instruct-GGUF`
-- `bartowski/Qwen_Qwen3-0.6B-GGUF`
-- `bartowski/Llama-3.2-1B-Instruct-GGUF`
-- `bartowski/Phi-3.5-mini-instruct-GGUF`
-- `bartowski/SmolLM2-1.7B-Instruct-GGUF`
+The exact files used by the in-app catalog are:
 
-Pick the `Q4_K_M.gguf` file in each repository. For a phone with 4 GB or less
-RAM, choose `Q4_K_M` from the 0.5B or 0.6B models above.
+- `Qwen/Qwen2.5-0.5B-Instruct-GGUF` → `qwen2.5-0.5b-instruct-q4_k_m.gguf`
+- `bartowski/Qwen_Qwen3-0.6B-GGUF` → `Qwen_Qwen3-0.6B-Q4_K_M.gguf`
+- `bartowski/Llama-3.2-1B-Instruct-GGUF` → `Llama-3.2-1B-Instruct-Q4_K_M.gguf`
+- `bartowski/Phi-3.5-mini-instruct-GGUF` → `Phi-3.5-mini-instruct-Q4_K_M.gguf`
+- `bartowski/SmolLM2-1.7B-Instruct-GGUF` → `SmolLM2-1.7B-Instruct-Q4_K_M.gguf`
+
+For a phone with 4 GB or less RAM, choose `Q4_K_M` from the 0.5B or 0.6B models
+above. You can also download a GGUF manually and use `Browse device` to load it.
 
 ## Notes
 

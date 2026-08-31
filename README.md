@@ -75,8 +75,10 @@ Documentation: [Setup](docs/SETUP.md) &middot; [Usage](docs/usage.md) &middot; [
 A native Android client is included under [`android/`](android/README.md). It runs
 supported GGUF models entirely on the phone with Jetpack Compose and a llama.cpp
 JNI bridge. Tokens stream into a dark chat UI, and every response shows real
-measured token count, time, and tokens per second. The app has no network
-permission and remembers the last loaded model.
+measured token count, time, and tokens per second. The app remembers the last
+loaded model, and it can download recommended GGUF models directly from Hugging
+Face over HTTPS. The only network use is those downloads; prompts and history
+never leave the device.
 
 See the [Android model guide](android/models.md) for the recommended small,
 quantized models for phones.
