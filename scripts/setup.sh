@@ -3,8 +3,34 @@ set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${PROJECT_DIR}/build"
-SOURCE_DIR="${1:-}"
 BUILD_TYPE="${CMAKE_BUILD_TYPE:-Release}"
+PREFIX=""
+SOURCE_DIR=""
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --prefix)
+            PREFIX="${2:-}"
+            shift 2
+            ;;
+        --source-dir)
+            SOURCE_DIR="${2:-}"
+            shift 2
+            ;;
+        --build-dir)
+            BUILD_DIR="${2:-}"
+            shift 2
+            ;;
+        --build-type)
+            BUILD_TYPE="${2:-}"
+            shift 2
+            ;;
+        *)
+            echo "Usage: scripts/setup.sh [--prefix <path>] [--source-dir <path>] [--build-dir <path>] [--build-type <type>]"
+            exit 2
+            ;;
+    esac
+done
 
 mkdir -p "${BUILD_DIR}"
 cd "${PROJECT_DIR}"
@@ -20,6 +46,10 @@ else
 fi
 
 cmake --build "${BUILD_DIR}" --config "${BUILD_TYPE}" -j
+
+if [[ -n "${PREFIX}" ]]; then
+    cmake --install "${BUILD_DIR}" --prefix "${PREFIX}"
+fi
 
 echo
 echo "SkiffLLM was built successfully."

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.5.0
+
+- Added `docs/SETUP.md`, `docs/ARCHITECTURE.md`, `docs/RELEASING.md`, and
+  `docs/LIMITATIONS.md`.
+- Added `scripts/ci-local.sh` for full local CI without GitHub.
+- Added `scripts/release.sh` for local release archives.
+- Added `scripts/api_client.py` as a dependency-free server client.
+- Extended `scripts/setup.sh` with install and source-dir options.
+- Made the README badges and status honest about local CI and limitations.
+
 ## 1.4.0
 
 - Added a local OpenAI-compatible HTTP server with `--serve`, `/health`,

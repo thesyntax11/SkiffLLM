@@ -25,7 +25,7 @@
 namespace {
 
 #ifndef SKIFFLLM_VERSION
-#define SKIFFLLM_VERSION "1.4.0"
+#define SKIFFLLM_VERSION "1.5.0"
 #endif
 const char* kVersion = SKIFFLLM_VERSION;
 volatile std::sig_atomic_t g_interrupted = 0;

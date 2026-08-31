@@ -6,17 +6,17 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/thesyntax11/SkiffLLM/actions">
-    <img src="https://github.com/thesyntax11/SkiffLLM/actions/workflows/ci.yml/badge.svg" alt="CI status"/>
-  </a>
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License MIT"/>
-  <img src="https://img.shields.io/badge/c++-17-blue.svg" alt="C++17"/>
+  <img src="https://img.shields.io/badge/c%2B%2B-17-blue.svg" alt="C++17"/>
   <img src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey" alt="Platforms"/>
+  <img src="https://img.shields.io/badge/runtime-offline-green" alt="Offline"/>
 </p>
 
 SkiffLLM is a fast, privacy-first terminal assistant that runs large language models
 entirely on your machine. It is built in modern C++17 and uses llama.cpp for inference,
 so it works with any GGUF model, on the CPU or your GPU, with no internet connection.
+
+Documentation: [Setup](docs/SETUP.md) &middot; [Usage](docs/usage.md) &middot; [Architecture](docs/ARCHITECTURE.md) &middot; [Releasing](docs/RELEASING.md) &middot; [Limitations](docs/LIMITATIONS.md)
 
 ## Why SkiffLLM
 
@@ -57,7 +57,7 @@ so it works with any GGUF model, on the CPU or your GPU, with no internet connec
 | Tokenizer inspection | `--tokenize` and `/tokenize` |
 | Smoke test | `--smoke` for a quick end-to-end generation check |
 | Shell completions | bash, zsh, and fish completion files |
-| CI | GitHub Actions matrix and tests |
+| Local checks | `scripts/ci-local.sh` runs build, tests, and entry points |
 
 ## Requirements
 
@@ -303,6 +303,12 @@ curl http://127.0.0.1:8080/v1/chat/completions \
   }'
 ```
 
+A small dependency-free Python client is included:
+
+```bash
+python3 scripts/api_client.py http://127.0.0.1:8080 "Say hello."
+```
+
 The server binds to `127.0.0.1` by default. It has no auth and no remote
 exposure; if you bind to `0.0.0.0`, you are responsible for the network
 security of that interface. It is intentionally simple and handles one
@@ -511,10 +517,12 @@ cp scripts/completions/skifflm.fish ~/.config/fish/completions/
 
 ```bash
 ctest --test-dir build --output-on-failure
+scripts/ci-local.sh
 ```
 
 The suite covers configuration parsing, argument parsing, profiles, session
-round-tripping, and the command-line entry points.
+round-tripping, and the command-line entry points. `scripts/ci-local.sh`
+runs the full local CI path without GitHub.
 
 ## Performance
 
@@ -565,6 +573,12 @@ scripts/                      Build helper, benchmark helper and shell completio
 - Model download/quantization helper
 - Token-level sampling diagnostics
 - Concurrent request handling for the local server
+
+## Known Limitations
+
+SkiffLLM does not bundle models, the local server is single-request and has no
+auth, and retrieval-augmented generation is not implemented yet. See
+[Known Limitations](docs/LIMITATIONS.md) for an honest list.
 
 ## Contributing
 

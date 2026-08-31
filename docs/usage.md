@@ -137,6 +137,12 @@ POST /v1/chat/completions
 The server is offline, binds to localhost by default, and handles one request
 at a time. It supports OpenAI-style streaming with `"stream": true`.
 
+A quick client is included:
+
+```bash
+python3 scripts/api_client.py http://127.0.0.1:8080 "Say hello."
+```
+
 ## Benchmark
 
 ```bash

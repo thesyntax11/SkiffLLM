@@ -18,6 +18,9 @@ compile_commands.json
 .vscode/
 models/
 third_party/
+staged/
+skifflm-*.tar.gz
+skifflm-*.zip
 *.gguf
 *.bin
 *.skif
