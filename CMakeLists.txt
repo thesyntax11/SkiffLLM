@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(SkiffLLM VERSION 1.1.0 LANGUAGES C CXX)
+project(SkiffLLM VERSION 1.2.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -97,6 +97,7 @@ if(SKIFFLLM_BUILD_TESTS)
     add_test(NAME version COMMAND skifflm --version)
     add_test(NAME config COMMAND skifflm --show-config)
     add_test(NAME list_models COMMAND skifflm --list-models)
+    add_test(NAME doctor COMMAND skifflm --doctor)
 endif()
 
 install(TARGETS skifflm RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

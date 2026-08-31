@@ -45,6 +45,11 @@ so it works with any GGUF model, on the CPU or your GPU, with no internet connec
 | Config file | key/value configuration with CLI override priority |
 | Environment vars | `SKIFFLLM_*` variables for reproducible workflows |
 | GPU offload | offload layers to CUDA, Metal, ROCm, SYCL, Vulkan |
+| Flash attention | opt-in `--flash-attn` with KV offload control |
+| NUMA support | `--numa` for multi-socket systems |
+| Diagnostics | `--doctor` system report and `--model-info` metadata |
+| Tokenizer inspection | `--tokenize` and `/tokenize` |
+| Smoke test | `--smoke` for a quick end-to-end generation check |
 | Shell completions | bash, zsh, and fish completion files |
 | CI | GitHub Actions matrix and tests |
 
@@ -131,6 +136,11 @@ Inference options:
   --mmap                     Enable mmap (default)
   --no-mmap                  Disable mmap
   --mlock                    Lock model memory
+  --flash-attn               Enable flash attention
+  --no-flash-attn            Disable flash attention
+  --numa                     Initialize NUMA optimization
+  --kv-offload               Offload KV cache to device (default)
+  --no-kv-offload            Keep KV cache on CPU
 
 Sampling options:
   --temp <t>                 Sampling temperature (default: 0.70)
@@ -150,6 +160,7 @@ Session options:
   --auto-trim                Trim old history when context is full (default)
   --no-auto-trim             Fail instead of trimming
   --reserve-ctx <n>          Reserve tokens for generation
+  --n-keep <n>               Keep at least n turns during trimming
 
 Program options:
   --prompt <text>            Single prompt mode
@@ -157,6 +168,10 @@ Program options:
   --stdin                    Read the single prompt from stdin
   --json                     Machine-readable JSON output
   --output <path>            Write the text answer to a file
+  --model-info               Print model metadata and exit
+  --smoke                    Run a quick generation smoke test
+  --tokenize <text>          Tokenize text and print token counts
+  --doctor                   Print system diagnostics
   --non-interactive          Disable the interactive shell
   --color                    Force ANSI colors (default: auto)
   --no-color                 Disable ANSI colors
@@ -167,7 +182,7 @@ Program options:
   --help                     Show this help
   --version                  Show the version
 
-Interactive commands: /help /info /history /clear /reset /system /model /temp /top-p /top-k /n /save /exit
+Interactive commands: /help /info /history /settings /tokenize /clear /reset /system /model /profile /stop /temp /top-p /top-k /min-p /typical /n /ctx /save /exit
 ```
 
 ## Interactive Commands
@@ -176,14 +191,21 @@ Interactive commands: /help /info /history /clear /reset /system /model /temp /t
 /help                 Show the command list
 /info                 Show model and session information
 /history              Show the current conversation
+/settings             Show the current sampling settings
+/tokenize <text>      Show the token count for the text
 /clear                Clear the conversation history
 /reset                Clear history and restore the default system prompt
 /system <text>        Set or show the system prompt
 /model <path>         Reload the model from a GGUF file
+/profile <name>       Use balanced, fast, creative, code or precise
+/stop <text>          Add a stop sequence; /stop shows current stops
 /temp <value>         Change sampling temperature
 /top-p <value>        Change nucleus sampling threshold
 /top-k <value>        Change top-k sampling value
+/min-p <value>        Change minimum probability filter
+/typical <value>      Change locally typical sampling value
 /n <value>            Change maximum generated tokens
+/ctx <value>          Change the context size
 /save                 Save the session history now
 /exit or /quit        Exit SkiffLLM
 ```

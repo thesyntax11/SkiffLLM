@@ -560,6 +560,59 @@ bool apply_key_value(Config& cfg,
     } else if (key == "prompt") {
         cfg.one_shot = value;
         cfg.interactive = false;
+    } else if (key == "flash-attn") {
+        if (!set_flag(cfg.flash_attn, true, false, value, key)) {
+            return false;
+        }
+    } else if (key == "no-flash-attn") {
+        if (!set_flag(cfg.flash_attn, true, true, value, key)) {
+            return false;
+        }
+    } else if (key == "numa") {
+        if (!set_flag(cfg.numa, true, false, value, key)) {
+            return false;
+        }
+    } else if (key == "kv-offload") {
+        if (!set_flag(cfg.offload_kqv, true, false, value, key)) {
+            return false;
+        }
+    } else if (key == "no-kv-offload") {
+        if (!set_flag(cfg.offload_kqv, true, true, value, key)) {
+            return false;
+        }
+    } else if (key == "n-keep") {
+        if (!parse_int_value(value, cfg.n_keep)) {
+            error = "invalid integer for --n-keep: " + value;
+            return false;
+        }
+        if (cfg.n_keep < 0) {
+            error = "n-keep must be zero or positive";
+            return false;
+        }
+    } else if (key == "doctor") {
+        if (!set_flag(cfg.doctor, true, false, value, key)) {
+            return false;
+        }
+    } else if (key == "model-info") {
+        if (!set_flag(cfg.model_info, true, false, value, key)) {
+            return false;
+        }
+        if (cfg.model_info) {
+            cfg.interactive = false;
+        }
+    } else if (key == "smoke") {
+        if (!set_flag(cfg.smoke, true, false, value, key)) {
+            return false;
+        }
+        if (cfg.smoke) {
+            cfg.interactive = false;
+            if (cfg.one_shot.empty() && cfg.prompt_file.empty() && !cfg.read_stdin) {
+                cfg.one_shot = "Reply with OK.";
+            }
+        }
+    } else if (key == "tokenize") {
+        cfg.tokenize_text = value;
+        cfg.interactive = false;
     } else if (key == "reset-history") {
         if (!set_flag(cfg.reset_history, true, false, value, key)) {
             return false;
@@ -665,7 +718,10 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
             key == "verbose" || key == "quiet" || key == "info" ||
             key == "no-info" || key == "no-banner" || key == "stdin" ||
             key == "reset-history" || key == "debug" || key == "auto-trim" ||
-            key == "no-auto-trim" || key == "json" || key == "list-models") {
+            key == "no-auto-trim" || key == "json" || key == "list-models" ||
+            key == "flash-attn" || key == "no-flash-attn" || key == "numa" ||
+            key == "kv-offload" || key == "no-kv-offload" ||
+            key == "doctor" || key == "model-info" || key == "smoke") {
             if (has_value) {
                 error = "option --" + key + " does not take a value";
                 return false;
@@ -679,7 +735,8 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
         if (key == "model" || key == "model-dir" || key == "config" ||
             key == "history" || key == "system" || key == "system-prompt" ||
             key == "session" || key == "profile" || key == "stop" ||
-            key == "output" || key == "prompt" || key == "prompt-file") {
+            key == "output" || key == "prompt" || key == "prompt-file" ||
+            key == "tokenize") {
             const std::string value = option_value(i, argc, argv, "--" + key, error);
             if (!error.empty()) {
                 return false;
@@ -693,7 +750,7 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
         if (key == "ctx" || key == "context" || key == "batch" || key == "ubatch" ||
             key == "reserve-ctx" || key == "threads" || key == "gpu-layers" ||
             key == "top-k" || key == "repeat-last-n" || key == "n" ||
-            key == "n-predict" || key == "seed") {
+            key == "n-predict" || key == "seed" || key == "n-keep") {
             const std::string value = option_value(i, argc, argv, "--" + key, error);
             if (!error.empty()) {
                 return false;
@@ -752,6 +809,10 @@ std::string usage(const std::string& program) {
     out << "  --model <path>             Path to a GGUF model file\n";
     out << "  --model-dir <path>         Directory scanned for a GGUF model\n";
     out << "  --list-models              Print discovered GGUF models\n";
+    out << "  --model-info              Print model metadata and exit\n";
+    out << "  --smoke                   Run a quick generation smoke test\n";
+    out << "  --doctor                  Print system diagnostics\n";
+    out << "  --tokenize <text>         Tokenize text and print token counts\n";
     out << "  --profile <name>           balanced, fast, creative, code or precise\n";
     out << "  --session <name>           Use a named conversation\n";
     out << "  --system <text>            System prompt\n";
@@ -764,7 +825,13 @@ std::string usage(const std::string& program) {
     out << "  --gpu-layers <n>           GPU layers to offload (-1 means all)\n";
     out << "  --mmap                     Enable mmap (default)\n";
     out << "  --no-mmap                  Disable mmap\n";
-    out << "  --mlock                    Lock model memory\n\n";
+    out << "  --mlock                    Lock model memory\n";
+    out << "  --flash-attn              Enable flash attention\n";
+    out << "  --no-flash-attn           Disable flash attention\n";
+    out << "  --numa                    Initialize NUMA optimization\n";
+    out << "  --kv-offload              Offload KV cache to device (default)\n";
+    out << "  --no-kv-offload           Keep KV cache on CPU\n\n";
+
     out << "Sampling options:\n";
     out << "  --temp <t>                 Sampling temperature (default: 0.70)\n";
     out << "  --top-p <p>                Nucleus sampling (default: 0.95)\n";
@@ -781,7 +848,9 @@ std::string usage(const std::string& program) {
     out << "  --no-save                  Do not persist the session\n";
     out << "  --auto-trim                Trim old history when context is full (default)\n";
     out << "  --no-auto-trim             Fail instead of trimming\n";
-    out << "  --reserve-ctx <n>          Reserve tokens for generation\n\n";
+    out << "  --reserve-ctx <n>          Reserve tokens for generation\n";
+    out << "  --n-keep <n>              Keep at least n turns during trimming\n\n";
+
     out << "Program options:\n";
     out << "  --prompt <text>            Single prompt mode\n";
     out << "  --prompt-file <path>       Read the single prompt from a file\n";
@@ -827,11 +896,16 @@ void print_config(const Config& cfg) {
     std::cout << "seed             " << (cfg.seed == 0xFFFFFFFFu ? "random" : std::to_string(cfg.seed)) << "\n";
     std::cout << "use_mmap         " << (cfg.use_mmap ? "yes" : "no") << "\n";
     std::cout << "use_mlock        " << (cfg.use_mlock ? "yes" : "no") << "\n";
+    std::cout << "flash_attn       " << (cfg.flash_attn ? "yes" : "no") << "\n";
+    std::cout << "numa             " << (cfg.numa ? "yes" : "no") << "\n";
+    std::cout << "kv_offload       " << (cfg.offload_kqv ? "yes" : "no") << "\n";
+    std::cout << "n_keep           " << cfg.n_keep << "\n";
     std::cout << "color            " << (cfg.color ? "yes" : "no") << "\n";
     std::cout << "interactive      " << (cfg.interactive ? "yes" : "no") << "\n";
     std::cout << "save_history     " << (cfg.save_history ? "yes" : "no") << "\n";
     std::cout << "auto_trim        " << (cfg.auto_trim ? "yes" : "no") << "\n";
     std::cout << "json_output      " << (cfg.json_output ? "yes" : "no") << "\n";
+    std::cout << "smoke            " << (cfg.smoke ? "yes" : "no") << "\n";
     std::cout << "debug            " << (cfg.debug ? "yes" : "no") << "\n";
     std::cout << "stop_sequences   ";
     if (cfg.stop_sequences.empty()) {

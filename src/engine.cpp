@@ -54,6 +54,14 @@ bool LlmEngine::load(std::string& error) {
         model_params.load_mode = LLAMA_LOAD_MODE_NONE;
     }
 
+    if (config_.numa) {
+        static bool numa_initialized = false;
+        if (!numa_initialized) {
+            llama_numa_init(GGML_NUMA_STRATEGY_DISTRIBUTE);
+            numa_initialized = true;
+        }
+    }
+
     model_ = llama_model_load_from_file(config_.model_path.c_str(), model_params);
     if (model_ == nullptr) {
         error = "failed to load model from " + config_.model_path.string();
@@ -80,10 +88,10 @@ bool LlmEngine::load(std::string& error) {
     context_params.n_threads_batch = threads;
     context_params.embeddings = false;
     context_params.no_perf = true;
-
-    if (config_.n_gpu_layers != 0) {
-        context_params.offload_kqv = true;
-    }
+    context_params.flash_attn_type = config_.flash_attn
+                                         ? LLAMA_FLASH_ATTN_TYPE_ENABLED
+                                         : LLAMA_FLASH_ATTN_TYPE_DISABLED;
+    context_params.offload_kqv = config_.offload_kqv;
 
     ctx_ = llama_init_from_model(model_, context_params);
     if (ctx_ == nullptr) {
@@ -136,6 +144,21 @@ void LlmEngine::close() {
 
 const ModelInfo& LlmEngine::info() const {
     return info_;
+}
+
+bool LlmEngine::tokenize(const std::string& text,
+                         std::vector<int32_t>& tokens,
+                         std::string& error) const {
+    const std::vector<llama_token> encoded = encode(text, error);
+    if (encoded.empty()) {
+        return false;
+    }
+    tokens.clear();
+    tokens.reserve(encoded.size());
+    for (const llama_token token : encoded) {
+        tokens.push_back(static_cast<int32_t>(token));
+    }
+    return true;
 }
 
 std::vector<llama_token> LlmEngine::encode(const std::string& text,
@@ -370,10 +393,10 @@ bool LlmEngine::generate(const std::vector<ChatMessage>& messages,
             error = "prompt exceeds the context window; increase --ctx, raise --reserve-ctx or shorten the conversation";
             return false;
         }
-        while (prompt_tokens.size() > max_tokens && active_messages.size() > 1) {
-            if (active_messages.size() <= 2) {
-                break;
-            }
+        const size_t minimum_messages = options.n_keep > 0
+                                            ? static_cast<size_t>(options.n_keep * 2 + (active_messages.front().role == "system" ? 1 : 0))
+                                            : 2;
+        while (prompt_tokens.size() > max_tokens && active_messages.size() > minimum_messages) {
             const size_t remove_index = active_messages[0].role == "system" ? 1 : 0;
             active_messages.erase(active_messages.begin() + static_cast<std::ptrdiff_t>(remove_index));
             if (!encode_active()) {

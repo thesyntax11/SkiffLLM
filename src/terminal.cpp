@@ -257,6 +257,8 @@ void Terminal::print_help() const {
     write("  /reset                Clear history and restore the default system prompt\n");
     write("  /system <text>        Set or show the system prompt\n");
     write("  /model <path>         Reload the model from a GGUF file\n");
+    write("  /settings             Show the current sampling settings\n");
+    write("  /tokenize <text>      Show the token count for the text\n");
     write("  /profile <name>       Use balanced, fast, creative, code or precise\n");
     write("  /stop <text>          Add a stop sequence; /stop shows current stops\n");
     write("  /temp <value>         Change sampling temperature\n");

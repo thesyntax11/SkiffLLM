@@ -200,6 +200,36 @@ void test_formatting() {
     check(skifflm::to_human_count(1500u) == "1.50 K", "count should format");
 }
 
+void test_advanced_flags() {
+    skifflm::Config cfg = skifflm::default_config();
+    std::vector<std::string> storage = {
+        "skifflm",
+        "--flash-attn",
+        "--numa",
+        "--no-kv-offload",
+        "--n-keep",
+        "3",
+        "--doctor",
+        "--model-info",
+        "--smoke",
+        "--tokenize",
+        "hello world",
+    };
+    auto args = args_from(storage);
+    std::string error;
+    bool ok = skifflm::parse_args(static_cast<int>(args.size()), args.data(), cfg, error);
+    check(ok, "advanced flags should parse");
+    check(cfg.flash_attn, "flash_attn should be enabled");
+    check(cfg.numa, "numa should be enabled");
+    check(!cfg.offload_kqv, "kv offload should be disabled");
+    check(cfg.n_keep == 3, "n_keep should be 3");
+    check(cfg.doctor, "doctor should be enabled");
+    check(cfg.model_info, "model_info should be enabled");
+    check(cfg.smoke, "smoke should be enabled");
+    check(cfg.tokenize_text == "hello world", "tokenize text should be stored");
+    check(!cfg.interactive, "model_info should disable interactive mode");
+}
+
 void test_session_resolution() {
     skifflm::Config cfg = skifflm::default_config();
     std::vector<std::string> storage = {"skifflm", "--session", "writing"};
@@ -222,5 +252,6 @@ int main() {
     test_session_roundtrip();
     test_formatting();
     test_session_resolution();
+    test_advanced_flags();
     return 0;
 }

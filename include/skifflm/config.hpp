@@ -38,6 +38,11 @@ struct Config {
 
     bool use_mmap = true;
     bool use_mlock = false;
+    bool flash_attn = false;
+    bool numa = false;
+    bool offload_kqv = true;
+    int n_keep = 0;
+
     bool color = true;
     bool log_llama = false;
     bool save_history = true;
@@ -50,9 +55,13 @@ struct Config {
     bool show_version = false;
     bool show_config = false;
     bool list_models = false;
+    bool model_info = false;
+    bool doctor = false;
+    bool smoke = false;
     bool json_output = false;
     bool read_stdin = false;
     std::string one_shot;
+    std::string tokenize_text;
 };
 
 Config default_config();

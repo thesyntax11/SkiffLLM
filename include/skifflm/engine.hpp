@@ -34,6 +34,7 @@ struct GenerationOptions {
     uint32_t seed = 0xFFFFFFFFu;
     bool auto_trim = true;
     int reserve_ctx = 0;
+    int n_keep = 0;
     std::vector<std::string> stop_sequences;
     std::function<void(const std::string&)> token_callback;
 };
@@ -60,6 +61,9 @@ public:
     void close();
 
     const ModelInfo& info() const;
+    bool tokenize(const std::string& text,
+                  std::vector<int32_t>& tokens,
+                  std::string& error) const;
     bool generate(const std::vector<ChatMessage>& messages,
                   const GenerationOptions& options,
                   GenerationResult& result,

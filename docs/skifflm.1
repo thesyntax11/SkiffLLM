@@ -1,4 +1,4 @@
-.TH SKIFFLLM 1 "2026-08-31" "SkiffLLM 1.1.0" "User Commands"
+.TH SKIFFLLM 1 "2026-08-31" "SkiffLLM 1.2.0" "User Commands"
 .SH NAME
 skifflm \- offline-first local LLM terminal assistant built on llama.cpp
 .SH SYNOPSIS
@@ -52,6 +52,15 @@ Enable or disable mmap.
 \fB\-\-mlock\fR
 Lock model memory into RAM.
 .TP
+\fB\-\-flash-attn / \-\-no-flash-attn\fR
+Enable or disable flash attention.
+.TP
+\fB\-\-numa\fR
+Initialize NUMA optimization.
+.TP
+\fB\-\-kv-offload / \-\-no-kv-offload\fR
+Control KV cache offloading.
+.TP
 \fB\-\-temp <t>\fR
 Sampling temperature.
 .TP
@@ -93,6 +102,18 @@ Emit machine-readable JSON output.
 .TP
 \fB\-\-output <path>\fR
 Write the answer to a file.
+.TP
+\fB\-\-model-info\fR
+Print model metadata and exit.
+.TP
+\fB\-\-smoke\fR
+Run a quick generation smoke test.
+.TP
+\fB\-\-tokenize <text>\fR
+Tokenize text and print token counts.
+.TP
+\fB\-\-doctor\fR
+Print system diagnostics.
 .TP
 \fB\-\-config <path>\fR
 Use the given config file.

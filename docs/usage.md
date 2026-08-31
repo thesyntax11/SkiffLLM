@@ -75,6 +75,15 @@ skifflm --config ~/.config/skifflm/config
 
 The default location is used automatically when present.
 
+## Diagnostics
+
+```bash
+skifflm --doctor
+skifflm --model model.gguf --model-info
+skifflm --model model.gguf --smoke
+skifflm --model model.gguf --tokenize "hello world"
+```
+
 ## GPU Offload
 
 On a CUDA machine:

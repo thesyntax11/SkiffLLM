@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.0
+
+- Added flash attention, NUMA, and KV offload controls.
+- Added `--n-keep` to control trimming behavior.
+- Added `--doctor` system diagnostics.
+- Added `--model-info` metadata inspection.
+- Added `--tokenize` and `/tokenize`.
+- Added `--smoke` end-to-end generation test.
+- Added `/settings` interactive command.
+- Filled in JSON output for error paths.
+- Expanded tests and CI entry points.
+
 ## 1.1.0
 
 - Added named sessions with `--session`.
