@@ -83,6 +83,9 @@ class ModelDownloader(private val appContext: Context) {
                 if (cancelled.contains(entry.id)) {
                     throw IOException("Download cancelled")
                 }
+                if (total > 0L && downloaded < total) {
+                    throw IOException("Download incomplete")
+                }
                 if (!temp.isGgufFile()) {
                     throw IOException("Downloaded file is not a valid GGUF model")
                 }
