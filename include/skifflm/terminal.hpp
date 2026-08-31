@@ -29,6 +29,7 @@ public:
     bool color_enabled() const;
     void use_color(bool enabled);
     bool live_output() const;
+    int terminal_width() const;
 
     std::string paint(const std::string& text, Color color) const;
     void write(const std::string& text, Color color = Color::Reset) const;

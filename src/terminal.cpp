@@ -2,13 +2,16 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
 #include <iostream>
 
 #ifdef _WIN32
+#include <windows.h>
 #include <io.h>
 #include <fcntl.h>
 #else
+#include <sys/ioctl.h>
 #include <unistd.h>
 #endif
 
@@ -133,6 +136,24 @@ bool Terminal::color_enabled() const {
 
 bool Terminal::live_output() const {
     return is_terminal(stdout);
+}
+
+int Terminal::terminal_width() const {
+#ifdef _WIN32
+    HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
+    CONSOLE_SCREEN_BUFFER_INFO info;
+    if (handle != INVALID_HANDLE_VALUE && GetConsoleScreenBufferInfo(handle, &info)) {
+        const int width = static_cast<int>(info.srWindow.Right - info.srWindow.Left + 1);
+        return width > 0 ? width : 0;
+    }
+#else
+    struct winsize size;
+    std::memset(&size, 0, sizeof(size));
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &size) == 0 && size.ws_col > 0) {
+        return static_cast<int>(size.ws_col);
+    }
+#endif
+    return 0;
 }
 
 void Terminal::use_color(bool enabled) {

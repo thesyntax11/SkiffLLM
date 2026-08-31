@@ -385,13 +385,13 @@ bool LlmEngine::generate(const std::vector<ChatMessage>& messages,
     }
 
     const uint32_t context_size = llama_n_ctx(ctx_);
-    uint32_t max_tokens = context_size;
+    uint32_t max_prompt_tokens = context_size;
     if (options.reserve_ctx > 0) {
         const uint32_t reserve = static_cast<uint32_t>(options.reserve_ctx);
-        max_tokens = context_size > reserve ? context_size - reserve : 1;
+        max_prompt_tokens = context_size > reserve ? context_size - reserve : 1;
     }
 
-    if (prompt_tokens.size() > max_tokens) {
+    if (prompt_tokens.size() > max_prompt_tokens) {
         if (!options.auto_trim || active_messages.size() <= 1) {
             error = "prompt exceeds the context window; increase --ctx, raise --reserve-ctx or shorten the conversation";
             return false;
@@ -399,24 +399,25 @@ bool LlmEngine::generate(const std::vector<ChatMessage>& messages,
         const size_t minimum_messages = options.n_keep > 0
                                             ? static_cast<size_t>(options.n_keep * 2 + (active_messages.front().role == "system" ? 1 : 0))
                                             : 2;
-        while (prompt_tokens.size() > max_tokens && active_messages.size() > minimum_messages) {
+        while (prompt_tokens.size() > max_prompt_tokens && active_messages.size() > minimum_messages) {
             const size_t remove_index = active_messages[0].role == "system" ? 1 : 0;
             active_messages.erase(active_messages.begin() + static_cast<std::ptrdiff_t>(remove_index));
             if (!encode_active()) {
                 return false;
             }
         }
-        if (prompt_tokens.size() > max_tokens) {
+        if (prompt_tokens.size() > max_prompt_tokens) {
             error = "prompt still exceeds the context window after trimming; increase --ctx or shorten the conversation";
             return false;
         }
     }
 
-    const uint32_t generation_capacity = max_tokens - static_cast<uint32_t>(prompt_tokens.size());
+    const uint32_t generation_capacity =
+        context_size - static_cast<uint32_t>(prompt_tokens.size());
     const int generation_target = std::min(options.n_predict,
                                            static_cast<int>(generation_capacity));
     if (generation_target < 1) {
-        error = "no room for generation; increase --ctx or raise --reserve-ctx";
+        error = "no room for generation; increase --ctx or shorten the conversation";
         return false;
     }
 

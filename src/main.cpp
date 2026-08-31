@@ -155,6 +155,23 @@ std::string expand_at_paths(const std::string& text, std::string& error) {
     return output.str();
 }
 
+std::string compact_preview(const std::string& text, std::size_t limit = 200) {
+    std::string result;
+    result.reserve(std::min(text.size(), limit + 1));
+    for (const char ch : text) {
+        if (ch == '\n' || ch == '\r' || ch == '\t') {
+            result.push_back(' ');
+        } else {
+            result.push_back(ch);
+        }
+        if (result.size() >= limit) {
+            result += "...";
+            break;
+        }
+    }
+    return result;
+}
+
 std::string export_markdown(const std::vector<skifflm::ChatMessage>& messages) {
     std::ostringstream output;
     output << "# SkiffLLM Conversation\n\n";
@@ -500,6 +517,7 @@ public:
         buffer_.clear();
         tokens_ = 0;
         live_ = enabled_;
+        width_ = terminal_.terminal_width();
     }
 
     void write(const std::string& part) {
@@ -513,9 +531,23 @@ public:
             terminal_.write_raw_line(buffer_);
             buffer_.clear();
             live_ = false;
-        } else {
-            terminal_.write_live(buffer_, tokens_);
+            return;
         }
+        if (width_ > 0 && buffer_.size() + 8 >= static_cast<size_t>(width_)) {
+            terminal_.finish_live();
+            terminal_.write_raw(buffer_);
+            buffer_.clear();
+            live_ = false;
+            return;
+        }
+        if (buffer_.size() > 120) {
+            terminal_.finish_live();
+            terminal_.write_raw(buffer_);
+            buffer_.clear();
+            live_ = false;
+            return;
+        }
+        terminal_.write_live(buffer_, tokens_);
     }
 
     void finish() {
@@ -530,6 +562,7 @@ private:
     const skifflm::Terminal& terminal_;
     bool enabled_;
     bool live_ = false;
+    int width_ = 0;
     std::string buffer_;
     std::size_t tokens_ = 0;
 };
@@ -1178,7 +1211,7 @@ int run_one_shot(skifflm::Config& cfg,
         current.token_callback = [&streamer](const std::string& part) {
             streamer.write(part);
         };
-        terminal.write("User: " + prompt_text + "\n", skifflm::Color::Cyan);
+        terminal.write("User: " + compact_preview(prompt_text) + "\n", skifflm::Color::Cyan);
     }
 
     skifflm::GenerationResult result;

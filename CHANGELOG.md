@@ -9,6 +9,13 @@
 - Added `scripts/api_client.py` as a dependency-free server client.
 - Extended `scripts/setup.sh` with install and source-dir options.
 - Made the README badges and status honest about local CI and limitations.
+- Fixed the context budget so `--reserve-ctx` actually reserves generation
+  space and the model never overruns the window mid-generation.
+- Made interactive streaming fall back to plain output when a line would wrap,
+  so live counters no longer corrupt narrow terminals or long paragraphs.
+- Stopped echoing entire attached files in one-shot mode; the terminal now
+  shows a concise prompt preview.
+- Made the local server read headers in bulk instead of one byte at a time.
 
 ## 1.4.0
 

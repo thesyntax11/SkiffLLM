@@ -215,9 +215,9 @@ bool read_http_request(skifflm_socket_t socket_fd,
                        HttpRequest& request,
                        std::string& error) {
     std::string data;
-    char ch = 0;
+    char buffer[4096] = {0};
     while (data.size() < 65536) {
-        const int received = recv(socket_fd, &ch, 1, 0);
+        const int received = recv(socket_fd, buffer, sizeof(buffer), 0);
         if (received == 0) {
             error = "client closed before completing the request";
             return false;
@@ -236,8 +236,8 @@ bool read_http_request(skifflm_socket_t socket_fd,
             error = "request read failed: " + socket_error();
             return false;
         }
-        data.push_back(ch);
-        if (data.size() >= 4 && data.compare(data.size() - 4, 4, "\r\n\r\n") == 0) {
+        data.append(buffer, static_cast<size_t>(received));
+        if (data.find("\r\n\r\n") != std::string::npos) {
             break;
         }
     }
@@ -898,9 +898,7 @@ void handle_chat_completions(skifflm_socket_t socket_fd,
         finish_event << "\"object\":\"chat.completion.chunk\",";
         finish_event << "\"created\":" << created << ",";
         finish_event << "\"model\":" << json_escape(model) << ",";
-        finish_event << "\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":";
-        finish_event << (result.stopped ? "\"stop\"" : "\"stop\"");
-        finish_event << "}]}\n\n";
+        finish_event << "\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n";
         finish_event << "data: [DONE]\n\n";
         send_all(socket_fd, finish_event.str(), send_error);
         return;
