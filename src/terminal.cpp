@@ -353,6 +353,7 @@ void Terminal::print_help() const {
     write("Commands:\n", Color::Cyan);
     write("  /help                 Show this help\n");
     write("  /info                 Show model and session information\n");
+    write("  /warmup               Run a short warm-up pass\n");
     write("  /history              Show the current conversation\n");
     write("  /export <path>        Export the conversation as Markdown\n");
     write("  /clear                Clear the conversation history\n");

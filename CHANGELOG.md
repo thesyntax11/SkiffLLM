@@ -8,6 +8,7 @@
   HTTPS. The runtime itself still never downloads or registers models.
 - Moved model warmup into the engine so the desktop `--warmup` path and the
   Android app share one optimized warm-up pass.
+- Added `/warmup` to re-run the warm-up pass in the interactive shell.
 
 ### Android 1.6.0
 

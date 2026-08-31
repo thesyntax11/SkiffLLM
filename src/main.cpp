@@ -669,6 +669,10 @@ int run_interactive(skifflm::Config& cfg,
                 print_session_info(*engine, session, terminal, cfg);
                 continue;
             }
+            if (command == "/warmup") {
+                warmup_model(*engine, terminal);
+                continue;
+            }
             if (command == "/history") {
                 terminal.print_history(session.conversation());
                 continue;

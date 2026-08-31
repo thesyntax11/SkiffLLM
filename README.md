@@ -239,7 +239,7 @@ Program options:
   --help                     Show this help
   --version                  Show the version
 
-Interactive commands: /help /info /history /settings /tokenize /file /clear-attach /clear /reset /system /model /profile /stop /temp /top-p /top-k /min-p /typical /n /ctx /export /save /exit
+Interactive commands: /help /info /warmup /history /settings /tokenize /file /clear-attach /clear /reset /system /model /profile /stop /temp /top-p /top-k /min-p /typical /n /ctx /export /save /exit
 ```
 
 ## Interactive Commands
@@ -247,6 +247,7 @@ Interactive commands: /help /info /history /settings /tokenize /file /clear-atta
 ```text
 /help                 Show the command list
 /info                 Show model and session information
+/warmup               Run a short warm-up pass
 /history              Show the current conversation
 /export <path>        Export the conversation as Markdown
 /settings             Show the current sampling settings
