@@ -176,6 +176,7 @@ Program options:
   --color                    Force ANSI colors (default: auto)
   --no-color                 Disable ANSI colors
   --no-banner                Hide the startup banner
+  --quiet                    Suppress banners and llama logs
   --verbose                  Print llama.cpp logs
   --config <path>            Config file path
   --show-config              Print the effective configuration

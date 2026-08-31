@@ -522,6 +522,7 @@ bool apply_key_value(Config& cfg,
         if (!set_flag(cfg.log_llama, true, true, value, key)) {
             return false;
         }
+        cfg.show_info = false;
     } else if (key == "info") {
         if (!set_flag(cfg.show_info, true, false, value, key)) {
             return false;
@@ -861,6 +862,7 @@ std::string usage(const std::string& program) {
     out << "  --color                    Force ANSI colors (default: auto)\n";
     out << "  --no-color                 Disable ANSI colors\n";
     out << "  --no-banner                Hide the startup banner\n";
+    out << "  --quiet                    Suppress banners and llama logs\n";
     out << "  --verbose                  Print llama.cpp logs\n";
     out << "  --config <path>            Config file path\n";
     out << "  --show-config              Print the effective configuration\n";
