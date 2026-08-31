@@ -1,8 +1,9 @@
 # Model recommendations for Android
 
-These are the models to use for a smooth on-device chat experience. Every
-entry is a GGUF build from the upstream `ggml-org` or official `lmstudio-community`
-repositories; use the `Q4_K_M` quant unless a device has spare RAM.
+These are the models to use for a smooth on-device chat experience. The list
+uses published GGUF builds: `Qwen` publishes its own quantizations, while the
+other rows are `bartowski` quantizations of the original models. Use the
+`Q4_K_M` quant unless a device has spare RAM.
 
 | Model | Parameters | Q4_K_M file | Typical working set | Minimum hardware |
 | --- | --- | --- | --- | --- |
@@ -21,6 +22,9 @@ for the model plus the context window; it varies by phone and context size.
   and still understands instructions and follows chat format.
 - **Typical modern phone**: Qwen3-0.6B-Instruct or Llama-3.2-1B-Instruct Q4_K_M.
   These are the best balance of quality and speed.
+  Qwen3 models are instruction models with an optional thinking mode. If the
+  answer starts with long reasoning text, put `/no_think` at the start of the
+  system prompt to skip it on mobile.
 - **High-end phone with 8 GB RAM or more**: Phi-3.5-mini-instruct Q4_K_M. It has
   noticeably better reasoning, but it is slower and uses more memory.
 - **When using the app without GPU layers**: use 1 GB or less model to avoid
