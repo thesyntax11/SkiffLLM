@@ -11,6 +11,7 @@
   and cancel; inference, chat, and export remain offline.
 - Streams tokens into a dark chat UI with stop, clear, export, and settings.
 - Remembers the last loaded model and reloads it on the next launch.
+- Persists conversations locally and restores them on the next launch.
 - Adds a model catalog with measured quantities and real generation
   measurements (tokens, time, tokens per second).
 - Added an Android model guide with quantified recommendations for phones.

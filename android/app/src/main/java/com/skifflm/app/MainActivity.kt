@@ -48,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import java.io.File
 import java.text.SimpleDateFormat
@@ -86,12 +87,16 @@ private fun ChatScreen() {
     val context = LocalContext.current
     val controller = remember { EngineController(context.applicationContext) }
     val downloader = remember { ModelDownloader(context.applicationContext) }
+    val conversationStore = remember { ConversationStore(context.applicationContext) }
     val messages = remember { mutableStateListOf<ChatMessage>() }
     val localModels = remember { mutableStateListOf<File>() }
     val downloading = remember { mutableStateMapOf<String, Boolean>() }
     val downloadProgress = remember { mutableStateMapOf<String, Float>() }
     val systemPrompt = remember { mutableStateOf("You are SkiffLLM, a helpful local assistant.") }
-    val loadParams = remember { mutableStateOf(LoadParams()) }
+    val defaultThreads = remember {
+        Runtime.getRuntime().availableProcessors().coerceIn(2, 8)
+    }
+    val loadParams = remember { mutableStateOf(LoadParams(threads = defaultThreads)) }
     val sampling = remember { mutableStateOf(SamplingParams()) }
 
     var input by remember { mutableStateOf("") }
@@ -103,6 +108,7 @@ private fun ChatScreen() {
     var modelName by remember { mutableStateOf<String?>(null) }
     var showSettings by remember { mutableStateOf(false) }
     var showModels by remember { mutableStateOf(false) }
+    var modelInfo by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
 
     fun refreshLocalModels() {
@@ -113,6 +119,7 @@ private fun ChatScreen() {
 
     fun handleModelLoaded(name: String) {
         modelName = name
+        modelInfo = controller.modelDescription()?.take(120)
         statusText = "Model ready"
         errorText = null
         refreshLocalModels()
@@ -132,6 +139,10 @@ private fun ChatScreen() {
 
     LaunchedEffect(Unit) {
         refreshLocalModels()
+        val saved = conversationStore.load()
+        systemPrompt.value = saved.systemPrompt
+        messages.clear()
+        messages.addAll(saved.messages)
         if (controller.hasStoredModel()) {
             statusText = "Loading saved model..."
             controller.loadStoredModel(
@@ -214,6 +225,7 @@ private fun ChatScreen() {
             return
         }
         messages.add(ChatMessage("user", text))
+        conversationStore.save(systemPrompt.value, messages.toList())
         input = ""
         draft = ""
         stats = null
@@ -226,11 +238,13 @@ private fun ChatScreen() {
             onDone = { result ->
                 stats = result
                 messages.add(ChatMessage("assistant", draft))
+                conversationStore.save(systemPrompt.value, messages.toList())
                 draft = ""
                 generating = false
             },
             onError = { message ->
                 errorText = message
+                conversationStore.save(systemPrompt.value, messages.toList())
                 generating = false
                 draft = ""
             }
@@ -244,6 +258,7 @@ private fun ChatScreen() {
     fun clearConversation() {
         if (!generating) {
             messages.clear()
+            conversationStore.clear()
             draft = ""
             stats = null
             input = ""
@@ -264,6 +279,7 @@ private fun ChatScreen() {
             ChatTopBar(
                 statusText = statusText,
                 modelName = modelName,
+                modelInfo = modelInfo,
                 onSettings = { showSettings = true },
                 onExport = { shareConversation() },
                 onClear = { clearConversation() }
@@ -379,6 +395,7 @@ private fun ChatScreen() {
 private fun ChatTopBar(
     statusText: String,
     modelName: String?,
+    modelInfo: String?,
     onSettings: () -> Unit,
     onExport: () -> Unit,
     onClear: () -> Unit
@@ -412,8 +429,18 @@ private fun ChatTopBar(
             Text(
                 modelName?.let { "Model: $it" } ?: statusText,
                 style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF8A94A6)
+                color = Color(0xFF8A94A6),
+                maxLines = 1
             )
+            modelInfo?.let {
+                Text(
+                    it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF8A94A6),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
     }
 }
