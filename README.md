@@ -29,6 +29,17 @@ Documentation: [Setup](docs/SETUP.md) &middot; [Usage](docs/usage.md) &middot; [
 - **Cross-platform.** Linux, macOS, and Windows through CMake.
 - **Extensible.** Small, readable core library with a clean public header surface.
 
+## How SkiffLLM differs
+
+- **llama.cpp** is the inference engine and toolkit. SkiffLLM is a focused
+  assistant experience on top of it: named sessions, file context, export,
+  profiles, streaming UX, benchmarks, and a small local API.
+- **Ollama** is a model manager and runtime with a registry. SkiffLLM is a
+  single binary that operates directly on a GGUF file you already own. It does
+  not download, pull, or register models, and it does not run a daemon.
+- **A cloud API** sends prompts to a remote service. SkiffLLM keeps every token
+  on the machine at runtime.
+
 ## Highlights
 
 | Capability | Description |
