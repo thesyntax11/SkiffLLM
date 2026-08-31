@@ -1,0 +1,2 @@
+-keep class com.skifflm.app.SkiffNative** { *; }
+-keep class com.skifflm.app.SkiffNative$Callback { *; }
