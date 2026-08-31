@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(SkiffLLM VERSION 1.3.0 LANGUAGES C CXX)
+project(SkiffLLM VERSION 1.4.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -54,6 +54,7 @@ endif()
 add_library(skifflm_core
     src/config.cpp
     src/engine.cpp
+    src/server.cpp
     src/session.cpp
     src/terminal.cpp
 )

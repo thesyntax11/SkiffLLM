@@ -38,6 +38,8 @@ so it works with any GGUF model, on the CPU or your GPU, with no internet connec
 | Conversation export | `--export` and `/export` save sessions as Markdown |
 | Chat template override | `--chat-template` for models with custom prompt formats |
 | Model warmup | `--warmup` reduces first-answer latency |
+| Local API server | `--serve` exposes a local OpenAI-compatible endpoint |
+| Real benchmark | `--benchmark <runs>` measures actual prompt and generation speed |
 | Named sessions | Keep separate conversations, even across different models |
 | Model discovery | Automatically find GGUF files in your model directory |
 | Sampling profiles | `balanced`, `fast`, `creative`, `code`, `precise` |
@@ -117,6 +119,8 @@ echo "Summarize this" | ./build/skifflm --model model.gguf
 ./build/skifflm --model model.gguf --prompt "Read @TODO.md and list the tasks."
 ./build/skifflm --model model.gguf --warmup --prompt "Say hello."
 ./build/skifflm --export conversation.md
+./build/skifflm --model model.gguf --benchmark 3
+./build/skifflm --model model.gguf --serve --host 127.0.0.1 --port 8080
 ```
 
 ## Command Line
@@ -143,6 +147,10 @@ Core options:
   --file <path>             Alias for --attach; can be repeated
   --chat-template <name>     Override the model chat template
   --export <path>            Export the loaded conversation as Markdown
+  --serve                    Serve a local OpenAI-compatible API
+  --host <addr>              Local server bind address (default: 127.0.0.1)
+  --port <n>                 Local server port (default: 8080)
+  --benchmark <runs>         Run a real generation benchmark
 
 Inference options:
   --ctx <n>                  Context size (default: 4096)
@@ -267,6 +275,52 @@ Or export the current conversation from inside the shell:
 /export conversation.md
 ```
 
+## Local API Server
+
+SkiffLLM can serve a local, offline OpenAI-compatible HTTP endpoint:
+
+```bash
+skifflm --model model.gguf --serve --host 127.0.0.1 --port 8080
+```
+
+Endpoints:
+
+```text
+GET  /health                 Simple health check
+GET  /v1/models              List the single loaded model
+POST /v1/chat/completions    Chat completion, with OpenAI-style streaming support
+```
+
+Example request:
+
+```bash
+curl http://127.0.0.1:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "model.gguf",
+    "messages": [{"role": "user", "content": "Say hello."}],
+    "stream": false
+  }'
+```
+
+The server binds to `127.0.0.1` by default. It has no auth and no remote
+exposure; if you bind to `0.0.0.0`, you are responsible for the network
+security of that interface. It is intentionally simple and handles one
+request at a time.
+
+## Benchmark
+
+`--benchmark <runs>` runs a real generation on the loaded model and reports the
+actual measured timing. It never fabricates numbers:
+
+```bash
+skifflm --model model.gguf --benchmark 3
+skifflm --model model.gguf --benchmark 3 --json
+```
+
+Defaults to 128 tokens per run and a fixed prompt; use `--n-predict` to change
+the run length. `--json` emits machine-readable run data and averages.
+
 ## Configuration File
 
 The default config location is:
@@ -287,6 +341,10 @@ chat-template=chatml
 warmup=yes
 attach=notes.txt
 export=last-conversation.md
+serve=no
+host=127.0.0.1
+port=8080
+benchmark=0
 
 ctx=4096
 batch=512
@@ -490,9 +548,8 @@ pinned llama.cpp source tree. Supply an existing checkout with
 
 ```text
 CMakeLists.txt                Build configuration
-Licenses / README             Distribution metadata
 include/skifflm/              Public API headers
-src/                          CLI and core implementation
+src/                          CLI, core, and local server implementation
 tests/                        Unit and integration tests
 configs/                      Example configuration
 scripts/                      Build helper, benchmark helper and shell completions
@@ -503,11 +560,11 @@ scripts/                      Build helper, benchmark helper and shell completio
 
 - Embedding and RAG mode
 - System dependency packaging (Homebrew, apt, vcpkg)
-- GPU benchmark matrix
+- GPU benchmark matrix across backends
 - Grammar-constrained generation
 - Model download/quantization helper
 - Token-level sampling diagnostics
-- Local server mode for editor integrations
+- Concurrent request handling for the local server
 
 ## Contributing
 

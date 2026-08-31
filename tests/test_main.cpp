@@ -264,6 +264,29 @@ void test_popularity_flags() {
     check(cfg.warmup, "warmup should be enabled");
 }
 
+void test_server_and_benchmark_flags() {
+    skifflm::Config cfg = skifflm::default_config();
+    std::vector<std::string> storage = {
+        "skifflm",
+        "--serve",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "9090",
+        "--benchmark",
+        "3",
+    };
+    auto args = args_from(storage);
+    std::string error;
+    const bool ok = skifflm::parse_args(static_cast<int>(args.size()), args.data(), cfg, error);
+    check(ok, "server and benchmark flags should parse");
+    check(cfg.serve, "serve should be enabled");
+    check(cfg.server_host == "0.0.0.0", "server host should be stored");
+    check(cfg.server_port == 9090, "server port should be stored");
+    check(cfg.benchmark_runs == 3, "benchmark runs should be stored");
+    check(!cfg.interactive, "serve should disable interactive mode");
+}
+
 void test_session_resolution() {
     skifflm::Config cfg = skifflm::default_config();
     std::vector<std::string> storage = {"skifflm", "--session", "writing"};
@@ -288,5 +311,6 @@ int main() {
     test_session_resolution();
     test_advanced_flags();
     test_popularity_flags();
+    test_server_and_benchmark_flags();
     return 0;
 }

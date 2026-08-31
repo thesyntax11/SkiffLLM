@@ -1,4 +1,4 @@
-.TH SKIFFLLM 1 "2026-08-31" "SkiffLLM 1.3.0" "User Commands"
+.TH SKIFFLLM 1 "2026-09-01" "SkiffLLM 1.4.0" "User Commands"
 .SH NAME
 skifflm \- offline-first local LLM terminal assistant built on llama.cpp
 .SH SYNOPSIS
@@ -45,6 +45,18 @@ Export the loaded conversation as Markdown.
 .TP
 \fB\-\-warmup\fR
 Warm the model before the first answer.
+.TP
+\fB\-\-serve\fR
+Serve a local OpenAI-compatible HTTP API.
+.TP
+\fB\-\-host <addr>\fR
+Local server bind address. Default is 127.0.0.1.
+.TP
+\fB\-\-port <n>\fR
+Local server port. Default is 8080.
+.TP
+\fB\-\-benchmark <runs>\fR
+Run a real generation benchmark with the given number of runs.
 .TP
 \fB\-\-ctx <n>\fR
 Context size. Default is 4096.
@@ -170,6 +182,10 @@ Default model directory.
 .TP
 \fB~/.local/share/skifflm/history.skif\fR
 Default session history.
+.SH SERVER
+.TP
+The server binds to localhost and exposes /health, /v1/models, and
+/v1/chat/completions. It is single-client and has no authentication.
 .SH INTERACTIVE COMMANDS
 .TP
 .B /help, /info, /history

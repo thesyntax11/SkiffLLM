@@ -387,7 +387,7 @@ bool LlmEngine::generate(const std::vector<ChatMessage>& messages,
     const uint32_t context_size = llama_n_ctx(ctx_);
     uint32_t max_tokens = context_size;
     if (options.reserve_ctx > 0) {
-        const uint32_t reserve = static_cast<uint32_t>(std::min(options.reserve_ctx, 64));
+        const uint32_t reserve = static_cast<uint32_t>(options.reserve_ctx);
         max_tokens = context_size > reserve ? context_size - reserve : 1;
     }
 
@@ -410,6 +410,14 @@ bool LlmEngine::generate(const std::vector<ChatMessage>& messages,
             error = "prompt still exceeds the context window after trimming; increase --ctx or shorten the conversation";
             return false;
         }
+    }
+
+    const uint32_t generation_capacity = max_tokens - static_cast<uint32_t>(prompt_tokens.size());
+    const int generation_target = std::min(options.n_predict,
+                                           static_cast<int>(generation_capacity));
+    if (generation_target < 1) {
+        error = "no room for generation; increase --ctx or raise --reserve-ctx";
+        return false;
     }
 
     if (!build_sampler(options, error)) {
@@ -441,7 +449,7 @@ bool LlmEngine::generate(const std::vector<ChatMessage>& messages,
     bool stopped = false;
     int generated = 0;
 
-    while (generated < options.n_predict) {
+    while (generated < generation_target) {
         if (should_stop && should_stop()) {
             stopped = true;
             break;

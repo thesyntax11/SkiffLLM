@@ -1,5 +1,6 @@
 #include "skifflm/config.hpp"
 #include "skifflm/engine.hpp"
+#include "skifflm/server.hpp"
 #include "skifflm/session.hpp"
 #include "skifflm/terminal.hpp"
 
@@ -24,7 +25,7 @@
 namespace {
 
 #ifndef SKIFFLLM_VERSION
-#define SKIFFLLM_VERSION "1.3.0"
+#define SKIFFLLM_VERSION "1.4.0"
 #endif
 const char* kVersion = SKIFFLLM_VERSION;
 volatile std::sig_atomic_t g_interrupted = 0;
@@ -988,6 +989,139 @@ int run_interactive(skifflm::Config& cfg,
     return 0;
 }
 
+struct BenchmarkRun {
+    int prompt_tokens = 0;
+    int generated_tokens = 0;
+    double prompt_ms = 0.0;
+    double generation_ms = 0.0;
+    double tokens_per_second = 0.0;
+};
+
+int run_benchmark(skifflm::Config& cfg,
+                  std::unique_ptr<skifflm::LlmEngine>& engine,
+                  skifflm::Terminal& terminal,
+                  const skifflm::GenerationOptions& options) {
+    std::string model_error;
+    if (!choose_model(cfg, engine, model_error)) {
+        if (cfg.json_output) {
+            std::cout << "{\"error\":" << json_escape(model_error) << "}\n";
+        } else {
+            terminal.error(model_error);
+        }
+        return 1;
+    }
+
+    if (cfg.warmup) {
+        warmup_model(*engine, options, terminal, cfg.json_output);
+    }
+
+    const std::string prompt_text = "Write a short poem about the sea.";
+    std::vector<skifflm::ChatMessage> ask;
+    ask.push_back({"user", prompt_text});
+
+    skifflm::GenerationOptions run_options = options;
+    run_options.seed = 42;
+    run_options.n_predict = std::min(options.n_predict, 128);
+    run_options.stop_sequences.clear();
+
+    std::vector<BenchmarkRun> runs;
+    runs.reserve(static_cast<size_t>(cfg.benchmark_runs));
+
+    double worst_prompt_ms = 0.0;
+    double best_generation_tps = 0.0;
+    for (int i = 0; i < cfg.benchmark_runs; ++i) {
+        skifflm::GenerationResult result;
+        run_options.token_callback = nullptr;
+        std::string error;
+        const bool ok = engine->generate(ask,
+                                         run_options,
+                                         result,
+                                         []() {
+                                             return g_interrupted != 0;
+                                         },
+                                         error);
+        if (!ok) {
+            if (cfg.json_output) {
+                std::cout << "{\"error\":" << json_escape(error) << "}\n";
+            } else {
+                terminal.error(error);
+            }
+            return 1;
+        }
+        BenchmarkRun entry;
+        entry.prompt_tokens = result.prompt_tokens;
+        entry.generated_tokens = result.generated_tokens;
+        entry.prompt_ms = result.prompt_ms;
+        entry.generation_ms = result.generation_ms;
+        entry.tokens_per_second = result.tokens_per_second;
+        runs.push_back(entry);
+        worst_prompt_ms = std::max(worst_prompt_ms, result.prompt_ms);
+        if (result.tokens_per_second > best_generation_tps) {
+            best_generation_tps = result.tokens_per_second;
+        }
+    }
+
+    double total_prompt_ms = 0.0;
+    double total_generation_ms = 0.0;
+    int total_generated = 0;
+    for (const auto& run : runs) {
+        total_prompt_ms += run.prompt_ms;
+        total_generation_ms += run.generation_ms;
+        total_generated += run.generated_tokens;
+    }
+    const double average_prompt_ms = total_prompt_ms / runs.size();
+    const double average_generation_ms = total_generation_ms / runs.size();
+    const double average_tokens = static_cast<double>(total_generated) / runs.size();
+    const double average_tps = total_generation_ms > 0.0
+                                   ? (total_generated / (total_generation_ms / 1000.0))
+                                   : 0.0;
+
+    if (cfg.json_output) {
+        std::ostringstream out;
+        out << "{\n";
+        out << "  \"model\":" << json_escape(cfg.model_path.string()) << ",\n";
+        out << "  \"prompt\":" << json_escape(prompt_text) << ",\n";
+        out << "  \"runs\":" << cfg.benchmark_runs << ",\n";
+        out << "  \"average_prompt_ms\":" << average_prompt_ms << ",\n";
+        out << "  \"average_generation_ms\":" << average_generation_ms << ",\n";
+        out << "  \"average_generated_tokens\":" << average_tokens << ",\n";
+        out << "  \"average_tokens_per_second\":" << average_tps << ",\n";
+        out << "  \"best_generation_tokens_per_second\":" << best_generation_tps << ",\n";
+        out << "  \"worst_prompt_ms\":" << worst_prompt_ms << ",\n";
+        out << "  \"runs_data\":[";
+        for (size_t i = 0; i < runs.size(); ++i) {
+            if (i != 0) {
+                out << ",";
+            }
+            out << "{\"prompt_tokens\":" << runs[i].prompt_tokens
+                << ",\"generated_tokens\":" << runs[i].generated_tokens
+                << ",\"prompt_ms\":" << runs[i].prompt_ms
+                << ",\"generation_ms\":" << runs[i].generation_ms
+                << ",\"tokens_per_second\":" << runs[i].tokens_per_second << "}";
+        }
+        out << "]\n}\n";
+        std::cout << out.str();
+    } else {
+        terminal.highlight("SkiffLLM benchmark");
+        terminal.write("  Model: " + cfg.model_path.string() + "\n");
+        terminal.write("  Prompt: " + prompt_text + "\n");
+        terminal.write("  Runs: " + std::to_string(cfg.benchmark_runs) + "\n");
+        terminal.write("  Average prompt time: " + std::to_string(average_prompt_ms) + " ms\n");
+        terminal.write("  Average generation time: " + std::to_string(average_generation_ms) + " ms\n");
+        terminal.write("  Average generated tokens: " + std::to_string(average_tokens) + "\n");
+        terminal.write("  Average generation speed: " + std::to_string(average_tps) + " tok/s\n");
+        terminal.write("  Best generation speed: " + std::to_string(best_generation_tps) + " tok/s\n");
+        terminal.write("  Worst prompt time: " + std::to_string(worst_prompt_ms) + " ms\n");
+        for (size_t i = 0; i < runs.size(); ++i) {
+            terminal.write("  Run " + std::to_string(i + 1) + ": " +
+                           std::to_string(runs[i].generated_tokens) + " tokens in " +
+                           std::to_string(runs[i].generation_ms) + " ms at " +
+                           std::to_string(runs[i].tokens_per_second) + " tok/s\n");
+        }
+    }
+    return 0;
+}
+
 int run_one_shot(skifflm::Config& cfg,
                  std::unique_ptr<skifflm::LlmEngine>& engine,
                  skifflm::Session& session,
@@ -1262,6 +1396,36 @@ int main(int argc, char** argv) {
     options.n_keep = cfg.n_keep;
     options.stop_sequences = cfg.stop_sequences;
     options.token_callback = nullptr;
+
+    if (cfg.serve) {
+        std::string model_error;
+        if (!choose_model(cfg, engine, model_error)) {
+            terminal.error(model_error);
+            engine.reset();
+            llama_backend_free();
+            return 1;
+        }
+        if (cfg.warmup) {
+            warmup_model(*engine, options, terminal, cfg.json_output);
+        }
+        const int status = skifflm::run_server(cfg,
+                                               *engine,
+                                               terminal,
+                                               options,
+                                               []() {
+                                                   return g_interrupted != 0;
+                                               });
+        engine.reset();
+        llama_backend_free();
+        return status;
+    }
+
+    if (cfg.benchmark_runs > 0) {
+        const int status = run_benchmark(cfg, engine, terminal, options);
+        engine.reset();
+        llama_backend_free();
+        return status;
+    }
 
     if (!cfg.interactive && !cfg.one_shot.empty()) {
         const int status = run_one_shot(cfg, engine, session, terminal, options, cfg.one_shot);

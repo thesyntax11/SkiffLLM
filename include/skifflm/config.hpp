@@ -64,6 +64,10 @@ struct Config {
     bool warmup = false;
     bool json_output = false;
     bool read_stdin = false;
+    bool serve = false;
+    std::string server_host = "127.0.0.1";
+    int server_port = 8080;
+    int benchmark_runs = 0;
     std::string one_shot;
     std::string tokenize_text;
 };

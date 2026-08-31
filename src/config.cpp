@@ -627,6 +627,36 @@ bool apply_key_value(Config& cfg,
     } else if (key == "tokenize") {
         cfg.tokenize_text = value;
         cfg.interactive = false;
+    } else if (key == "serve") {
+        if (!set_flag(cfg.serve, true, false, value, key)) {
+            return false;
+        }
+        if (cfg.serve) {
+            cfg.interactive = false;
+        }
+    } else if (key == "host") {
+        cfg.server_host = value;
+    } else if (key == "port") {
+        if (!parse_int_value(value, cfg.server_port)) {
+            error = "invalid integer for --port: " + value;
+            return false;
+        }
+        if (cfg.server_port < 1 || cfg.server_port > 65535) {
+            error = "port must be between 1 and 65535";
+            return false;
+        }
+    } else if (key == "benchmark") {
+        if (!parse_int_value(value, cfg.benchmark_runs)) {
+            error = "invalid integer for --benchmark: " + value;
+            return false;
+        }
+        if (cfg.benchmark_runs < 0) {
+            error = "benchmark runs must be zero or positive";
+            return false;
+        }
+        if (cfg.benchmark_runs > 0) {
+            cfg.interactive = false;
+        }
     } else if (key == "reset-history") {
         if (!set_flag(cfg.reset_history, true, false, value, key)) {
             return false;
@@ -736,7 +766,7 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
             key == "flash-attn" || key == "no-flash-attn" || key == "numa" ||
             key == "kv-offload" || key == "no-kv-offload" ||
             key == "doctor" || key == "model-info" || key == "smoke" ||
-            key == "warmup") {
+            key == "warmup" || key == "serve") {
             if (has_value) {
                 error = "option --" + key + " does not take a value";
                 return false;
@@ -752,7 +782,8 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
             key == "session" || key == "profile" || key == "stop" ||
             key == "output" || key == "export" || key == "attach" ||
             key == "file" || key == "chat-template" || key == "prompt" ||
-            key == "prompt-file" || key == "tokenize") {
+            key == "prompt-file" || key == "tokenize" ||
+            key == "host" || key == "port" || key == "benchmark") {
             const std::string value = option_value(i, argc, argv, "--" + key, error);
             if (!error.empty()) {
                 return false;
@@ -837,7 +868,11 @@ std::string usage(const std::string& program) {
     out << "  --attach <path>            Attach a file; can be repeated\n";
     out << "  --file <path>             Alias for --attach; can be repeated\n";
     out << "  --chat-template <name>     Override the model chat template\n";
-    out << "  --export <path>            Export the loaded conversation as Markdown\n\n";
+    out << "  --export <path>            Export the loaded conversation as Markdown\n";
+    out << "  --serve                    Serve a local OpenAI-compatible API\n";
+    out << "  --host <addr>              Local server bind address (default: 127.0.0.1)\n";
+    out << "  --port <n>                 Local server port (default: 8080)\n";
+    out << "  --benchmark <runs>         Run a real generation benchmark\n\n";
     out << "Inference options:\n";
     out << "  --ctx <n>                  Context size (default: 4096)\n";
     out << "  --batch <n>                Batch size (default: 512)\n";
@@ -888,7 +923,7 @@ std::string usage(const std::string& program) {
     out << "  --show-config              Print the effective configuration\n";
     out << "  --help                     Show this help\n";
     out << "  --version                  Show the version\n";
-    out << "\nInteractive commands: /help /info /history /clear /reset /system /model /temp /top-p /top-k /n /save /exit\n";
+    out << "\nInteractive commands: /help /info /history /settings /tokenize /file /clear-attach /clear /reset /system /model /profile /stop /temp /top-p /top-k /min-p /typical /n /ctx /export /save /exit\n";
     return out.str();
 }
 
@@ -902,6 +937,9 @@ void print_config(const Config& cfg) {
     std::cout << "session_name     " << (cfg.session_name.empty() ? "(default)" : cfg.session_name) << "\n";
     std::cout << "profile          " << (cfg.profile_name.empty() ? "(none)" : cfg.profile_name) << "\n";
     std::cout << "chat_template    " << (cfg.chat_template.empty() ? "(model default)" : cfg.chat_template) << "\n";
+    std::cout << "server_host      " << cfg.server_host << "\n";
+    std::cout << "server_port      " << cfg.server_port << "\n";
+    std::cout << "benchmark_runs   " << (cfg.benchmark_runs == 0 ? "(none)" : std::to_string(cfg.benchmark_runs)) << "\n";
     std::cout << "attach_files     ";
     if (cfg.attach_paths.empty()) {
         std::cout << "(none)";
@@ -943,6 +981,7 @@ void print_config(const Config& cfg) {
     std::cout << "json_output      " << (cfg.json_output ? "yes" : "no") << "\n";
     std::cout << "smoke            " << (cfg.smoke ? "yes" : "no") << "\n";
     std::cout << "warmup           " << (cfg.warmup ? "yes" : "no") << "\n";
+    std::cout << "serve            " << (cfg.serve ? "yes" : "no") << "\n";
     std::cout << "debug            " << (cfg.debug ? "yes" : "no") << "\n";
     std::cout << "stop_sequences   ";
     if (cfg.stop_sequences.empty()) {

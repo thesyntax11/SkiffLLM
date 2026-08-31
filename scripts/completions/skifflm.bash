@@ -4,7 +4,7 @@ _skifflm_complete() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    local options="--help --version --show-config --list-models --model-info --doctor --smoke --tokenize --warmup --model --model-dir --config --history --session --profile --system --stop --attach --file --export --chat-template --output --prompt --prompt-file --stdin --json --non-interactive --ctx --batch --ubatch --reserve-ctx --n-keep --threads --gpu-layers --mmap --no-mmap --mlock --flash-attn --no-flash-attn --numa --kv-offload --no-kv-offload --temp --top-p --top-k --min-p --typical --repeat-penalty --repeat-last-n --n-predict --seed --reset-history --no-save --auto-trim --no-auto-trim --color --no-color --no-banner --verbose --debug"
+    local options="--help --version --show-config --list-models --model-info --doctor --smoke --tokenize --warmup --serve --host --port --benchmark --model --model-dir --config --history --session --profile --system --stop --attach --file --export --chat-template --output --prompt --prompt-file --stdin --json --non-interactive --ctx --batch --ubatch --reserve-ctx --n-keep --threads --gpu-layers --mmap --no-mmap --mlock --flash-attn --no-flash-attn --numa --kv-offload --no-kv-offload --temp --top-p --top-k --min-p --typical --repeat-penalty --repeat-last-n --n-predict --seed --reset-history --no-save --auto-trim --no-auto-trim --color --no-color --no-banner --verbose --debug"
 
     if [[ "${cur}" == -* ]]; then
         COMPREPLY=( $(compgen -W "${options}" -- "${cur}") )
@@ -14,6 +14,14 @@ _skifflm_complete() {
     case "${prev}" in
         --model|--model-dir|--config|--history|--output|--prompt-file|--attach|--file|--export)
             COMPREPLY=( $(compgen -f -- "${cur}") )
+            return 0
+            ;;
+        --host)
+            COMPREPLY=( $(compgen -W "127.0.0.1 0.0.0.0 ::1" -- "${cur}") )
+            return 0
+            ;;
+        --port|--benchmark)
+            COMPREPLY=( $(compgen -W "8080 8081 9090 3 5 10" -- "${cur}") )
             return 0
             ;;
         --profile)

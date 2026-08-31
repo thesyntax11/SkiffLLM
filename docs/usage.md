@@ -120,6 +120,34 @@ skifflm --model model.gguf --smoke
 skifflm --model model.gguf --tokenize "hello world"
 ```
 
+## Local API Server
+
+```bash
+skifflm --model model.gguf --serve --host 127.0.0.1 --port 8080
+```
+
+Endpoints:
+
+```text
+GET  /health
+GET  /v1/models
+POST /v1/chat/completions
+```
+
+The server is offline, binds to localhost by default, and handles one request
+at a time. It supports OpenAI-style streaming with `"stream": true`.
+
+## Benchmark
+
+```bash
+skifflm --model model.gguf --benchmark 3
+skifflm --model model.gguf --benchmark 3 --json
+```
+
+Runs a real generation and reports measured prompt time, generation time, and
+tokens per second. `--n-predict` controls the run length up to 128 tokens per
+run.
+
 ## GPU Offload
 
 On a CUDA machine:
