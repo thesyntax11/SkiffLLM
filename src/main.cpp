@@ -937,6 +937,11 @@ int run_interactive(skifflm::Config& cfg,
 
         std::string effective_input = input;
         std::string attach_error;
+        effective_input = expand_at_paths(effective_input, attach_error);
+        if (!attach_error.empty()) {
+            terminal.error(attach_error);
+            continue;
+        }
         if (!attached.empty()) {
             const std::string block = make_attach_block(attached, attach_error);
             if (!attach_error.empty()) {
@@ -944,11 +949,6 @@ int run_interactive(skifflm::Config& cfg,
                 continue;
             }
             effective_input = block + effective_input;
-        }
-        effective_input = expand_at_paths(effective_input, attach_error);
-        if (!attach_error.empty()) {
-            terminal.error(attach_error);
-            continue;
         }
 
         session.messages().push_back({"user", effective_input});
@@ -1012,6 +1012,15 @@ int run_one_shot(skifflm::Config& cfg,
 
     std::string attach_error;
     std::string prompt_text = raw_prompt;
+    prompt_text = expand_at_paths(prompt_text, attach_error);
+    if (!attach_error.empty()) {
+        if (cfg.json_output) {
+            std::cout << "{\"error\":" << json_escape(attach_error) << "}\n";
+        } else {
+            terminal.error(attach_error);
+        }
+        return 1;
+    }
     if (!cfg.attach_paths.empty()) {
         const std::string block = make_attach_block(cfg.attach_paths, attach_error);
         if (!attach_error.empty()) {
@@ -1023,15 +1032,6 @@ int run_one_shot(skifflm::Config& cfg,
             return 1;
         }
         prompt_text = block + prompt_text;
-    }
-    prompt_text = expand_at_paths(prompt_text, attach_error);
-    if (!attach_error.empty()) {
-        if (cfg.json_output) {
-            std::cout << "{\"error\":" << json_escape(attach_error) << "}\n";
-        } else {
-            terminal.error(attach_error);
-        }
-        return 1;
     }
 
     std::vector<skifflm::ChatMessage> ask = session.conversation();
