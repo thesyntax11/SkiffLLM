@@ -92,6 +92,7 @@ private fun ChatScreen() {
     val localModels = remember { mutableStateListOf<File>() }
     val downloading = remember { mutableStateMapOf<String, Boolean>() }
     val downloadProgress = remember { mutableStateMapOf<String, Float>() }
+    val downloadErrors = remember { mutableStateMapOf<String, String>() }
     val systemPrompt = remember { mutableStateOf("You are SkiffLLM, a helpful local assistant.") }
     val defaultThreads = remember {
         Runtime.getRuntime().availableProcessors().coerceIn(2, 8)
@@ -179,6 +180,7 @@ private fun ChatScreen() {
 
     fun startDownload(entry: ModelCatalogEntry) {
         errorText = null
+        downloadErrors.remove(entry.id)
         downloading[entry.id] = true
         downloadProgress[entry.id] = 0f
         downloader.download(
@@ -193,6 +195,7 @@ private fun ChatScreen() {
             onDone = { file ->
                 downloading.remove(entry.id)
                 downloadProgress[entry.id] = 1f
+                downloadErrors.remove(entry.id)
                 statusText = "Download complete. Loading..."
                 controller.loadModelFile(
                     file,
@@ -203,6 +206,7 @@ private fun ChatScreen() {
             },
             onError = { message ->
                 downloading.remove(entry.id)
+                downloadErrors[entry.id] = message
                 errorText = message
             }
         )
@@ -375,6 +379,7 @@ private fun ChatScreen() {
             loadedModelPath = controller.currentModelPath(),
             downloading = downloading.toMap(),
             downloadProgress = downloadProgress.toMap(),
+            downloadErrors = downloadErrors.toMap(),
             onUse = { file ->
                 showModels = false
                 useModel(file)
@@ -621,6 +626,7 @@ private fun ModelsDialog(
     loadedModelPath: String?,
     downloading: Map<String, Boolean>,
     downloadProgress: Map<String, Float>,
+    downloadErrors: Map<String, String>,
     onUse: (File) -> Unit,
     onDelete: (File) -> Unit,
     onDownload: (ModelCatalogEntry) -> Unit,
@@ -761,6 +767,13 @@ private fun ModelsDialog(
                                 entry.description,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = Color(0xFF8A94A6)
+                            )
+                        }
+                        downloadErrors[entry.id]?.let { error ->
+                            Text(
+                                error,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFFFF7A7A)
                             )
                         }
                         Spacer(Modifier.height(8.dp))
