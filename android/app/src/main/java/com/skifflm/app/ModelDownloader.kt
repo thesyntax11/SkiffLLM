@@ -86,7 +86,8 @@ class ModelDownloader(private val appContext: Context) {
                 if (total > 0L && downloaded < total) {
                     throw IOException("Download incomplete")
                 }
-                if (!temp.isGgufFile()) {
+                val completed = temp ?: throw IOException("Missing temporary file")
+                if (!completed.isGgufFile()) {
                     throw IOException("Downloaded file is not a valid GGUF model")
                 }
 
@@ -94,7 +95,7 @@ class ModelDownloader(private val appContext: Context) {
                 if (target.exists() && !target.delete()) {
                     throw IOException("Unable to replace the existing model file")
                 }
-                if (!temp.renameTo(target)) {
+                if (!completed.renameTo(target)) {
                     throw IOException("Unable to store the downloaded model")
                 }
                 uiHandler.post { onProgress(100, target.length(), target.length()) }
