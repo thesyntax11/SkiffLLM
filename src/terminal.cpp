@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include <iostream>
 
 #ifdef _WIN32
@@ -118,6 +119,9 @@ Terminal::Terminal(const Config& config) : color_(config.color) {
 Terminal::~Terminal() {
 #ifdef SKIFFLLM_HAVE_READLINE
     if (!readline_history_path_.empty()) {
+        const std::filesystem::path path(readline_history_path_);
+        std::error_code ec;
+        std::filesystem::create_directories(path.parent_path(), ec);
         write_history(readline_history_path_.c_str());
     }
 #endif
