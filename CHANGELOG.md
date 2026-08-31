@@ -9,6 +9,9 @@
 - Moved model warmup into the engine so the desktop `--warmup` path and the
   Android app share one optimized warm-up pass.
 - Added `/warmup` to re-run the warm-up pass in the interactive shell.
+- Added CORS preflight (`OPTIONS`) and CORS headers to the local server.
+- Upgraded `scripts/api_client.py` with `--stream`, `--temperature`,
+  `--max-tokens`, and a clean CLI.
 
 ### Android 1.6.0
 

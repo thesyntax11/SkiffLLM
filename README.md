@@ -343,9 +343,13 @@ A small dependency-free Python client is included:
 
 ```bash
 python3 scripts/api_client.py http://127.0.0.1:8080 "Say hello."
+python3 scripts/api_client.py http://127.0.0.1:8080 --stream "Tell me a short joke."
+python3 scripts/api_client.py http://127.0.0.1:8080 --prompt "Hello" --temperature 0.7
 ```
 
-The server binds to `127.0.0.1` by default. It has no auth and no remote
+The server binds to `127.0.0.1` by default. It responds to CORS preflight
+(`OPTIONS`) and sends CORS headers on normal and streaming responses, so
+browser-based clients can use it locally. It has no auth and no remote
 exposure; if you bind to `0.0.0.0`, you are responsible for the network
 security of that interface. It is intentionally simple and handles one
 request at a time.

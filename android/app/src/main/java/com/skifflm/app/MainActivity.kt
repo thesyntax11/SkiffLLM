@@ -109,6 +109,7 @@ private fun ChatScreen() {
     var modelName by remember { mutableStateOf<String?>(null) }
     var showSettings by remember { mutableStateOf(false) }
     var showModels by remember { mutableStateOf(false) }
+    var showAbout by remember { mutableStateOf(false) }
     var modelInfo by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
 
@@ -369,8 +370,16 @@ private fun ChatScreen() {
                 showSettings = false
                 showModels = true
             },
+            onAbout = {
+                showSettings = false
+                showAbout = true
+            },
             onDismiss = { showSettings = false }
         )
+    }
+
+    if (showAbout) {
+        AboutDialog(onDismiss = { showAbout = false })
     }
 
     if (showModels) {
@@ -488,6 +497,7 @@ private fun SettingsDialog(
     systemPrompt: String,
     onSystemPrompt: (String) -> Unit,
     onOpenModels: () -> Unit,
+    onAbout: () -> Unit,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -610,6 +620,9 @@ private fun SettingsDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(Modifier.height(8.dp))
+                TextButton(onClick = { onAbout() }) {
+                    Text("About SkiffLLM")
+                }
                 Text(
                     "Use Models to download a recommended Q4_K_M GGUF from Hugging Face, or load your own file from the device. Downloads use HTTPS only and no telemetry is sent.",
                     style = MaterialTheme.typography.bodySmall,
@@ -779,6 +792,69 @@ private fun ModelsDialog(
                         Spacer(Modifier.height(8.dp))
                     }
                 }
+            }
+        }
+    )
+}
+
+@Composable
+private fun AboutDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = { onDismiss() },
+        confirmButton = {
+            TextButton(onClick = { onDismiss() }) {
+                Text("Done")
+            }
+        },
+        title = { Text("About SkiffLLM") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    "Version 1.6.0 (Android)",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "An offline-first local LLM assistant built on llama.cpp. " +
+                        "Models run entirely on this device.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Privacy",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    "Inference, chat, export, and file loading stay on device. " +
+                        "The only network use is optional HTTPS model downloads from Hugging Face. " +
+                        "No prompts, history, analytics, or crash reports are sent.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF8A94A6)
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Models",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    "Use the Models dialog to download a recommended Q4_K_M GGUF " +
+                        "or load your own file from the device.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF8A94A6)
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "License: MIT",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF8A94A6)
+                )
             }
         }
     )
