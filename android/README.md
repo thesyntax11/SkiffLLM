@@ -77,6 +77,7 @@ RAM they need. Start with a Q4_K_M model in the 0.5B to 1.7B range.
 - Max generated tokens
 - System prompt
 - Stop generation
+- Clear conversation
 - Export conversation
 
 ## Runtime behavior
