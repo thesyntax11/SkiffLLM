@@ -50,6 +50,8 @@ class EngineController(private val appContext: Context) {
     private val prefs = appContext.getSharedPreferences("skifflm", Context.MODE_PRIVATE)
     @Volatile
     private var handle: Long = 0L
+    @Volatile
+    private var currentModelPath: String? = null
     private val modelDir = File(appContext.filesDir, "models").apply { mkdirs() }
 
     fun release() {
@@ -58,8 +60,20 @@ class EngineController(private val appContext: Context) {
                 SkiffNative.destroy(handle)
                 handle = 0L
             }
+            currentModelPath = null
         }
         executor.shutdown()
+    }
+
+    fun currentModelPath(): String? = currentModelPath
+
+    fun isModelLoaded(file: File): Boolean = currentModelPath == file.absolutePath
+
+    fun deleteModel(file: File): Boolean {
+        if (isModelLoaded(file)) {
+            return false
+        }
+        return file.delete()
     }
 
     fun hasStoredModel(): Boolean = prefs.getString(KEY_MODEL_PATH, null)?.let(::File)?.exists() == true
@@ -119,6 +133,7 @@ class EngineController(private val appContext: Context) {
                     SkiffNative.destroy(handle)
                     handle = 0L
                 }
+                currentModelPath = null
                 handle = SkiffNative.create(
                     params.contextSize,
                     params.threads,
@@ -138,6 +153,7 @@ class EngineController(private val appContext: Context) {
                     uiHandler.post { onError(message) }
                     return@execute
                 }
+                currentModelPath = file.absolutePath
                 prefs.edit().putString(KEY_MODEL_PATH, file.absolutePath).apply()
                 uiHandler.post { onLoaded(file.name) }
             } catch (t: Throwable) {
@@ -145,6 +161,7 @@ class EngineController(private val appContext: Context) {
                     SkiffNative.destroy(handle)
                     handle = 0L
                 }
+                currentModelPath = null
                 uiHandler.post { onError(t.message ?: "Unable to load the model") }
             }
         }

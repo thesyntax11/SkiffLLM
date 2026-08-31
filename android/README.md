@@ -78,7 +78,8 @@ RAM they need. Start with a Q4_K_M model in the 0.5B to 1.7B range.
 
 ## Settings
 
-- Model catalog with one-tap Hugging Face downloads and cancel
+- Model catalog with one-tap Hugging Face downloads, progress, cancel, use,
+  and delete
 - Context size
 - Threads
 - GPU layers

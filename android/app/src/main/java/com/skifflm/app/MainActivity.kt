@@ -372,11 +372,16 @@ private fun ChatScreen() {
     if (showModels) {
         ModelsDialog(
             localModels = localModels.toList(),
+            loadedModelPath = controller.currentModelPath(),
             downloading = downloading.toMap(),
             downloadProgress = downloadProgress.toMap(),
             onUse = { file ->
                 showModels = false
                 useModel(file)
+            },
+            onDelete = { file ->
+                controller.deleteModel(file)
+                refreshLocalModels()
             },
             onDownload = { entry ->
                 startDownload(entry)
@@ -613,9 +618,11 @@ private fun SettingsDialog(
 @Composable
 private fun ModelsDialog(
     localModels: List<File>,
+    loadedModelPath: String?,
     downloading: Map<String, Boolean>,
     downloadProgress: Map<String, Float>,
     onUse: (File) -> Unit,
+    onDelete: (File) -> Unit,
     onDownload: (ModelCatalogEntry) -> Unit,
     onCancel: (ModelCatalogEntry) -> Unit,
     onBrowse: () -> Unit,
@@ -667,6 +674,11 @@ private fun ModelsDialog(
                             )
                             TextButton(onClick = { onUse(file) }) {
                                 Text("Use")
+                            }
+                            if (file.absolutePath != loadedModelPath) {
+                                TextButton(onClick = { onDelete(file) }) {
+                                    Text("Delete")
+                                }
                             }
                         }
                     }
