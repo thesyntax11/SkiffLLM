@@ -715,7 +715,9 @@ private fun ModelsDialog(
                                 )
                             }
                             if (isDownloaded) {
-                                TextButton(onClick = { onUse(localModels.first { it.name == entry.file }) }) {
+                                TextButton(onClick = {
+                                    localModels.firstOrNull { it.name == entry.file }?.let { onUse(it) }
+                                }) {
                                     Text("Use")
                                 }
                             } else if (isDownloading) {
