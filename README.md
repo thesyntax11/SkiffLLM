@@ -8,7 +8,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License MIT"/>
   <img src="https://img.shields.io/badge/c%2B%2B-17-blue.svg" alt="C++17"/>
-  <img src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey" alt="Platforms"/>
+  <img src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows%20%7C%20Android-lightgrey" alt="Platforms"/>
   <img src="https://img.shields.io/badge/runtime-offline-green" alt="Offline"/>
 </p>
 
@@ -69,6 +69,17 @@ Documentation: [Setup](docs/SETUP.md) &middot; [Usage](docs/usage.md) &middot; [
 | Smoke test | `--smoke` for a quick end-to-end generation check |
 | Shell completions | bash, zsh, and fish completion files |
 | Local checks | `scripts/ci-local.sh` runs build, tests, and entry points |
+
+## Android
+
+A native Android client is included under [`android/`](android/README.md). It runs
+supported GGUF models entirely on the phone with Jetpack Compose and a llama.cpp
+JNI bridge. Tokens stream into a dark chat UI, and every response shows real
+measured token count, time, and tokens per second. The app has no network
+permission and remembers the last loaded model.
+
+See the [Android model guide](android/models.md) for the recommended small,
+quantized models for phones.
 
 ## Requirements
 
