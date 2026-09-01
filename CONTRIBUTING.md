@@ -8,14 +8,22 @@ simple, so clean, honest contributions are the most valuable.
 ### Desktop
 
 ```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j
-ctest --test-dir build --output-on-failure
+make release
+make tests
 ```
 
-Use `scripts/ci-local.sh` for the full local CI check:
+Or use the underlying CMake/CTest commands directly:
 
 ```bash
+cmake --preset release
+cmake --build build/release -j
+ctest --test-dir build/release --output-on-failure
+```
+
+Use `scripts/ci-local.sh` or `make check` for the full local CI check:
+
+```bash
+make check
 bash scripts/ci-local.sh
 ```
 
