@@ -55,11 +55,21 @@ command above on the listed machine and attach the output.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | — | — | — | — | — | — | — | — |
 
-Rows should be added like this when available:
+> The previous draft of this document contained an example row with example
+> numbers. No such values are real measurements and they have been removed.
+> Treat every number in this table as a real contribution only.
 
-```text
-| Qwen2.5-0.5B-Instruct | Q4_K_M | Ryzen 7 5800X, 32 GB DDR4 | 8 threads, CPU | 2048 | 123.4 | 42.1 | 3 |
-```
+## How to contribute a result
+
+Create a pull request that:
+
+1. Adds one row with the exact columns above.
+2. Includes the `skifflm --version` and `--backend-info` output in the PR
+   description.
+3. Includes the model file's SHA-256 and the exact command used.
+4. States where the measurement was run (desktop, phone, server).
+
+Reviewers will reject rows without the attached command output.
 
 ## Factors affecting speed
 

@@ -4,9 +4,9 @@ SkiffLLM is a single static/small C++ binary that talks to llama.cpp. The
 runtime does not bundle a model, does not call the network, and does not need a
 daemon.
 
-## 1. Install a prebuilt archive (when published)
+## 1. Install a prebuilt archive
 
-Every release includes platform archives named
+When a release is published it includes platform archives named
 `skifflm-<version>-<os>-<arch>.tar.gz` (or `.zip` on Windows) plus
 `checksums.txt`.
 
@@ -16,8 +16,15 @@ tar -xzf skifflm-v1.6.0-linux-x86_64.tar.gz
 sudo install -m 0755 bin/skifflm /usr/local/bin/skifflm
 ```
 
-Verify the checksum file before installing anything downloaded from the
-internet.
+A ready-to-run helper is included:
+
+```bash
+bash scripts/install-from-release.sh --version v1.6.0
+bash scripts/install-from-release.sh --help
+```
+
+The helper maps the current OS/arch to the release asset and installs to
+`$HOME/.local/bin`. It fails fast when the archive is not published yet.
 
 ## 2. Install from a source checkout
 
@@ -108,3 +115,13 @@ cp scripts/completions/skifflm.fish ~/.config/fish/completions/
 - Android Studio is not on this install path.
 - `bash scripts/ci-android.sh` produces a debug APK when the Android SDK is
   installed.
+
+## 8. Record a demo
+
+Run `scripts/demo-capture.sh` with a real binary and a real GGUF model to
+produce an honest terminal recording. The script never creates fake output.
+
+```bash
+bash scripts/demo-capture.sh ./build/release/skifflm /path/model.gguf
+```
+

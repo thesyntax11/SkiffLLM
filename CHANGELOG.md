@@ -13,6 +13,17 @@
   install.
 - Added `docs/INSTALL.md` and a compact SVG logo to the README.
 
+### Discoverability and honesty
+
+- Rewrote the README into a focused, skimmable landing page (roughly 400 lines
+  instead of 1070), removed the duplicated `## Highlights` heading, and
+  clarified that SkiffLLM never requires a *cloud* API key.
+- Removed the placeholder benchmark row from `docs/benchmarks.md`; the table is
+  now empty and clearly documents how to contribute a real measured result.
+- Added `scripts/demo-capture.sh` to record an honest terminal demo from a real
+  model, and `scripts/install-from-release.sh` for prebuilt release installs.
+- Added Homebrew packaging documentation under `packaging/homebrew/`.
+
 ## v1.6.0 — 2026-09-01
 
 ### Desktop

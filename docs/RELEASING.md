@@ -22,6 +22,17 @@ scripts/release.sh --output-dir artifacts --version 1.6.0
 The script creates `skifflm-VERSION.tar.gz` with the binary, licenses, docs,
 completions, example config, logo, and helper scripts, plus `checksums.txt`.
 
+Once the archive is published as a GitHub release asset, users can install it
+with:
+
+```bash
+bash scripts/install-from-release.sh --version v1.6.0
+```
+
+> Keep the release archive and the published asset name identical. The helper
+> maps `linux-x86_64`, `linux-aarch64`, `macos-x86_64`, `macos-arm64`, and
+> `windows-x86_64` automatically.
+
 ## GitHub release
 
 When workflow permissions are available on the repository, tag a commit and
