@@ -237,24 +237,32 @@ skifflm --model model.gguf --tokenize "hello world"
 ## Local API Server
 
 ```bash
+# local-only
 skifflm --model model.gguf --serve --host 127.0.0.1 --port 8080
+
+# protected non-loopback listener
+skifflm --model model.gguf --serve --host 0.0.0.0 --port 8080 --api-key "$SKIFFLLM_SERVER_KEY"
 ```
 
 Endpoints:
 
 ```text
-GET  /health
-GET  /v1/models
-POST /v1/chat/completions
+GET  /health                 public health check
+GET  /v1/models              bearer protected when --api-key is set
+POST /v1/chat/completions    bearer protected when --api-key is set
 ```
 
-The server is offline, binds to localhost by default, and handles one request
-at a time. It supports OpenAI-style streaming with `"stream": true`.
+The server is offline, binds to localhost by default, and supports
+OpenAI-style streaming with `"stream": true`. Fast endpoints answer while a
+generation runs; chat generation is serialized behind a mutex. When
+`--api-key` is configured, `/v1/*` requires
+`Authorization: Bearer <key>` and returns `401` otherwise.
 
 A quick client is included:
 
 ```bash
 python3 scripts/api_client.py http://127.0.0.1:8080 "Say hello."
+python3 scripts/api_client.py http://127.0.0.1:8080 --api-key "$SKIFFLLM_SERVER_KEY" "Say hello."
 ```
 
 ## Benchmark

@@ -6,6 +6,10 @@
   Parse CLI flags, config files, environment variables, profiles, and model
   discovery.
 
+- `include/skifflm/http_auth.hpp` and `src/http_auth.cpp`
+  Small, testable HTTP Bearer-token matcher used to protect the local
+  `/v1/*` endpoints when `--api-key` is configured.
+
 - `include/skifflm/engine.hpp` and `src/engine.cpp`
   Own the llama.cpp model and context. Build chat prompts, tokenize, run the
   sampler chain, decode tokens, stop early, and report real timing.
@@ -18,7 +22,8 @@
 
 - `include/skifflm/server.hpp` and `src/server.cpp`
   Local HTTP endpoint with `/health`, `/version`, `/v1/models`, and
-  `/v1/chat/completions`, including streamed responses and CORS support.
+  `/v1/chat/completions`, including streamed responses, CORS support, and
+  optional Bearer auth on `/v1/*`.
 
 - `src/main.cpp`
   CLI entry point: dispatch diagnostics, export, one-shot, interactive,

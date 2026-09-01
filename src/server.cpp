@@ -1,5 +1,7 @@
 #include "skifflm/server.hpp"
 
+#include "skifflm/http_auth.hpp"
+
 #include <algorithm>
 #include <atomic>
 #include <cerrno>
@@ -229,34 +231,6 @@ struct HttpRequest {
     std::string body;
     std::map<std::string, std::string> headers;
 };
-
-bool constant_time_equal(const std::string& expected, const std::string& actual) {
-    if (expected.size() != actual.size()) {
-        return false;
-    }
-    unsigned char difference = 0;
-    for (size_t i = 0; i < expected.size(); ++i) {
-        difference |= static_cast<unsigned char>(expected[i]) ^ static_cast<unsigned char>(actual[i]);
-    }
-    return difference == 0;
-}
-
-bool request_authorized(const HttpRequest& request, const std::string& api_key) {
-    if (api_key.empty()) {
-        return true;
-    }
-    const auto header = request.headers.find("authorization");
-    if (header == request.headers.end()) {
-        return false;
-    }
-    const std::string& authorization = header->second;
-    const std::string scheme = "bearer ";
-    if (authorization.size() <= scheme.size() ||
-        lower(authorization.substr(0, scheme.size())) != scheme) {
-        return false;
-    }
-    return constant_time_equal(api_key, trim(authorization.substr(scheme.size())));
-}
 
 bool read_http_request(skifflm_socket_t socket_fd,
                        HttpRequest& request,
@@ -1013,7 +987,12 @@ void handle_request(skifflm_socket_t socket_fd,
         return;
     }
     if (request.target == "/v1/models" || request.target == "/v1/chat/completions") {
-        if (!request_authorized(request, config.api_key)) {
+        const auto authorization = request.headers.find("authorization");
+        const bool authorized =
+            config.api_key.empty() ||
+            (authorization != request.headers.end() &&
+             bearer_token_matches(authorization->second, config.api_key));
+        if (!authorized) {
             send_response(socket_fd, 401, "application/json",
                           "{\"error\":\"missing or invalid API key\"}\n", error);
             return;

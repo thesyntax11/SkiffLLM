@@ -1,6 +1,10 @@
 ## SkiffLLM
 
 <p align="center">
+  <img src="docs/logo.svg" alt="SkiffLLM logo" width="128" height="128"/>
+</p>
+
+<p align="center">
   <strong>A fast, private, offline AI engine for your terminal.</strong><br/>
   Pipe anything into a local LLM. No cloud. No API keys. No telemetry.
 </p>
@@ -25,7 +29,7 @@ cat README.md | skifflm "summarize this"
 skifflm --project . "where is authentication handled?"
 ```
 
-Documentation: [Setup](docs/SETUP.md) &middot; [Usage](docs/usage.md) &middot; [Demo](docs/demo.md) &middot; [Architecture](docs/ARCHITECTURE.md) &middot; [Releasing](docs/RELEASING.md) &middot; [Limitations](docs/LIMITATIONS.md) &middot; [FAQ](docs/FAQ.md) &middot; [Security](SECURITY.md) &middot; [Contributing](CONTRIBUTING.md) &middot; [Good First Issues](docs/GOOD_FIRST_ISSUES.md)
+Documentation: [Install](docs/INSTALL.md) &middot; [Setup](docs/SETUP.md) &middot; [Usage](docs/usage.md) &middot; [Demo](docs/demo.md) &middot; [Architecture](docs/ARCHITECTURE.md) &middot; [Releasing](docs/RELEASING.md) &middot; [Benchmarks](docs/benchmarks.md) &middot; [Limitations](docs/LIMITATIONS.md) &middot; [FAQ](docs/FAQ.md) &middot; [Security](SECURITY.md) &middot; [Contributing](CONTRIBUTING.md) &middot; [Good First Issues](docs/GOOD_FIRST_ISSUES.md)
 
 ## Use it anywhere
 
@@ -312,8 +316,10 @@ Builds and prebuilt archives are both supported.
 # From a source checkout
 cmake --preset release && cmake --build --preset release -j
 
-# Or the convenience installer
+# Or the convenience installer (install to $HOME/.local by default)
+bash scripts/install.sh --help
 bash scripts/install.sh
+bash scripts/install.sh --prefix /usr/local --backend metal
 
 # Local archive
 bash scripts/release.sh
@@ -326,6 +332,7 @@ bash scripts/ci-android.sh
 bash scripts/ios-setup.sh
 ```
 
+See [docs/INSTALL.md](docs/INSTALL.md) for the complete install guide.
 Prebuilt asset names follow the pattern `skifflm-<version>-<platform>.tar.gz`
 with a `checksums.txt`. Release workflow files target Linux/macOS/Windows and
 an Android APK.
@@ -884,6 +891,17 @@ ctest --preset release
 ```
 
 Available presets: `release` and `debug`.
+
+When you prefer make-style targets, the repository includes a small convenience
+`Makefile`:
+
+```bash
+make release          # configure + build Release
+make tests            # build + run CTest
+make check            # full local CI script
+make install          # build and install to $HOME/.local
+make help             # list all targets
+```
 
 ## Build Options
 

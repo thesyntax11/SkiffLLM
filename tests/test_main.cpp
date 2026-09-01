@@ -1,4 +1,5 @@
 #include "skifflm/config.hpp"
+#include "skifflm/http_auth.hpp"
 #include "skifflm/session.hpp"
 #include "skifflm/tools.hpp"
 
@@ -210,6 +211,25 @@ void test_formatting() {
     check(skifflm::lower("AbC") == "abc", "lower should lowercase");
     check(skifflm::to_human_bytes(1024u) == "1.00 KiB", "bytes should format");
     check(skifflm::to_human_count(1500u) == "1.50 K", "count should format");
+}
+
+void test_server_bearer_auth() {
+    check(skifflm::bearer_token_matches("Bearer local-token", "local-token"),
+          "correct bearer token should match");
+    check(skifflm::bearer_token_matches("bearer local-token", "local-token"),
+          "bearer scheme should be case-insensitive");
+    check(skifflm::bearer_token_matches("Bearer  local-token  ", "local-token"),
+          "bearer token should tolerate surrounding whitespace");
+    check(!skifflm::bearer_token_matches("Bearer wrong", "local-token"),
+          "wrong bearer token should not match");
+    check(!skifflm::bearer_token_matches("Basic local-token", "local-token"),
+          "non-bearer scheme should not match");
+    check(!skifflm::bearer_token_matches("Bearer", "local-token"),
+          "missing bearer token should not match");
+    check(skifflm::bearer_token_matches("Bearer anything", ""),
+          "empty configured key leaves the server public");
+    check(!skifflm::bearer_token_matches("", "local-token"),
+          "missing authorization header value should not match");
 }
 
 void test_advanced_flags() {
@@ -543,6 +563,7 @@ int main() {
     test_parse_args_new_features();
     test_session_roundtrip();
     test_formatting();
+    test_server_bearer_auth();
     test_session_resolution();
     test_advanced_flags();
     test_popularity_flags();
