@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <fstream>
@@ -89,7 +90,7 @@ std::string option_value(int& index,
                          std::string& error) {
     const std::string prefix = name + "=";
     const std::string current(argv[index]);
-    if (current.size() > prefix.size() && current.compare(0, prefix.size(), prefix) == 0) {
+    if (current.size() >= prefix.size() && current.compare(0, prefix.size(), prefix) == 0) {
         return current.substr(prefix.size());
     }
     if (index + 1 >= argc) {
@@ -935,6 +936,10 @@ void apply_environment(Config& cfg) {
     }
     if (const char* value = std::getenv("SKIFFLLM_API_KEY")) {
         cfg.api_key = value;
+    } else if (const char* value = std::getenv("SKIFFLLM_SERVER_KEY")) {
+        // Alias used throughout the docs. The longer name wins so both are
+        // supported without surprising anyone who sets the old one.
+        cfg.api_key = value;
     }
 }
 
@@ -955,7 +960,7 @@ std::string usage(const std::string& program) {
     out << "  --tokenize <text>         Tokenize text and print token counts\n";
     out << "  --profile <name>           balanced, fast, creative, code or precise\n";
     out << "  --session <name>           Use a named conversation\n";
-    out << "  --system <text>            System prompt\n";
+    out << "  --system <text>            System prompt (alias: --system-prompt)\n";
     out << "  --stop <text>              Stop sequence; can be repeated\n";
     out << "  --attach <path>            Attach a file; can be repeated\n";
     out << "  --file <path>             Alias for --attach; can be repeated\n";
@@ -982,18 +987,19 @@ std::string usage(const std::string& program) {
     out << "  --no-kv-offload           Keep KV cache on CPU\n\n";
 
     out << "Sampling options:\n";
-    out << "  --temp <t>                 Sampling temperature (default: 0.70)\n";
+    out << "  --temp <t>                 Sampling temperature (default: 0.70; alias: --temperature)\n";
     out << "  --top-p <p>                Nucleus sampling (default: 0.95)\n";
     out << "  --top-k <n>                Top-K sampling (default: 40)\n";
     out << "  --min-p <p>                Minimum probability filter\n";
     out << "  --typical <p>              Locally typical sampling\n";
     out << "  --repeat-penalty <p>       Repeat penalty (default: 1.10)\n";
     out << "  --repeat-last-n <n>        Repeat penalty window (default: 64)\n";
-    out << "  --n-predict <n>            Max generated tokens (default: 512)\n";
+    out << "  --n-predict <n>            Max generated tokens (default: 512; alias: --n)\n";
     out << "  --seed <n|random>          Sampling seed (default: random)\n\n";
     out << "Session options:\n";
     out << "  --history <path>           Session history file\n";
     out << "  --reset-history            Ignore and overwrite saved history\n";
+    out << "  --save                     Persist the session (default)\n";
     out << "  --no-save                  Do not persist the session\n";
     out << "  --auto-trim                Trim old history when context is full (default)\n";
     out << "  --no-auto-trim             Fail instead of trimming\n";
@@ -1017,7 +1023,7 @@ std::string usage(const std::string& program) {
     out << "  --quiet                    Suppress banners and llama logs\n";
     out << "  --verbose                  Print llama.cpp logs\n";
     out << "  --config <path>            Config file path\n";
-    out << "  --show-config              Print the effective configuration\n";
+    out << "  --show-config              Print the effective configuration (JSON with --json)\n";
     out << "  --context-bar              Show the live context usage bar (default)\n";
     out << "  --no-context-bar           Hide the context usage bar\n";
     out << "  --backend-info             Print the active llama.cpp backends and exit\n";
@@ -1034,7 +1040,65 @@ std::string usage(const std::string& program) {
     return out.str();
 }
 
-void print_config(const Config& cfg) {
+namespace {
+
+std::string json_escape(const std::string& value) {
+    std::string out;
+    out.reserve(value.size() + 8);
+    for (const unsigned char ch : value) {
+        switch (ch) {
+            case '"': out += "\\\""; break;
+            case '\\': out += "\\\\"; break;
+            case '\b': out += "\\b"; break;
+            case '\f': out += "\\f"; break;
+            case '\n': out += "\\n"; break;
+            case '\r': out += "\\r"; break;
+            case '\t': out += "\\t"; break;
+            default:
+                if (ch < 0x20) {
+                    char buf[8];
+                    std::snprintf(buf, sizeof(buf), "\\u%04x", ch);
+                    out += buf;
+                } else {
+                    out += static_cast<char>(ch);
+                }
+        }
+    }
+    return out;
+}
+
+}
+
+void print_config(const Config& cfg, bool as_json) {
+    if (as_json) {
+        std::cout << "{\n";
+        std::cout << "  \"model\":\"" << json_escape(cfg.model_path.empty() ? "(auto)" : cfg.model_path.string()) << "\",\n";
+        std::cout << "  \"model_dir\":\"" << json_escape(cfg.model_dir.string()) << "\",\n";
+        std::cout << "  \"config_path\":\"" << json_escape(cfg.config_path.string()) << "\",\n";
+        std::cout << "  \"history_path\":\"" << json_escape(cfg.history_path.string()) << "\",\n";
+        std::cout << "  \"server_host\":\"" << json_escape(cfg.server_host) << "\",\n";
+        std::cout << "  \"server_port\":" << cfg.server_port << ",\n";
+        std::cout << "  \"api_key\":" << (cfg.api_key.empty() ? "null" : "\"(set)\"") << ",\n";
+        std::cout << "  \"profile\":" << (cfg.profile_name.empty() ? "null" : "\"" + json_escape(cfg.profile_name) + "\"") << ",\n";
+        std::cout << "  \"chat_template\":" << (cfg.chat_template.empty() ? "null" : "\"" + json_escape(cfg.chat_template) + "\"") << ",\n";
+        std::cout << "  \"context_size\":" << cfg.context_size << ",\n";
+        std::cout << "  \"batch_size\":" << cfg.batch_size << ",\n";
+        std::cout << "  \"threads\":" << (cfg.n_threads == 0 ? 0 : cfg.n_threads) << ",\n";
+        std::cout << "  \"gpu_layers\":" << cfg.n_gpu_layers << ",\n";
+        std::cout << "  \"temperature\":" << cfg.temperature << ",\n";
+        std::cout << "  \"top_p\":" << cfg.top_p << ",\n";
+        std::cout << "  \"top_k\":" << cfg.top_k << ",\n";
+        std::cout << "  \"min_p\":" << cfg.min_p << ",\n";
+        std::cout << "  \"typical_p\":" << cfg.typical_p << ",\n";
+        std::cout << "  \"repeat_penalty\":" << cfg.repeat_penalty << ",\n";
+        std::cout << "  \"n_predict\":" << cfg.n_predict << ",\n";
+        std::cout << "  \"seed\":" << (cfg.seed == 0xFFFFFFFFu ? "\"random\"" : std::to_string(cfg.seed)) << ",\n";
+        std::cout << "  \"save_history\":" << (cfg.save_history ? "true" : "false") << ",\n";
+        std::cout << "  \"auto_trim\":" << (cfg.auto_trim ? "true" : "false") << ",\n";
+        std::cout << "  \"serve\":" << (cfg.serve ? "true" : "false") << "\n";
+        std::cout << "}\n";
+        return;
+    }
     std::cout << "model            " << (cfg.model_path.empty() ? "(auto)" : cfg.model_path.string()) << "\n";
     std::cout << "model_dir        " << cfg.model_dir.string() << "\n";
     std::cout << "config_path      " << cfg.config_path.string() << "\n";

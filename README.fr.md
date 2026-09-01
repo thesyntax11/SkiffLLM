@@ -21,7 +21,6 @@
 <p align="center">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="Licence MIT"/>
   <img src="https://img.shields.io/badge/version-v1.6.0-blue" alt="Version v1.6.0"/>
-  <img src="https://github.com/thesyntax11/SkiffLLM/actions/workflows/ci.yml/badge.svg" alt="État CI"/>
   <img src="https://img.shields.io/badge/c%2B%2B-17-blue.svg" alt="C++17"/>
   <img src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows%20%7C%20Android%20%7C%20iOS-lightgrey" alt="Plateformes"/>
   <img src="https://img.shields.io/badge/runtime-offline-green" alt="Hors ligne"/>
@@ -91,6 +90,13 @@ Les fichiers sont enregistrés par défaut dans
 `~/.local/share/skifflm/models`. Vous pouvez aussi pointer `--model` vers
 n'importe quel fichier `.gguf` existant.
 
+Les fichiers de modèle sont téléchargés depuis Hugging Face sous leur propre
+licence en amont ; SkiffLLM ne les redistribue pas. Respectez la licence de
+chaque modèle avant de l'utiliser ou de le redistribuer. Licences du
+catalogue fourni : Qwen2.5/Qwen3 Apache-2.0, SmolLM2 Apache-2.0, Phi-3.5 MIT
+et Llama 3.2 **Llama 3.2 Community License** (avec obligations d'attribution
+et de nommage).
+
 Configuration complète : [docs/fr/INSTALL.md](docs/fr/INSTALL.md).
 
 ---
@@ -123,8 +129,9 @@ Réponse courte : utilisez Ollama lorsque vous voulez un serveur de modèles
 rapide, orienté catalogue, avec des téléchargements en une seule commande ;
 utilisez SkiffLLM lorsque le modèle doit se comporter comme un outil Unix natif,
 un composant isolé du réseau (air-gapped) ou un moteur embarqué dans un
-workflow CI, bureau ou mobile — sans démon, sans réseau à l'exécution, un seul
-binaire. La matrice de décision honnête, les vrais compromis et un guide de
+workflow CI, bureau ou mobile — sans démon, un seul binaire, et une
+inférence centrale qui ne se connecte jamais.
+La matrice de décision honnête, les vrais compromis et un guide de
 migration tâche par tâche sont dans [docs/fr/comparison.md](docs/fr/comparison.md)
 et, complet en anglais, dans [docs/COMPARISON.md](docs/COMPARISON.md). Pour le
 déploiement d'entreprise, le durcissement serveur et la chaîne
@@ -137,7 +144,7 @@ anglais).
 
 | Fonctionnalité | Description |
 | --- | --- |
-| Tuyaux Unix | `cat file \| skifflm "summarize"`, `git diff \| skifflm review` |
+| Tuyaux Unix | `cat file \| skifflm "summarize"`, `git diff \| skifflm "review"` |
 | Contexte projet | `--project <dir>` ajoute un vrai index + un extrait de code limité |
 | Gestion des modèles | `skifflm model list / info / install / remove / verify` |
 | Intégration Git | `skifflm git review / explain / commit / log / status` |
@@ -193,8 +200,11 @@ skifflm model remove qwen2.5-0.5b --force
 ```
 
 `model install` délègue à `scripts/model_fetch.py`, qui télécharge exactement
-un GGUF via HTTPS depuis Hugging Face, vérifie l'en-tête GGUF et la taille
-attendue, puis le place dans votre dossier de modèles. L'inférence elle-même
+un GGUF via HTTPS depuis Hugging Face, vérifie l'en-tête GGUF et enregistre un
+fichier latéral SHA-256 dans votre dossier de modèles. La taille du catalogue
+est indicative car un mainteneur peut recharger une révision avec une taille
+différente ; le fichier latéral est la vérification d'intégrité faisant
+référence. L'inférence elle-même
 n'ouvre jamais de connexion.
 
 ## Intégration Git
@@ -203,7 +213,8 @@ Revue et explication de code locales et hors ligne pour le diff qui se trouve
 devant vous.
 
 ```bash
-git diff | skifflm git review
+# Les sous-commandes git lisent le diff elles-mêmes ; aucun tuyau n'est requis.
+skifflm git review
 skifflm git review --cached
 skifflm git explain
 skifflm git commit --cached
@@ -217,8 +228,8 @@ votre diff indexé ; il n'exécute pas `git commit` à votre place.
 ## Sessions et mémoire persistante
 
 ```bash
-skifflm --session coding --model qwen2.5-1.5b.gguf
-skifflm --session writing --model qwen2.5-1.5b.gguf
+skifflm --session coding --model qwen2.5-0.5b-instruct-q4_k_m.gguf
+skifflm --session writing --model qwen2.5-0.5b-instruct-q4_k_m.gguf
 
 skifflm session list
 skifflm session show coding
@@ -267,7 +278,7 @@ from openai import OpenAI
 
 client = OpenAI(base_url="http://127.0.0.1:8080/v1", api_key="local-token")
 resp = client.chat.completions.create(
-    model="qwen2.5-1.5b",
+    model="qwen2.5-0.5b-instruct-q4_k_m",
     messages=[{"role": "user", "content": "Explain this diff."}],
     stream=True,
 )
@@ -301,9 +312,13 @@ de bureau :
 - export Markdown et copie en un geste
 - import GGUF avec vérification de l'en-tête
 
-Le seul usage réseau est un téléchargement explicite de modèle lancé par
-l'utilisateur depuis Hugging Face, avec validation de taille/GGUF et fichier
-latéral SHA-256. Les prompts et l'historique ne quittent jamais l'appareil.
+L'inférence n'ouvre jamais de connexion. Il existe exactement deux chemins
+réseau, tous deux explicites et lancés par l'utilisateur : `model install`
+télécharge depuis Hugging Face, et le sous-commande `openai` parle à un
+serveur HTTP vers lequel vous le pointez. Le fichier doit avoir un en-tête GGUF
+valide et reçoit un fichier latéral SHA-256 ; la taille du catalogue est
+indicative. Les sauvegardes Android sont désactivées pour que les prompts et
+l'historique ne quittent jamais l'appareil.
 
 ---
 
@@ -369,8 +384,12 @@ vide attendant de vrais apports : [docs/benchmarks.md](docs/benchmarks.md).
 skifflm --doctor --network
 ```
 
-affiche les faits du runtime : aucun appel réseau sortant, aucune télémétrie,
-aucune API cloud, stockage local de l'historique et statut `✓ OFFLINE`.
+affiche les faits du runtime : la génération centrale ne fait aucun appel
+sortant, il n'y a ni télémétrie ni API cloud, et l'historique est stocké
+localement. Les seuls chemins réseau sont explicites et initiés par
+l'utilisateur : `model install` (téléchargement Hugging Face) et le sous-commande
+`openai` (le serveur vers lequel vous le pointez). `--serve` ouvre seulement
+un listener local, il ne contacte jamais l'extérieur.
 
 ---
 
@@ -392,8 +411,9 @@ make install
 make help
 ```
 
-Les archives précompilées suivent le motif `skifflm-<version>-<platform>.tar.gz`
-avec `checksums.txt` lorsqu'elles sont publiées. Voir
+Les archives précompilées suivent le motif `skifflm-<version>-<os>-<arch>.tar.gz`
+(par exemple `skifflm-v1.6.0-linux-x86_64.tar.gz`, `.zip` sous Windows) avec
+`checksums.txt` lorsqu'elles sont publiées. Voir
 [docs/fr/INSTALL.md](docs/fr/INSTALL.md). Les complétions de shell se trouvent
 dans [scripts/completions](scripts/completions/).
 

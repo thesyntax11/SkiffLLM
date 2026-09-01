@@ -21,7 +21,6 @@
 <p align="center">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License MIT"/>
   <img src="https://img.shields.io/badge/version-v1.6.0-blue" alt="Version v1.6.0"/>
-  <img src="https://github.com/thesyntax11/SkiffLLM/actions/workflows/ci.yml/badge.svg" alt="CI status"/>
   <img src="https://img.shields.io/badge/c%2B%2B-17-blue.svg" alt="C++17"/>
   <img src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows%20%7C%20Android%20%7C%20iOS-lightgrey" alt="Plattformen"/>
   <img src="https://img.shields.io/badge/runtime-offline-green" alt="Offline"/>
@@ -90,6 +89,13 @@ Die Dateien werden standardmäßig unter `~/.local/share/skifflm/models`
 gespeichert. Sie können auch mit `--model` auf eine vorhandene `.gguf`-Datei
 zeigen.
 
+Die Modelldateien werden unter ihrer eigenen Upstream-Lizenz von Hugging
+Face heruntergeladen; SkiffLLM vertreibt sie nicht weiter. Beachten Sie die
+Lizenz jedes Modells, bevor Sie es verwenden oder weitergeben. Die Lizenzen im
+mitgelieferten Katalog: Qwen2.5/Qwen3 Apache-2.0, SmolLM2 Apache-2.0,
+Phi-3.5 MIT und Llama 3.2 **Llama 3.2 Community License** (mit Namens- und
+Attributionspflichten).
+
 Vollständige Einrichtung: [docs/de/INSTALL.md](docs/de/INSTALL.md).
 
 ---
@@ -122,7 +128,8 @@ Kurz gesagt: Nutzen Sie Ollama, wenn Sie einen schnellen, katalogorientierten
 Modellserver mit Ein-Zeilen-Downloads wollen; nutzen Sie SkiffLLM, wenn das
 Modell wie ein natives Unix-Werkzeug, eine luftspaltige (air-gapped) Komponente
 oder eine eingebettete Engine in einem CI-, Desktop- oder Mobil-Workflow
-arbeiten soll — ohne Daemon, ohne Netzwerk zur Laufzeit, ein einziges Binary.
+arbeiten soll — ohne Daemon, ein einziges Binary, und Kern-Inferenz, die nie
+Verbindung aufnimmt.
 Die ehrliche Entscheidungsmatrix, die wirklichen Abwägungen und eine
 aufgabenweise Migrationsanleitung finden Sie in
 [docs/de/comparison.md](docs/de/comparison.md) und auf Englisch vollständig in
@@ -136,7 +143,7 @@ Server-Härtung und Supply Chain siehe [docs/ENTERPRISE.md](docs/ENTERPRISE.md)
 
 | Funktion | Beschreibung |
 | --- | --- |
-| Unix-Pipelines | `cat file \| skifflm "summarize"`, `git diff \| skifflm review` |
+| Unix-Pipelines | `cat file \| skifflm "summarize"`, `git diff \| skifflm "review"` |
 | Projektkontext | `--project <dir>` ergänzt echten Dateiindex + begrenzten Quellausschnitt |
 | Modellverwaltung | `skifflm model list / info / install / remove / verify` |
 | Git-Integration | `skifflm git review / explain / commit / log / status` |
@@ -192,16 +199,19 @@ skifflm model remove qwen2.5-0.5b --force
 ```
 
 `model install` delegiert an `scripts/model_fetch.py`, das genau ein GGUF per
-HTTPS von Hugging Face herunterlädt, den GGUF-Header und die erwartete Größe
-prüft und es in Ihrem Modellverzeichnis ablegt. Die Inferenz selbst öffnet
-niemals eine Verbindung.
+HTTPS von Hugging Face herunterlädt, den GGUF-Header prüft und eine
+SHA-256-Sidecar in Ihr Modellverzeichnis schreibt. Die Kataloggröße ist nur
+informativ, weil ein Modellpfleger eine Revision mit anderer Größe neu
+hochladen kann. Die Sidecar ist die maßgebliche Integritätsprüfung. Die
+Inferenz selbst öffnet niemals eine Verbindung.
 
 ## Git-Integration
 
 Lokale, offline Code-Review und Erklärung für den Diff vor Ihnen.
 
 ```bash
-git diff | skifflm git review
+# Die git-Unterbefehle lesen den Diff selbst; eine Pipe ist nicht nötig.
+skifflm git review
 skifflm git review --cached
 skifflm git explain
 skifflm git commit --cached
@@ -215,8 +225,8 @@ Commit-Message vor; es führt `git commit` nicht für Sie aus.
 ## Sitzungen & dauerhafter Speicher
 
 ```bash
-skifflm --session coding --model qwen2.5-1.5b.gguf
-skifflm --session writing --model qwen2.5-1.5b.gguf
+skifflm --session coding --model qwen2.5-0.5b-instruct-q4_k_m.gguf
+skifflm --session writing --model qwen2.5-0.5b-instruct-q4_k_m.gguf
 
 skifflm session list
 skifflm session show coding
@@ -265,7 +275,7 @@ from openai import OpenAI
 
 client = OpenAI(base_url="http://127.0.0.1:8080/v1", api_key="local-token")
 resp = client.chat.completions.create(
-    model="qwen2.5-1.5b",
+    model="qwen2.5-0.5b-instruct-q4_k_m",
     messages=[{"role": "user", "content": "Explain this diff."}],
     stream=True,
 )
@@ -298,9 +308,13 @@ Funktionsfläche wie die Desktop-CLI:
 - Markdown-Export und Ein-Tippen-Kopieren
 - GGUF-Import mit Header-Prüfung
 
-Die einzige Netzwerknutzung ist ein expliziter, vom Nutzer gestarteter
-Modell-Download von Hugging Face mit Größen-/GGUF-Prüfung und SHA-256-Sidecar.
-Prompts und Verlauf verlassen das Gerät nie.
+Die Inferenz selbst öffnet nie eine Verbindung. Es gibt genau zwei
+Netzwerkpfade, beide explizit und vom Nutzer gestartet: `model install` lädt
+von Hugging Face herunter, und der Unterbefehl `openai` spricht mit einem
+HTTP-Server, auf den Sie ihn zeigen. Die Datei muss einen gültigen GGUF-Header
+haben und erhält eine SHA-256-Sidecar; die Kataloggröße ist informativ.
+Android-Geräte-Backups sind deaktiviert, damit Prompts und Verlauf das Gerät
+nie verlassen.
 
 ---
 
@@ -366,8 +380,12 @@ die auf echte Beiträge wartet: [docs/benchmarks.md](docs/benchmarks.md).
 skifflm --doctor --network
 ```
 
-zeigt die Laufzeitfakten: keine ausgehenden Netzwerkaufrufe, keine Telemetrie,
-keine Cloud-APIs, lokale Verlaufsspeicherung und `✓ OFFLINE`.
+zeigt die Laufzeitfakten: Die Kern-Generierung tätigt keine ausgehenden
+Aufrufe, es gibt keine Telemetrie, keine Cloud-API, und der Verlauf wird lokal
+gespeichert. Die einzigen Netzwerkpfade sind explizit und vom Nutzer gestartet:
+`model install` (Hugging-Face-Download) und der Unterbefehl `openai` (ein
+Server, auf den Sie ihn zeigen). `--serve` öffnet nur einen lokalen Listener
+und verbindet sich nie nach außen.
 
 ---
 
@@ -390,8 +408,9 @@ make help
 ```
 
 Fertig gebaute Archive folgen dem Muster
-`skifflm-<version>-<platform>.tar.gz` mit `checksums.txt`, sobald sie
-veröffentlicht sind. Siehe [docs/de/INSTALL.md](docs/de/INSTALL.md).
+`skifflm-<version>-<os>-<arch>.tar.gz` (z. B.
+`skifflm-v1.6.0-linux-x86_64.tar.gz`, unter Windows `.zip`) mit
+`checksums.txt`, sobald sie veröffentlicht sind. Siehe [docs/de/INSTALL.md](docs/de/INSTALL.md).
 Shell-Completions liegen in
 [scripts/completions](scripts/completions/).
 

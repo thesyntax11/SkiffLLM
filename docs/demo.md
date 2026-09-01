@@ -53,11 +53,13 @@ qwen2.5-0.5b      Qwen2.5 0.5B Instruct   468.64 MiB  ~1 GB working set    no
 
 ```bash
 $ skifflm --doctor --network
-  Outbound network:    none (no runtime client socket)
-  Telemetry:           disabled
-  Cloud APIs:          none
-  History storage:     local
-  Privacy status:      ✓ OFFLINE
+  Core inference outbound: none (generation never connects)
+  Explicit network uses:   model install (Hugging Face),
+                           openai subcommand (user-chosen endpoint)
+  Telemetry:               disabled
+  Cloud APIs:              none
+  History storage:         local
+  Privacy status:          ✓ LOCAL-FIRST
 ```
 
 If you want an animated recording, run `asciinema` or `agg` on these commands

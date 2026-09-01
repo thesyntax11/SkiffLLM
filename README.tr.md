@@ -21,7 +21,6 @@
 <p align="center">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License MIT"/>
   <img src="https://img.shields.io/badge/version-v1.6.0-blue" alt="Version v1.6.0"/>
-  <img src="https://github.com/thesyntax11/SkiffLLM/actions/workflows/ci.yml/badge.svg" alt="CI status"/>
   <img src="https://img.shields.io/badge/c%2B%2B-17-blue.svg" alt="C++17"/>
   <img src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows%20%7C%20Android%20%7C%20iOS-lightgrey" alt="Platforms"/>
   <img src="https://img.shields.io/badge/runtime-offline-green" alt="Offline"/>
@@ -88,6 +87,12 @@ python3 scripts/model_fetch.py --model qwen2.5-0.5b
 Dosyalar varsayılan olarak `~/.local/share/skifflm/models` dizinine kaydedilir.
 Mevcut herhangi bir `.gguf` dosyasına da `--model` ile işaret edebilirsiniz.
 
+Model dosyaları Hugging Face'ten kendi üst lisansları altında indirilir;
+SkiffLLM bunları yeniden dağıtmaz. Kullanmadan önce her modelin lisansına uyun.
+Bundled katalogdaki lisanslar: Qwen2.5/Qwen3 Apache-2.0, SmolLM2 Apache-2.0,
+Phi-3.5 MIT ve Llama 3.2 **Llama 3.2 Community License**'dır (atıf ve adlandırma
+koşulları içerir).
+
 Tam kurulum: [docs/tr/INSTALL.md](docs/tr/INSTALL.md).
 
 ---
@@ -119,8 +124,8 @@ Kısa cevap: Büyük bir model kataloğu ve tek komutla indirme isteyen hızlı 
 model sunucusu için Ollama'yı; modelin Unix aracı gibi davranmasını, hava
 boşluklu (air-gapped) bir bileşen ya da CI/masaüstü/mobil iş akışına gömülü bir
 motor olmasını istiyorsan SkiffLLM'i kullan. SkiffLLM arka plan servisi
-çalıştırmaz (daemon yok), çalışma zamanında ağ kullanmaz ve tek bir binary'dir.
-Dürüst karar matrisi, gerçek ödünler ve görev görev geçiş rehberi
+çalıştırmaz (daemon yok), tek bir binary'dir ve çekirdek çıkarımı asla ağa
+bağlanmaz. Dürüst karar matrisi, gerçek ödünler ve görev görev geçiş rehberi
 [docs/tr/comparison.md](docs/tr/comparison.md) ile İngilizce tam sürümde:
 [docs/COMPARISON.md](docs/COMPARISON.md). Kurumsal dağıtım, sunucu sıkılaştırma
 ve tedarik zinciri için İngilizce [docs/ENTERPRISE.md](docs/ENTERPRISE.md)
@@ -132,7 +137,7 @@ sayfasına bakın.
 
 | Özellik | Açıklama |
 | --- | --- |
-| Unix boru hatları | `cat file \| skifflm "summarize"`, `git diff \| skifflm review` |
+| Unix boru hatları | `cat file \| skifflm "summarize"`, `git diff \| skifflm "review"` |
 | Proje bağlamı | `--project <dir>` gerçek dosya indeksi + sınırlı kaynak kod dilimi ekler |
 | Model yöneticisi | `skifflm model list / info / install / remove / verify` |
 | Git entegrasyonu | `skifflm git review / explain / commit / log / status` |
@@ -188,16 +193,18 @@ skifflm model remove qwen2.5-0.5b --force
 ```
 
 `model install`, `scripts/model_fetch.py` dosyasına devreder. Bu script Hugging
-Face üzerinden HTTPS ile tam olarak bir GGUF indirir, GGUF başlığını ve beklenen
-boyutu doğrular ve modeli model dizininize yerleştirir. Çıkarım kendisi asla
-bağlantı açmaz.
+Face üzerinden HTTPS ile tam olarak bir GGUF indirir, GGUF başlığını denetler ve
+model dizininize bir SHA-256 yan dosyası kaydeder. Katalog boyutu yalnızca
+bilgilendiricidir; model bakımcısı farklı boyutta yeni bir sürüm yükleyebilir.
+Bütünlük için esas kontrol yan dosyadır. Çıkarım kendisi asla bağlantı açmaz.
 
 ## Git entegrasyonu
 
 Karşınızdaki diff için yerel, çevrimdışı kod incelemesi ve açıklama.
 
 ```bash
-git diff | skifflm git review
+# git alt komutları diff’i kendisi okur; boru hattı gerekmez.
+skifflm git review
 skifflm git review --cached
 skifflm git explain
 skifflm git commit --cached
@@ -211,8 +218,8 @@ skifflm git status
 ## Oturumlar ve kalıcı bellek
 
 ```bash
-skifflm --session coding --model qwen2.5-1.5b.gguf
-skifflm --session writing --model qwen2.5-1.5b.gguf
+skifflm --session coding --model qwen2.5-0.5b-instruct-q4_k_m.gguf
+skifflm --session writing --model qwen2.5-0.5b-instruct-q4_k_m.gguf
 
 skifflm session list
 skifflm session show coding
@@ -261,7 +268,7 @@ from openai import OpenAI
 
 client = OpenAI(base_url="http://127.0.0.1:8080/v1", api_key="local-token")
 resp = client.chat.completions.create(
-    model="qwen2.5-1.5b",
+    model="qwen2.5-0.5b-instruct-q4_k_m",
     messages=[{"role": "user", "content": "Explain this diff."}],
     stream=True,
 )
@@ -294,9 +301,12 @@ ve masaüstü CLI ile aynı özellik yüzeyini sunar:
 - Markdown dışa aktarma ve tek dokunuşla kopyalama
 - başlık doğrulamalı GGUF içe aktarma
 
-Tek ağ kullanımı, Hugging Face'ten kullanıcı tarafından başlatılan açık model
-indirmesidir; boyut/GGUF doğrulaması ve SHA-256 yan dosyası vardır. İstemler ve
-geçmiş cihazdan asla ayrılmaz.
+Çıkarım kendisi asla bağlantı açmaz. İki ağ yolu vardır, ikisi de açık ve
+kullanıcı tarafından başlatılır: `model install` Hugging Face'ten indirir,
+`openai` alt komutu ise işaret ettiğiniz HTTP sunucusuyla konuşur. İndirilen
+dosyanın geçerli bir GGUF başlığı olmalıdır ve SHA-256 yan dosyası yazılır;
+katalog boyutu bilgilendiricidir. Android cihaz yedekleri kapatıldığı için
+istemler ve geçmiş cihazdan asla ayrılmaz.
 
 ---
 
@@ -362,8 +372,11 @@ tablosu için [docs/benchmarks.md](docs/benchmarks.md) dosyasına bakın.
 skifflm --doctor --network
 ```
 
-çalışma zamanı gerçeklerini yazdırır: giden ağ çağrısı yok, telemetri yok,
-bulut API'si yok, yerel geçmiş depolama ve `✓ OFFLINE` durumu.
+çalışma zamanı gerçeklerini yazdırır: çekirdek üretim hiçbir giden çağrı yapmaz,
+telemetri yok, bulut API'si yok, geçmiş yerel olarak saklanır. Tek ağ yolları
+açık ve kullanıcı tarafından başlatılan işlemlerdir: `model install` (Hugging
+Face indirmesi) ve `openai` alt komutu (işaret ettiğiniz sunucu). `--serve`
+yalnızca yerel bir dinleyici açar, asla dışarı bağlanmaz.
 
 ---
 
@@ -385,7 +398,8 @@ make install
 make help
 ```
 
-Yayınlandığında hazır arşivler `skifflm-<version>-<platform>.tar.gz` ve
+Yayınlandığında hazır arşivler `skifflm-<version>-<os>-<arch>.tar.gz`
+(ör. `skifflm-v1.6.0-linux-x86_64.tar.gz`, Windows’ta `.zip`) ve
 `checksums.txt` biçimindedir. Bkz. [docs/tr/INSTALL.md](docs/tr/INSTALL.md).
 Kabuk tamamlamaları [scripts/completions](scripts/completions/) içindedir.
 

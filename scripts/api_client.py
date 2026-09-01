@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import urllib.error
 import urllib.request
@@ -55,14 +56,18 @@ def main() -> int:
     parser.add_argument("text", nargs="*", help="prompt text")
     args = parser.parse_args()
 
+    # Fall back to the same env names the desktop binary accepts, so the docs'
+    # `SKIFFLLM_SERVER_KEY` example works verbatim.
+    api_key = args.api_key or os.environ.get("SKIFFLLM_API_KEY") or os.environ.get("SKIFFLLM_SERVER_KEY") or None
+
     base = args.base.rstrip("/")
 
-    status, body = request("GET", base + "/health", timeout=10, api_key=args.api_key)
+    status, body = request("GET", base + "/health", timeout=10, api_key=api_key)
     print(status, body.strip())
     if status != 200:
         return 1
 
-    status, body = request("GET", base + "/v1/models", timeout=10, api_key=args.api_key)
+    status, body = request("GET", base + "/v1/models", timeout=10, api_key=api_key)
     print(status, body.strip())
     if status != 200:
         return 1
@@ -78,7 +83,7 @@ def main() -> int:
 
     if args.stream:
         print("POST", base + "/v1/chat/completions", "(streaming)")
-        response = stream_request(base + "/v1/chat/completions", payload, api_key=args.api_key)
+        response = stream_request(base + "/v1/chat/completions", payload, api_key=api_key)
         try:
             for line in response:
                 text = line.decode("utf-8", errors="replace").rstrip("\r\n")
@@ -101,7 +106,7 @@ def main() -> int:
         print()
         return 0
 
-    status, body = request("POST", base + "/v1/chat/completions", payload, api_key=args.api_key)
+    status, body = request("POST", base + "/v1/chat/completions", payload, api_key=api_key)
     print(status)
     print(body.strip())
     return 0 if status == 200 else 1

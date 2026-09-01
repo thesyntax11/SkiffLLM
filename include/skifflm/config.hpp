@@ -96,6 +96,6 @@ bool parse_config_file(const std::filesystem::path& path, Config& cfg, std::stri
 bool parse_args(int argc, char** argv, Config& cfg, std::string& error);
 void apply_environment(Config& cfg);
 std::string usage(const std::string& program);
-void print_config(const Config& cfg);
+void print_config(const Config& cfg, bool as_json = false);
 
 }

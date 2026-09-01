@@ -61,8 +61,10 @@ skifflm model verify qwen2.5-0.5b --update
 skifflm model remove qwen2.5-0.5b --force
 ```
 
-`model verify` prüft den GGUF-Magic-Header, die erwartete Dateigröße und, falls
-vorhanden, eine SHA-256-Sidecar-Datei. `--update` zeichnet eine lokale
+`model verify` prüft den GGUF-Magic-Header und, falls vorhanden, die
+SHA-256-Sidecar-Datei. Die Kataloggröße ist nur informativ; eine neuere
+Upstream-Revision wird nicht allein wegen einer geänderten Bytezahl abgelehnt.
+`--update` zeichnet eine lokale
 SHA-256-Sidecar-Datei auf. Downloads über `model_fetch.py` schreiben diese
 Sidecar-Datei ebenfalls automatisch und unterstützen `--verify` ohne
 erneutes Herunterladen.

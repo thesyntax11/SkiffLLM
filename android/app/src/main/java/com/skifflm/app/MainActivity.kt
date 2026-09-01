@@ -1821,6 +1821,11 @@ private fun ModelsDialog(
                                 color = Color(0xFF8A94A6)
                             )
                         }
+                        Text(
+                            "License: ${entry.license}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF8A94A6)
+                        )
                         downloadErrors[entry.id]?.let { error ->
                             Text(
                                 error,

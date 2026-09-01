@@ -61,8 +61,9 @@ skifflm model verify qwen2.5-0.5b --update
 skifflm model remove qwen2.5-0.5b --force
 ```
 
-`model verify` comprueba la cabecera mágica GGUF, el tamaño de archivo esperado y
-un archivo complementario SHA-256 cuando existe. `--update` registra un archivo
+`model verify` comprueba la cabecera mágica GGUF y el archivo complementario
+SHA-256 cuando existe. El tamaño del catálogo es orientativo; una revisión
+upstream más nueva no se rechaza solo por cambiar el número de bytes. `--update` registra un archivo
 complementario SHA-256 local. Las descargas de `model_fetch.py` también escriben
 ese complemento automáticamente y admiten `--verify` sin volver a descargar.
 

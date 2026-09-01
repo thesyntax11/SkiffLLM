@@ -311,11 +311,12 @@ int run_doctor(const skifflm::Config& cfg, const std::string& version) {
         std::cout << "  \"history_path\":" << json_escape(cfg.history_path.string()) << ",\n";
         std::cout << "  \"model_path\":" << json_escape(cfg.model_path.string()) << ",\n";
         std::cout << "  \"model_present\":" << (model_exists ? "true" : "false") << ",\n";
-        std::cout << "  \"outbound_network_calls\":\"none\",\n";
+        std::cout << "  \"core_inference_outbound\":\"none\",\n";
         std::cout << "  \"telemetry\":\"disabled\",\n";
         std::cout << "  \"cloud_api\":\"none\",\n";
         std::cout << "  \"history_storage\":\"local\",\n";
-        std::cout << "  \"privacy_status\":\"OFFLINE\"\n";
+        std::cout << "  \"explicit_network_usages\":[\"model install (Hugging Face download)\",\"openai subcommand (user-chosen endpoint)\"],\n";
+        std::cout << "  \"privacy_status\":\"LOCAL-FIRST\"\n";
         std::cout << "}\n";
         return 0;
     }
@@ -335,11 +336,13 @@ int run_doctor(const skifflm::Config& cfg, const std::string& version) {
                                                    : cfg.model_path.string())
               << (model_exists ? " (present)" : "") << "\n";
     if (cfg.doctor_network) {
-        std::cout << "  Outbound network:    none (no runtime client socket)\n";
-        std::cout << "  Telemetry:           disabled\n";
-        std::cout << "  Cloud APIs:          none\n";
-        std::cout << "  History storage:     local\n";
-        std::cout << "  Privacy status:      ✓ OFFLINE\n";
+        std::cout << "  Core inference outbound: none (generation never connects)\n";
+        std::cout << "  Explicit network uses:   model install (Hugging Face),\n";
+        std::cout << "                           openai subcommand (user-chosen endpoint)\n";
+        std::cout << "  Telemetry:               disabled\n";
+        std::cout << "  Cloud APIs:              none\n";
+        std::cout << "  History storage:         local\n";
+        std::cout << "  Privacy status:          ✓ LOCAL-FIRST\n";
     }
     return 0;
 }
@@ -1567,7 +1570,7 @@ int main(int argc, char** argv) {
         return 0;
     }
     if (cfg.show_config) {
-        skifflm::print_config(cfg);
+        skifflm::print_config(cfg, cfg.json_output);
         return 0;
     }
 
@@ -1712,25 +1715,39 @@ int main(int argc, char** argv) {
     }
 
     // --project <dir> adds a bounded project context before the prompt.
-    if (!cfg.project_path.empty() && !cfg.one_shot.empty()) {
-        std::string project_error;
-        const std::string block = skifflm::build_project_block(cfg.project_path, project_error);
-        if (block.empty()) {
-            std::cerr << project_error << std::endl;
-            return 1;
+    if (!cfg.project_path.empty()) {
+        if (!cfg.one_shot.empty()) {
+            std::string project_error;
+            const std::string block = skifflm::build_project_block(cfg.project_path, project_error);
+            if (block.empty()) {
+                std::cerr << project_error << std::endl;
+                return 1;
+            }
+            cfg.one_shot = block + "\n" + cfg.one_shot;
+        } else if (cfg.interactive) {
+            // Interactive sessions build context from the messages you send,
+            // so a project block added once would not follow the conversation.
+            // Say so instead of silently ignoring the flag.
+            std::cerr << "note: --project applies to one-shot prompts; use a single prompt "
+                         "(e.g. `skifflm --project . \"where is auth implemented?\"`)\n";
         }
-        cfg.one_shot = block + "\n" + cfg.one_shot;
     }
 
     // Safe code mode: want concrete, reviewable edits, never automatic file
     // mutation. The model returns a proposal; applying it remains manual.
-    if (cfg.code_mode && !cfg.one_shot.empty()) {
-        const std::string code_header =
-            "You are a careful coding assistant. Propose concrete edits as a "
-            "unified diff (file paths, +/-, context). Use the code context below. "
-            "Never claim a file was changed; output the proposal only and wait for "
-            "a human to apply it.\n\n";
-        cfg.one_shot = code_header + cfg.one_shot;
+    if (cfg.code_mode) {
+        if (!cfg.one_shot.empty()) {
+            const std::string code_header =
+                "You are a careful coding assistant. Propose concrete edits as a "
+                "unified diff (file paths, +/-, context). Use the code context below. "
+                "Never claim a file was changed; output the proposal only and wait for "
+                "a human to apply it.\n\n";
+            cfg.one_shot = code_header + cfg.one_shot;
+        } else if (cfg.interactive) {
+            std::cerr << "note: --code hardens one-shot prompts into a proposal-only, "
+                         "no-file-mutation review; it has no effect in the interactive "
+                         "shell. Use it with a prompt or via a pipe.\n";
+        }
     }
 
     llama_backend_init();
@@ -1859,6 +1876,13 @@ int main(int argc, char** argv) {
         }
         if (cfg.warmup) {
             warmup_model(*engine, terminal, cfg.json_output);
+        }
+        if (cfg.server_host == "0.0.0.0" && cfg.api_key.empty()) {
+            std::cerr << "WARNING: --serve on 0.0.0.0 has no --api-key set; the\n"
+                         "         /v1/* endpoints will be publicly readable by\n"
+                         "         anyone who can reach this host. Pass --api-key\n"
+                         "         (or set SKIFFLLM_API_KEY) before exposing it\n"
+                         "         beyond loopback.\n";
         }
         const int status = skifflm::run_server(cfg,
                                                *engine,

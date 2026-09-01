@@ -2,15 +2,17 @@
 
 This guide treats SkiffLLM as an inference component that must be deployed,
 hardened, observed, and audited. The operating posture is explicit and
-non-negotiable: **no cloud dependency, no telemetry, no runtime network calls,
-and a model you bring.**
+non-negotiable: **no cloud dependency, no telemetry, no runtime network calls
+from core inference, and a model you bring.** The only runtime path that sends
+a prompt off the machine is the explicit `openai` subcommand, aimed at an
+endpoint you choose; keep it pointed at localhost unless you intend otherwise.
 
 ## 1. Posture
 
 - Binary: one small, statically linked executable talking to llama.cpp.
 - Network: no network code at inference; the only network features are the
-  optional server listener and the explicit `model_fetch.py` / Android download
-  helpers.
+  optional server listener `--serve`, the explicit `model_fetch.py` / Android
+  download helpers, and the `openai` client you point at a server.
 - Data: prompts, history, settings, sessions, and generated text stay on the
   machine (or inside the app sandbox on mobile).
 - Models: a GGUF file you supply; never bundled, never silently fetched.

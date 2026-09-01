@@ -7,6 +7,41 @@ struct ChatMessage: Identifiable {
     let content: String
 }
 
+/// Coalesces token strings and flushes them in small, main-thread batches.
+/// This mirrors the Android downloader/generator pattern: many small models can
+/// emit tokens faster than one main-queue hop per token, so we buffer briefly
+/// instead of saturating the UI queue (which made long replies feel laggy).
+final class TokenBatcher {
+    private let lock = NSLock()
+    private var buffer = ""
+    private var scheduled = false
+    private let onChunk: (String) -> Void
+
+    init(onChunk: @escaping (String) -> Void) {
+        self.onChunk = onChunk
+    }
+
+    func append(_ text: String) {
+        guard !text.isEmpty else { return }
+        lock.lock()
+        buffer += text
+        let shouldSchedule = !scheduled
+        if shouldSchedule { scheduled = true }
+        lock.unlock()
+
+        guard shouldSchedule else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.lock.lock()
+            let chunk = self.buffer
+            self.buffer = ""
+            self.scheduled = false
+            self.lock.unlock()
+            if !chunk.isEmpty { self.onChunk(chunk) }
+        }
+    }
+}
+
 struct GenerationStats {
     let promptTokens: Int
     let generatedTokens: Int
@@ -115,6 +150,7 @@ struct ModelCatalogEntry: Identifiable {
     let repo: String
     let file: String
     let bytes: Int64
+    let license: String
     let ramNote: String
     let recommended: Bool
 
@@ -135,31 +171,31 @@ enum ModelCatalog {
             description: "Best first model on older phones. Fast, small, follows chat well.",
             repo: "Qwen/Qwen2.5-0.5B-Instruct-GGUF",
             file: "qwen2.5-0.5b-instruct-q4_k_m.gguf",
-            bytes: 491400032, ramNote: "~1 GB working set", recommended: true),
+            bytes: 491400032, license: "Apache-2.0", ramNote: "~1 GB working set", recommended: true),
         ModelCatalogEntry(
             id: "qwen3-0.6b", name: "Qwen3 0.6B Instruct",
             description: "Small Qwen3 with optional thinking mode. Good quality for its size.",
             repo: "bartowski/Qwen_Qwen3-0.6B-GGUF",
             file: "Qwen_Qwen3-0.6B-Q4_K_M.gguf",
-            bytes: 484220320, ramNote: "~1 GB working set", recommended: true),
+            bytes: 484220320, license: "Apache-2.0", ramNote: "~1 GB working set", recommended: true),
         ModelCatalogEntry(
             id: "llama3.2-1b", name: "Llama 3.2 1B Instruct",
             description: "Balanced quality and speed for typical modern phones.",
             repo: "bartowski/Llama-3.2-1B-Instruct-GGUF",
             file: "Llama-3.2-1B-Instruct-Q4_K_M.gguf",
-            bytes: 807694464, ramNote: "~1.5 GB working set", recommended: true),
+            bytes: 807694464, license: "Llama 3.2 Community License", ramNote: "~1.5 GB working set", recommended: true),
         ModelCatalogEntry(
             id: "smollm2-1.7b", name: "SmolLM2 1.7B Instruct",
             description: "Mid-size option with a solid quality-to-speed balance.",
             repo: "bartowski/SmolLM2-1.7B-Instruct-GGUF",
             file: "SmolLM2-1.7B-Instruct-Q4_K_M.gguf",
-            bytes: 1055609824, ramNote: "~2 GB working set", recommended: false),
+            bytes: 1055609824, license: "Apache-2.0", ramNote: "~2 GB working set", recommended: false),
         ModelCatalogEntry(
             id: "phi3.5-mini", name: "Phi-3.5 Mini Instruct",
             description: "Better reasoning. Use only on an 8 GB+ phone.",
             repo: "bartowski/Phi-3.5-mini-instruct-GGUF",
             file: "Phi-3.5-mini-instruct-Q4_K_M.gguf",
-            bytes: 2393232672, ramNote: "~4 GB working set", recommended: false),
+            bytes: 2393232672, license: "MIT", ramNote: "~4 GB working set", recommended: false),
     ]
 }
 

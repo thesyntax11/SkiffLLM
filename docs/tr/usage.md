@@ -60,8 +60,9 @@ skifflm model verify qwen2.5-0.5b --update
 skifflm model remove qwen2.5-0.5b --force
 ```
 
-`model verify`, GGUF sihirli başlığını, beklenen dosya boyutunu ve varsa bir
-SHA-256 yan dosyasını denetler. `--update` yerel bir SHA-256 yan dosyası kaydeder.
+`model verify`, GGUF sihirli başlığını ve varsa SHA-256 yan dosyasını denetler.
+Katalog boyutu yalnızca bilgilendiricidir; yeni bir üst sürüm yalnızca bayt
+sayısı değiştiği için reddedilmez. `--update` yerel bir SHA-256 yan dosyası kaydeder.
 `model_fetch.py` ile indirmeler de bu yan dosyayı otomatik yazar ve yeniden
 indirmeden `--verify` destekler.
 

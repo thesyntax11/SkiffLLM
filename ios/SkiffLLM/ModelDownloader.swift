@@ -61,6 +61,27 @@ final class ModelDownloader: NSObject, ObservableObject, URLSessionDownloadDeleg
         guard isGGUF(url) else {
             return "Selected file is not a valid GGUF model."
         }
+        // A SHA-256 sidecar next to the file is authoritative. If it exists and
+        // does not match, the model is corrupt or modified and must not be
+        // silently accepted. A missing sidecar (manual import) is informational.
+        let sidecar = URL(fileURLWithPath: url.path + ".sha256")
+        if let text = try? String(contentsOf: sidecar, encoding: .utf8),
+           let expected = text.components(separatedBy: " ").first?.lowercased() {
+            var hasher = SHA256()
+            if let handle = try? FileHandle(forReadingFrom: url) {
+                defer { try? handle.close() }
+                var madeProgress = true
+                while madeProgress {
+                    let chunk = handle.readData(ofLength: 1024 * 1024)
+                    if chunk.isEmpty { break }
+                    hasher.update(data: chunk)
+                }
+            }
+            let actual = hasher.finalize().map { String(format: "%02x", $0) }.joined().lowercased()
+            if actual != expected {
+                return "Selected file fails its SHA-256 checksum; it is corrupt or modified."
+            }
+        }
         return nil
     }
 
@@ -88,11 +109,10 @@ final class ModelDownloader: NSObject, ObservableObject, URLSessionDownloadDeleg
             }
             try FileManager.default.moveItem(at: location, to: dest)
 
-            let attrs = try FileManager.default.attributesOfItem(atPath: dest.path)
-            let size = (attrs[.size] as? NSNumber)?.int64Value ?? 0
-            guard size == entry.bytes else {
-                throw FileError.sizeMismatch(expected: entry.bytes, actual: size)
-            }
+            // The catalog byte count is a snapshot at publish time and can
+            // change if a model maintainer re-uploads a new revision, so it is
+            // advisory. The GGUF header plus the SHA-256 sidecar written below
+            // are the authoritative checks for a completed download.
             guard isGGUF(dest) else {
                 throw FileError.notGGUF
             }
@@ -151,13 +171,10 @@ final class ModelDownloader: NSObject, ObservableObject, URLSessionDownloadDeleg
     }
 
     enum FileError: LocalizedError {
-        case sizeMismatch(expected: Int64, actual: Int64)
         case notGGUF
 
         var errorDescription: String? {
             switch self {
-            case .sizeMismatch(let expected, let actual):
-                return "Size mismatch: expected \(expected) bytes, found \(actual)."
             case .notGGUF:
                 return "Downloaded file is not a valid GGUF model."
             }

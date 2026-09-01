@@ -66,9 +66,10 @@ kullanışlı ama daha az şeffaftır.
 
 ### 4. Tedarik zinciri kanıtı istiyorsunuz
 
-`skifflm model verify`, GGUF sihirli başlığını, beklenen dosya boyutunu ve bir
-SHA-256 yan dosyasını denetler. `model_fetch.py --checksum` yan dosyayı kaydeder
-ve `--verify` yeniden indirmeden mevcut indirilen dosyayı kontrol eder. Bu,
+`skifflm model verify`, GGUF sihirli başlığını ve SHA-256 yan dosyasını denetler.
+Katalog boyutu yalnızca bilgilendiricidir; yeni bir üst sürüm eski bayt sayısı
+yüzünden reddedilmez. `model_fetch.py --checksum` yan dosyayı kaydeder ve
+`--verify` yeniden indirmeden mevcut indirilen dosyayı kontrol eder. Bu,
 denetimin istediği türden bir kanıttır: hangi model, hangi hash, nereden,
 ne ölçüldü.
 

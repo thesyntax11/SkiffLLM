@@ -7,8 +7,8 @@ depends on your deployment model.
 The short version: **Use Ollama when you want a streamlined model server with a
 large catalogue and one-line downloads. Use SkiffLLM when you want the model to
 behave like a native Unix tool, an air-gapped component, or an embedded
-inference engine in a CI/desktop/mobile workflow — with no daemon and no network
-at runtime.**
+inference engine in a CI/desktop/mobile workflow — with no daemon and core
+inference that never connects.**
 
 ## Decision matrix
 
@@ -51,9 +51,10 @@ other tool does.
 
 ### 2. You are air-gapped or offline-first
 
-The runtime does not download models and has no network code. You bring a GGUF
-file; SkiffLLM brings inference. This is an explicit posture rather than a
-setting you must remember to flip. For classified, restricted, or isolated
+Core inference never connects; you bring a GGUF file and SkiffLLM runs it
+locally. There are exactly two opt-in network paths: `model install` (Hugging
+Face download) and the `openai` client (a server you point it at). For
+classified, restricted, or isolated
 networks this is the difference between "works by default" and "works only after
 you disable networking."
 
@@ -67,8 +68,9 @@ convenient but less transparent.
 
 ### 4. You want supply-chain evidence
 
-`skifflm model verify` checks the GGUF magic header, the expected file size, and
-a SHA-256 sidecar. `model_fetch.py --checksum` records the sidecar and
+`skifflm model verify` checks the GGUF magic header and verifies the SHA-256
+sidecar. The catalog size is advisory so a newer upstream revision is not
+rejected by a stale byte count. `model_fetch.py --checksum` records the sidecar and
 `--verify` checks an existing download without re-downloading. This is the kind
 of evidence an audit wants: what model, what hash, where it came from, what was
 measured.

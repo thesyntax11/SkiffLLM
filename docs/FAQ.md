@@ -2,8 +2,11 @@
 
 ## Does SkiffLLM upload my conversations?
 
-No. The desktop runtime has no network code. Prompts, history, settings, and
-generated text stay on the machine. The Android app sends no prompts anywhere.
+No. Core inference never sends prompts anywhere, and the Android app sends no
+prompts anywhere either. The desktop runtime has two opt-in network paths that
+you invoke deliberately: `model install` (a Hugging Face download, no prompt
+data) and the `openai` client (which sends the prompt to a server you choose;
+keep it on localhost unless you intend otherwise). `--serve` only listens.
 
 ## Does SkiffLLM download models?
 

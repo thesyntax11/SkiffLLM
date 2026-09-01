@@ -51,12 +51,16 @@ Data flows:
 
 ## Safety and determinism
 
-- Desktop runtime is local only. There are no outbound API calls.
+- Desktop runtime is local only; core inference never calls out. The explicit
+  `openai` subcommand is the single runtime path that transmits a prompt to a
+  server you choose; `--serve` only opens a listener.
 - Android uses network access only for the explicit model downloader.
 - Output paths and model paths are resolved locally.
 - History writes use a temporary file and rename.
 - Generation budgets account for the exact context window.
-- Downloads validate GGUF headers, expected sizes, and free storage.
+- Downloads validate GGUF headers and free storage. Catalog byte sizes are
+  advisory: a maintainer can re-upload a revision with a different size, and the
+  SHA-256 sidecar is the authoritative integrity check.
 
 ## Adding a feature
 

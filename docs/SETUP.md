@@ -1,7 +1,9 @@
 # Setup
 
-SkiffLLM has no runtime network dependencies. You build it once and run it
-against a local GGUF model.
+SkiffLLM's core inference has no runtime network dependencies. You build it
+once and run it against a local GGUF model. The only runtime network paths are
+the explicit `model install` downloader and the `openai` client (which you
+point at a server); `--serve` only opens a local listener.
 
 ## Requirements
 

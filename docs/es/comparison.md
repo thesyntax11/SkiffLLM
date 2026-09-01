@@ -66,8 +66,9 @@ menos transparente.
 
 ### 4. Quieres evidencia de la cadena de suministro
 
-`skifflm model verify` comprueba la cabecera mágica GGUF, el tamaño esperado y un
-sidecar SHA-256. `model_fetch.py --checksum` registra el sidecar y `--verify`
+`skifflm model verify` comprueba la cabecera mágica GGUF y el sidecar SHA-256.
+El tamaño del catálogo es orientativo, para que una revisión upstream más nueva
+no se rechace por un recuento de bytes desactualizado. `model_fetch.py --checksum` registra el sidecar y `--verify`
 comprueba una descarga existente sin volver a descargar. Es el tipo de evidencia
 que quiere una auditoría: qué modelo, qué hash, de dónde, qué se midió.
 

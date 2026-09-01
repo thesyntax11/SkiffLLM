@@ -11,6 +11,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.security.DigestInputStream
 import java.security.MessageDigest
+import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -96,14 +97,13 @@ class ModelDownloader(private val appContext: Context) {
                     throw IOException("Download incomplete")
                 }
                 val completed = temp ?: throw IOException("Missing temporary file")
-                if (entry.bytes > 0L && completed.length() != entry.bytes) {
-                    throw IOException(
-                        "Size mismatch: expected ${entry.sizeText}, found ${completed.length()} bytes"
-                    )
-                }
                 if (!completed.isGgufFile()) {
                     throw IOException("Downloaded file is not a valid GGUF model")
                 }
+                // The catalog byte count is a snapshot at publish time. A model
+                // maintainer can legitimately re-upload a new revision with a
+                // different size, so the GGUF header plus the SHA-256 sidecar
+                // recorded below are the authoritative checks.
 
                 val target = File(modelDir, entry.file)
                 if (target.exists() && !target.delete()) {
@@ -172,14 +172,38 @@ class ModelDownloader(private val appContext: Context) {
             return deleted
         }
 
-        fun verifyModel(file: File, expectedBytes: Long = -1L): String? {
-            if (expectedBytes > 0L && file.length() != expectedBytes) {
-                return "Size mismatch: expected $expectedBytes bytes, found ${file.length()} bytes"
-            }
+        fun verifyModel(file: File): String? {
+            // GGUF header is the portable check. The catalog byte count is a
+            // snapshot and is not used to reject an otherwise valid import.
             if (!file.isGgufFile()) {
                 return "Selected file is not a valid GGUF model"
             }
+            // If a SHA-256 sidecar exists for this file it is authoritative:
+            // a mismatch means the model is corrupt or modified and must not
+            // be silently accepted. A missing sidecar (e.g. a manual import)
+            // is informational only.
+            val sidecar = File(file.absolutePath + ".sha256")
+            if (sidecar.exists()) {
+                val expected = sidecar.readText().trim().substringBefore(' ').lowercase()
+                val actual = sha256(file)
+                if (actual != expected) {
+                    return "Selected file fails its SHA-256 checksum; it is corrupt or modified"
+                }
+            }
             return null
+        }
+
+        fun sha256(file: File): String {
+            val digest = MessageDigest.getInstance("SHA-256")
+            file.inputStream().use { input ->
+                val buffer = ByteArray(64 * 1024)
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read < 0) break
+                    digest.update(buffer, 0, read)
+                }
+            }
+            return digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xFF) }
         }
     }
 }

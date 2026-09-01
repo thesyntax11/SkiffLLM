@@ -236,6 +236,9 @@ final class AppState: ObservableObject {
         draft = ""
         stats = nil
         errorMessage = nil
+        let compactBatcher = TokenBatcher { [weak self] chunk in
+            self?.draft += chunk
+        }
         engine.generateMessages(payload,
                                 temperature: 0.2,
                                 topP: sampling.topP,
@@ -247,8 +250,8 @@ final class AppState: ObservableObject {
                                 maxTokens: 512,
                                 seed: sampling.seed,
                                 stopSequences: [],
-                                tokenCallback: { [weak self] part in
-                                    DispatchQueue.main.async { self?.draft += part ?? "" }
+                                tokenCallback: { [ compactBatcher ] part in
+                                    compactBatcher.append(part ?? "")
                                 },
                                 completion: { [weak self] result, error in
                                     guard let self else { return }
@@ -341,6 +344,9 @@ final class AppState: ObservableObject {
         }
         payload.append(contentsOf: messages.map { ["role": $0.role, "content": $0.content] })
         let msgs: [[String: String]] = payload
+        let sendBatcher = TokenBatcher { [weak self] chunk in
+            self?.draft += chunk
+        }
         engine.generateMessages(msgs,
                                 temperature: sampling.temperature,
                                 topP: sampling.topP,
@@ -352,8 +358,8 @@ final class AppState: ObservableObject {
                                 maxTokens: Int32(sampling.maxTokens),
                                 seed: sampling.seed,
                                 stopSequences: stopSequences,
-                                tokenCallback: { [weak self] part in
-                                    DispatchQueue.main.async { self?.draft += part ?? "" }
+                                tokenCallback: { [ sendBatcher ] part in
+                                    sendBatcher.append(part ?? "")
                                 },
                                 completion: { [weak self] result, error in
                                     guard let self else { return }
@@ -405,6 +411,9 @@ final class AppState: ObservableObject {
             payload.append(["role": "system", "content": system])
         }
         payload.append(contentsOf: messages.map { ["role": $0.role, "content": $0.content] })
+        let regenerateBatcher = TokenBatcher { [weak self] chunk in
+            self?.draft += chunk
+        }
         engine.generateMessages(payload,
                                 temperature: sampling.temperature,
                                 topP: sampling.topP,
@@ -416,8 +425,8 @@ final class AppState: ObservableObject {
                                 maxTokens: Int32(sampling.maxTokens),
                                 seed: sampling.seed,
                                 stopSequences: stopSequences,
-                                tokenCallback: { [weak self] part in
-                                    DispatchQueue.main.async { self?.draft += part ?? "" }
+                                tokenCallback: { [ regenerateBatcher ] part in
+                                    regenerateBatcher.append(part ?? "")
                                 },
                                 completion: { [weak self] result, error in
                                     guard let self else { return }
@@ -1147,6 +1156,8 @@ struct ModelsSheet: View {
                                     .font(.caption).foregroundColor(.secondary)
                                 Text(entry.description)
                                     .font(.caption2).foregroundColor(.secondary)
+                                Text("License: \(entry.license)")
+                                    .font(.caption2).foregroundColor(.secondary)
                                 if isDownloading, let pct = app.downloader.progress[entry.id] {
                                     ProgressView(value: pct)
                                         .frame(maxWidth: 160)
@@ -1284,7 +1295,7 @@ struct AboutSheet: View {
                         .font(.caption)
                 }
                 Section("Models") {
-                    Text("Use Models to download a recommended Q4_K_M GGUF or import your own GGUF from Files. Downloads verify the GGUF header, size, and SHA-256 sidecar.")
+                    Text("Use Models to download a recommended Q4_K_M GGUF or import your own GGUF from Files. Downloads verify the GGUF header and record a SHA-256 sidecar; the catalog byte count is advisory.")
                         .font(.caption)
                 }
                 Section("License") {

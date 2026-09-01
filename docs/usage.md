@@ -23,7 +23,9 @@ skifflm --project . "where is authentication handled?"
 
 `--project <dir>` builds a bounded file index plus a slice of source/config
 content before generation. It skips `.git`, build dirs, caches, and vendored
-dependencies.
+dependencies. It is a one-shot option: pair it with a prompt (for example
+`skifflm --project . "where is auth implemented?"`), not with the interactive
+shell.
 
 ## Sessions & memory
 
@@ -60,13 +62,15 @@ skifflm model verify qwen2.5-0.5b --update
 skifflm model remove qwen2.5-0.5b --force
 ```
 
-`model verify` checks the GGUF magic header, the expected file size, and a
-SHA-256 sidecar whenever one exists. `--update` records a local SHA-256
-sidecar. Downloads from `model_fetch.py` also write that sidecar automatically
-and support `--verify` without re-downloading.
+`model verify` checks the GGUF magic header and verifies the SHA-256 sidecar
+whenever one exists. The catalog size is advisory, so a newer upstream revision
+is not rejected purely because its byte count changed. `--update` records a
+local SHA-256 sidecar. Downloads from `model_fetch.py` also write that sidecar
+automatically and support `--verify` without re-downloading.
 
 Inference stays offline. `model install` runs the explicit `model_fetch.py`
-helper over HTTPS.
+helper over HTTPS, and the `openai` subcommand sends a prompt to a server you
+choose (default localhost). `--serve` only opens a local listener.
 
 ## One-shot run and chat templates
 
@@ -83,6 +87,11 @@ skifflm openai "Merhaba" --base-url http://127.0.0.1:8080
 skifflm openai "Merhaba" --base-url http://127.0.0.1:8080 --stream
 skifflm openai "Merhaba" --base-url http://127.0.0.1:8080 --no-json
 ```
+
+This is an explicit network client. It sends the prompt to the HTTP server you
+point it at (default `http://127.0.0.1:8080`), so keep it on localhost unless
+you really intend to talk to a remote endpoint. Unlike core inference, it is
+not offline.
 
 ## Hardware acceleration
 
@@ -111,7 +120,10 @@ skifflm git status
 skifflm --code --project . "fix the bug in src/server.cpp"
 ```
 
-`--code` produces a unified-diff proposal and never edits a file itself.
+`--code` produces a unified-diff proposal and never edits a file itself. It is
+a one-shot option: combine it with a prompt or a pipe (`git diff | skifflm
+--code --project . "propose a fix"`). It does not apply inside the interactive
+shell.
 
 ## Interactive Mode
 

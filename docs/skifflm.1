@@ -25,8 +25,20 @@ Use balanced, fast, creative, code, or precise sampling profile.
 \fB\-\-session <name>\fR
 Use a named conversation.
 .TP
-\fB\-\-system <text>\fR
+\fB\-\-system <text> (alias: \-\-system-prompt)\fR
 Set the system prompt.
+.TP
+\fB\-\-project <dir>\fR
+Add a bounded project context block before a one-shot prompt.
+.TP
+\fB\-\-history <path>\fR
+Session/history file (default under ~/.local/share/skifflm).
+.TP
+\fB\-\-save / \-\-no-save\fR
+Enable or disable persisting the conversation. Saving is enabled by default.
+.TP
+\fB\-\-auto-trim / \-\-no-auto-trim\fR
+Trim old history when the context is full. Auto-trim is enabled by default.
 .TP
 \fB\-\-stop <text>\fR
 Add a stop sequence. May be repeated.
@@ -107,7 +119,7 @@ Initialize NUMA optimization.
 \fB\-\-kv-offload / \-\-no-kv-offload\fR
 Control KV cache offloading.
 .TP
-\fB\-\-temp <t>\fR
+\fB\-\-temp <t> (alias: \-\-temperature)\fR
 Sampling temperature.
 .TP
 \fB\-\-top-p <p>\fR
@@ -128,7 +140,7 @@ Repeat penalty.
 \fB\-\-repeat-last-n <n>\fR
 Repeat penalty window.
 .TP
-\fB\-\-n-predict <n>\fR
+\fB\-\-n-predict <n> (alias: \-\-n)\fR
 Maximum generated tokens.
 .TP
 \fB\-\-seed <n|random>\fR
@@ -165,7 +177,7 @@ Print system diagnostics.
 Use the given config file.
 .TP
 \fB\-\-show-config\fR
-Print the effective configuration.
+Print the effective configuration. With \fB\-\-json\fR, emit JSON.
 .TP
 \fB\-\-context-bar / \-\-no-context-bar\fR
 Enable or disable the live context usage bar. Enabled by default.
@@ -190,13 +202,16 @@ Manage the local model catalog and verify downloaded GGUF files.
 List known chat templates or detect the template embedded in a model.
 .TP
 .B skifflm openai [prompt] [options]
-Send a prompt to a local OpenAI-compatible server, e.g. skifflm openai "Hi" --base-url http://127.0.0.1:8080.
+Send a prompt to a local OpenAI-compatible server, e.g. skifflm openai "Hi" --base-url http://127.0.0.1:8080. This is an explicit network client; it transmits the prompt to the server you choose.
 .TP
 .B skifflm config path|show|init
 Print, inspect, or write the configuration file.
 .TP
 .B skifflm server health [--json]
 Check a running local server.
+.TP
+.B skifflm session list|show|rename|remove
+Manage named conversations.
 .SH ENVIRONMENT
 .TP
 \fBSKIFFLLM_MODEL\fR

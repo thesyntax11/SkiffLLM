@@ -21,7 +21,6 @@
 <p align="center">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License MIT"/>
   <img src="https://img.shields.io/badge/version-v1.6.0-blue" alt="Version v1.6.0"/>
-  <img src="https://github.com/thesyntax11/SkiffLLM/actions/workflows/ci.yml/badge.svg" alt="CI status"/>
   <img src="https://img.shields.io/badge/c%2B%2B-17-blue.svg" alt="C++17"/>
   <img src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows%20%7C%20Android%20%7C%20iOS-lightgrey" alt="Platforms"/>
   <img src="https://img.shields.io/badge/runtime-offline-green" alt="Offline"/>
@@ -87,6 +86,21 @@ python3 scripts/model_fetch.py --model qwen2.5-0.5b
 Files are saved to `~/.local/share/skifflm/models` by default. You can also
 point `--model` at any existing `.gguf` file.
 
+Model files are downloaded under their own upstream license; SkiffLLM does not
+redistribute them. The bundled catalog licenses are:
+
+| Model | License |
+| --- | --- |
+| Qwen2.5 0.5B / Qwen3 0.6B | Apache-2.0 |
+| SmolLM2 1.7B | Apache-2.0 |
+| Phi-3.5 Mini | MIT |
+| Llama 3.2 1B | Llama 3.2 Community License (attribution + naming terms) |
+
+The Llama 3.2 Community License requires prominent "Built with Llama"
+attribution and that redistributed Llama-derived model names begin with
+"Llama". Read the upstream license before reuse. The helper records a SHA-256
+sidecar as the authority for what you downloaded.
+
 Full setup: [docs/INSTALL.md](docs/INSTALL.md).
 
 ---
@@ -117,9 +131,9 @@ account. You bring the GGUF file; SkiffLLM brings the inference.
 Short answer: use Ollama when you want a fast, catalogue-first model server with
 one-line downloads; use SkiffLLM when you want the model to behave like a native
 Unix tool, an air-gapped component, or an embedded engine inside a CI, desktop,
-or mobile workflow — no daemon, no runtime network, one binary. The honest
-decision matrix, the real trade-offs, and a task-for-task migration guide are
-in [docs/COMPARISON.md](docs/COMPARISON.md).
+or mobile workflow — no daemon, one binary, and core inference that never
+connects. The honest decision matrix, the real trade-offs, and a task-for-task
+migration guide are in [docs/COMPARISON.md](docs/COMPARISON.md).
 
 ---
 
@@ -127,7 +141,7 @@ in [docs/COMPARISON.md](docs/COMPARISON.md).
 
 | Capability | Description |
 | --- | --- |
-| Unix pipelines | `cat file \| skifflm "summarize"`, `git diff \| skifflm review` |
+| Unix pipelines | `cat file \| skifflm "summarize"`, `git diff \| skifflm "review"` |
 | Project context | `--project <dir>` adds a real file index + bounded source slice |
 | Model manager | `skifflm model list / info / install / remove / verify` |
 | Git integration | `skifflm git review / explain / commit / log / status` |
@@ -183,16 +197,18 @@ skifflm model remove qwen2.5-0.5b --force
 ```
 
 `model install` delegates to `scripts/model_fetch.py`, which downloads exactly
-one GGUF over HTTPS from Hugging Face, verifies the GGUF header and expected
-size, and places it in your model directory. Inference itself never opens a
-connection.
+one GGUF over HTTPS from Hugging Face, checks the GGUF header, and records a
+SHA-256 sidecar in your model directory. The catalog size is advisory because a
+model maintainer can re-upload a revision with a different size; the sidecar is
+the authoritative integrity check. Inference itself never opens a connection.
 
 ## Git integration
 
 Local, offline code review and explanation for the diff in front of you.
 
 ```bash
-git diff | skifflm git review
+# The git subcommands read the diff themselves; no pipe is needed.
+skifflm git review
 skifflm git review --cached
 skifflm git explain
 skifflm git commit --cached
@@ -206,8 +222,8 @@ diff; it does not run `git commit` for you.
 ## Sessions & persistent memory
 
 ```bash
-skifflm --session coding --model qwen2.5-1.5b.gguf
-skifflm --session writing --model qwen2.5-1.5b.gguf
+skifflm --session coding --model qwen2.5-0.5b-instruct-q4_k_m.gguf
+skifflm --session writing --model qwen2.5-0.5b-instruct-q4_k_m.gguf
 
 skifflm session list
 skifflm session show coding
@@ -256,7 +272,7 @@ from openai import OpenAI
 
 client = OpenAI(base_url="http://127.0.0.1:8080/v1", api_key="local-token")
 resp = client.chat.completions.create(
-    model="qwen2.5-1.5b",
+    model="qwen2.5-0.5b-instruct-q4_k_m",
     messages=[{"role": "user", "content": "Explain this diff."}],
     stream=True,
 )
@@ -264,12 +280,17 @@ for chunk in resp:
     print(chunk.choices[0].delta.content or "", end="")
 ```
 
-A dependency-free Python client is included:
+A dependency-free Python client is included, so you never need `curl` for the
+server:
 
 ```bash
 python3 scripts/api_client.py http://127.0.0.1:8080 "Say hello."
 python3 scripts/api_client.py http://127.0.0.1:8080 --api-key "$SKIFFLLM_SERVER_KEY" "Say hello."
 ```
+
+(The `openai` and `server health` subcommands invoke `curl` internally; install
+it on macOS/Linux or use `scripts/api_client.py` if you prefer no external
+dependency.)
 
 ---
 
@@ -289,9 +310,12 @@ surface as the desktop CLI:
 - Markdown export and one-tap copy
 - GGUF import with header verification
 
-The only network use is an explicit user-initiated model download from Hugging
-Face with size/GGUF validation and a SHA-256 sidecar. Prompts and history never
-leave the device.
+Inference itself never opens a connection. There are exactly two network paths,
+both explicit and user-initiated: `model install` downloads from Hugging Face,
+and the `openai` subcommand talks to an HTTP server you point it at. The
+downloaded file must have a valid GGUF header and gets a SHA-256 sidecar; the
+catalog size is advisory because an upstream revision can change. Android
+device backups are disabled so prompts and history never leave the device.
 
 ---
 
@@ -328,7 +352,7 @@ Subcommands:
   model list|info|install|remove|verify
   chat-template list|detect|info
   openai [prompt] [opts]     Send a prompt to a local OpenAI-compatible server
-  config path|show|init      Manage the config file
+  config path|show|init      Manage the config file (show --json emits JSON)
   server health [--json]     Check a running local server
 ```
 
@@ -358,8 +382,11 @@ results table waiting for real contributed runs.
 skifflm --doctor --network
 ```
 
-prints the runtime facts: no outbound network calls, no telemetry, no cloud
-APIs, local history storage, and a `✓ OFFLINE` status.
+prints the runtime facts: core generation makes no outbound calls, there is no
+telemetry or cloud API, and history is stored locally. The only network paths
+are explicit and user-initiated: `model install` (Hugging Face download) and
+the `openai` subcommand (a server you point it at). `--serve` only opens a
+local listener and never dials out.
 
 ---
 
@@ -402,8 +429,9 @@ make install
 make help
 ```
 
-Prebuilt archives follow `skifflm-<version>-<platform>.tar.gz` with a
-`checksums.txt` when published. See [docs/INSTALL.md](docs/INSTALL.md).
+Prebuilt archives follow `skifflm-<version>-<os>-<arch>.tar.gz` (for example
+`skifflm-v1.6.0-linux-x86_64.tar.gz`, `.zip` on Windows) with a `checksums.txt`
+when published. See [docs/INSTALL.md](docs/INSTALL.md).
 Shell completions are in [scripts/completions](scripts/completions/).
 
 ## Build options

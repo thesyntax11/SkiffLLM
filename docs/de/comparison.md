@@ -68,8 +68,9 @@ seine Laufzeit — bequem, aber weniger transparent.
 
 ### 4. Sie wollen Nachweise für die Supply Chain
 
-`skifflm model verify` prüft den GGUF-Magic-Header, die erwartete Dateigröße und
-eine SHA-256-Sidecar-Datei. `model_fetch.py --checksum` zeichnet die Sidecar
+`skifflm model verify` prüft den GGUF-Magic-Header und die SHA-256-Sidecar.
+Die Kataloggröße ist nur informativ, damit eine neuere Upstream-Revision nicht
+wegen eines veralteten Byte-Zählers abgelehnt wird. `model_fetch.py --checksum` zeichnet die Sidecar
 auf und `--verify` prüft einen vorhandenen Download ohne erneutes Herunterladen.
 Das ist die Art von Nachweis, die ein Audit will: welches Modell, welcher Hash,
 woher, was wurde gemessen.

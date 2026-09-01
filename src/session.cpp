@@ -11,6 +11,12 @@ namespace {
 constexpr uint32_t kMagic = 0x534B4946u;
 constexpr uint32_t kVersion = 1u;
 
+// Hard caps so a corrupt or malicious history file cannot force an unbounded
+// allocation. A real conversation is far below these limits; they only guard
+// against files whose length/count fields are bogus.
+constexpr uint32_t kMaxStringBytes = 64u * 1024u * 1024u;  // 64 MiB per field
+constexpr uint32_t kMaxMessages = 200000u;
+
 template<typename T>
 void write_value(std::ostream& out, const T& value) {
     out.write(reinterpret_cast<const char*>(&value), sizeof(T));
@@ -30,6 +36,9 @@ void write_string(std::ostream& out, const std::string& value) {
 bool read_string(std::istream& in, std::string& value) {
     uint32_t size = 0;
     if (!read_value(in, size)) {
+        return false;
+    }
+    if (size > kMaxStringBytes) {
         return false;
     }
     value.resize(size);
@@ -80,6 +89,10 @@ bool Session::load(std::string& error) {
     uint32_t count = 0;
     if (!read_value(input, count)) {
         error = "invalid history file";
+        return false;
+    }
+    if (count > kMaxMessages) {
+        error = "history file declares too many messages";
         return false;
     }
 

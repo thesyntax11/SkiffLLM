@@ -7,6 +7,7 @@ data class ModelCatalogEntry(
     val repo: String,
     val file: String,
     val bytes: Long,
+    val license: String,
     val ramNote: String,
     val recommended: Boolean
 ) {
@@ -33,6 +34,7 @@ object ModelCatalog {
             repo = "Qwen/Qwen2.5-0.5B-Instruct-GGUF",
             file = "qwen2.5-0.5b-instruct-q4_k_m.gguf",
             bytes = 491400032L,
+            license = "Apache-2.0",
             ramNote = "~1 GB working set",
             recommended = true
         ),
@@ -43,6 +45,7 @@ object ModelCatalog {
             repo = "bartowski/Qwen_Qwen3-0.6B-GGUF",
             file = "Qwen_Qwen3-0.6B-Q4_K_M.gguf",
             bytes = 484220320L,
+            license = "Apache-2.0",
             ramNote = "~1 GB working set",
             recommended = true
         ),
@@ -53,6 +56,7 @@ object ModelCatalog {
             repo = "bartowski/Llama-3.2-1B-Instruct-GGUF",
             file = "Llama-3.2-1B-Instruct-Q4_K_M.gguf",
             bytes = 807694464L,
+            license = "Llama 3.2 Community License",
             ramNote = "~1.5 GB working set",
             recommended = true
         ),
@@ -63,6 +67,7 @@ object ModelCatalog {
             repo = "bartowski/SmolLM2-1.7B-Instruct-GGUF",
             file = "SmolLM2-1.7B-Instruct-Q4_K_M.gguf",
             bytes = 1055609824L,
+            license = "Apache-2.0",
             ramNote = "~2 GB working set",
             recommended = false
         ),
@@ -73,6 +78,7 @@ object ModelCatalog {
             repo = "bartowski/Phi-3.5-mini-instruct-GGUF",
             file = "Phi-3.5-mini-instruct-Q4_K_M.gguf",
             bytes = 2393232672L,
+            license = "MIT",
             ramNote = "~4 GB working set",
             recommended = false
         )

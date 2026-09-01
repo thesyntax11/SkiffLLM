@@ -61,8 +61,9 @@ skifflm model verify qwen2.5-0.5b --update
 skifflm model remove qwen2.5-0.5b --force
 ```
 
-`model verify` vérifie l'en-tête magique GGUF, la taille de fichier attendue et un
-fichier annexe SHA-256 lorsqu'il existe. `--update` enregistre un fichier annexe
+`model verify` vérifie l'en-tête magique GGUF et le fichier annexe SHA-256
+lorsqu'il existe. La taille du catalogue est indicative ; une révision amont
+plus récente n'est pas rejetée uniquement parce que son nombre d'octets a changé. `--update` enregistre un fichier annexe
 SHA-256 local. Les téléchargements via `model_fetch.py` écrivent également ce
 fichier annexe automatiquement et prennent en charge `--verify` sans
 retéléchargement.

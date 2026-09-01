@@ -16,17 +16,154 @@
 #include <sstream>
 
 #ifdef _WIN32
+#include <fcntl.h>
 #include <io.h>
-#define POPEN _popen
-#define PCLOSE _pclose
+#include <process.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #else
 #include <unistd.h>
-#define POPEN popen
-#define PCLOSE pclose
+#ifndef _POSIX_VERSION
+// Minimal fallback for the rare non-POSIX Unix: still try fork/exec.
+#endif
+#include <sys/wait.h>
 #endif
 
 namespace skifflm {
 namespace {
+
+// Run an external program without going through a shell. Arguments are passed
+// as an argv vector, so user-controlled values (hosts, URLs, model ids, API
+// keys) can never be interpreted as shell metacharacters.
+bool run_argv(const std::vector<std::string>& argv,
+              bool capture_stdout,
+              std::string& output,
+              std::string& error) {
+    output.clear();
+    error.clear();
+    if (argv.empty()) {
+        error = "empty command";
+        return false;
+    }
+    std::vector<const char*> raw;
+    raw.reserve(argv.size() + 1);
+    for (const auto& arg : argv) {
+        raw.push_back(arg.c_str());
+    }
+    raw.push_back(nullptr);
+
+#ifdef _WIN32
+    // Windows has no fork; use _spawnvp with an argument vector (never a shell).
+    // For captured output we redirect the child's stdout to a temporary file,
+    // then read it back. This keeps arbitrary argv values out of any shell.
+    std::filesystem::path capture_file;
+    int saved_stdout = -1;
+    if (capture_stdout) {
+        std::error_code ec;
+        capture_file = std::filesystem::temp_directory_path(ec) /
+                       ("skifflm-capture-" + std::to_string(static_cast<long long>(_getpid())) + ".tmp");
+        const int fd = _open(capture_file.string().c_str(),
+                             _O_CREAT | _O_WRONLY | _O_TRUNC | _O_BINARY,
+                             _S_IREAD | _S_IWRITE);
+        if (fd < 0) {
+            error = "cannot create capture file";
+            return false;
+        }
+        saved_stdout = _dup(_fileno(stdout));
+        if (saved_stdout < 0 || _dup2(fd, _fileno(stdout)) < 0) {
+            if (saved_stdout >= 0) {
+                _close(saved_stdout);
+            }
+            _close(fd);
+            error = "cannot redirect stdout";
+            return false;
+        }
+        _close(fd);
+    }
+
+    const intptr_t spawn_status = _spawnvp(_P_WAIT, argv[0].c_str(), raw.data());
+
+    if (capture_stdout) {
+        if (saved_stdout >= 0) {
+            _dup2(saved_stdout, _fileno(stdout));
+            _close(saved_stdout);
+        }
+        std::ifstream in(capture_file, std::ios::binary);
+        if (in.is_open()) {
+            std::ostringstream buffer;
+            buffer << in.rdbuf();
+            output = buffer.str();
+            in.close();
+        }
+        std::error_code ec;
+        std::filesystem::remove(capture_file, ec);
+    }
+
+    if (spawn_status == -1) {
+        error = "cannot start command: " + argv[0] + " (" + std::strerror(errno) + ")";
+        return false;
+    }
+    if (spawn_status != 0) {
+        error = "command exited with status " + std::to_string(spawn_status) + ": " + argv[0];
+        return false;
+    }
+    return true;
+#else
+    int pipe_fd[2];
+    if (capture_stdout && pipe(pipe_fd) != 0) {
+        error = "cannot create pipe";
+        return false;
+    }
+
+    const pid_t pid = fork();
+    if (pid < 0) {
+        if (capture_stdout) {
+            close(pipe_fd[0]);
+            close(pipe_fd[1]);
+        }
+        error = "cannot fork";
+        return false;
+    }
+    if (pid == 0) {
+        if (capture_stdout) {
+            close(pipe_fd[0]);
+            dup2(pipe_fd[1], STDOUT_FILENO);
+            close(pipe_fd[1]);
+        }
+        execvp(argv[0].c_str(), const_cast<char* const*>(raw.data()));
+        // exec failed; report by writing to stderr and exiting non-zero.
+        const char msg[] = "failed to execute\n";
+        write(STDERR_FILENO, msg, sizeof(msg) - 1);
+        _exit(127);
+    }
+
+    int status = 0;
+    if (capture_stdout) {
+        close(pipe_fd[1]);
+        char buffer[4096];
+        ssize_t count = 0;
+        while ((count = read(pipe_fd[0], buffer, sizeof(buffer))) > 0) {
+            output.append(buffer, static_cast<size_t>(count));
+        }
+        close(pipe_fd[0]);
+    }
+    if (waitpid(pid, &status, 0) < 0) {
+        error = "waitpid failed";
+        return false;
+    }
+    if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+        const int code = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+        if (code == 127) {
+            error = "executable not found on PATH: " + argv[0] +
+                    " (install it, or use the dependency-free client at scripts/api_client.py)";
+        } else {
+            error = "command exited with status " + std::to_string(code) + ": " + argv[0];
+        }
+        return false;
+    }
+    return true;
+#endif
+}
 
 bool is_hidden_or_build_dir(const std::filesystem::path& path) {
     const std::string name = path.filename().string();
@@ -87,8 +224,14 @@ struct ProjectFile {
     uint64_t bytes = 0;
 };
 
-bool run_git(const std::string& arguments, std::string& output, std::string& error) {
-    return run_command("git " + arguments, output, error);
+bool run_git(const std::vector<std::string>& arguments,
+             std::string& output,
+             std::string& error) {
+    std::vector<std::string> argv;
+    argv.reserve(arguments.size() + 1);
+    argv.push_back("git");
+    argv.insert(argv.end(), arguments.begin(), arguments.end());
+    return run_argv(argv, true, output, error);
 }
 
 
@@ -269,7 +412,7 @@ int handle_config_command(Config& cfg,
         return 0;
     }
     if (action == "show") {
-        print_config(cfg);
+        print_config(cfg, cfg.json_output);
         return 0;
     }
     if (action == "init" || action == "write") {
@@ -307,9 +450,10 @@ int handle_server_command(Config& cfg,
             }
         }
         std::string output;
-        std::string command =
-            "curl -sf --max-time 3 http://" + host + ":" + std::to_string(port) + "/health";
-        if (!run_command(command, output, error)) {
+        std::vector<std::string> health_argv = {
+            "curl", "-sf", "--max-time", "3",
+            "http://" + host + ":" + std::to_string(port) + "/health"};
+        if (!run_argv(health_argv, true, output, error)) {
             if (as_json) {
                 error = "server is not reachable at http://" + host + ":" + std::to_string(port);
                 return 1;
@@ -562,8 +706,14 @@ int handle_openai_command(Config& cfg,
     }
     payload << "}\n";
 
+#ifdef _WIN32
+    const long long pid_value = static_cast<long long>(_getpid());
+#else
+    const long long pid_value = static_cast<long long>(getpid());
+#endif
     const std::filesystem::path payload_path =
-        std::filesystem::temp_directory_path() / "skifflm-openai-payload.json";
+        std::filesystem::temp_directory_path() /
+        ("skifflm-openai-" + std::to_string(pid_value) + ".json");
     {
         std::ofstream out(payload_path, std::ios::trunc | std::ios::binary);
         if (!out.is_open()) {
@@ -576,31 +726,47 @@ int handle_openai_command(Config& cfg,
             return 1;
         }
     }
+    // Remove the request payload as soon as curl has consumed it.
+    struct PayloadCleanup {
+        std::filesystem::path path;
+        ~PayloadCleanup() {
+            std::error_code ec;
+            std::filesystem::remove(path, ec);
+        }
+    } payload_cleanup{payload_path};
 
     const std::string endpoint = base_url + "/v1/chat/completions";
-    std::string curl = "curl -sS";
+    std::vector<std::string> curl_argv = {"curl", "-sS"};
     if (stream) {
-        curl += " -N";
+        curl_argv.push_back("-N");
     }
-    curl += " -X POST \"" + endpoint + "\""
-          + " -H \"Content-Type: application/json\""
-          + " -H \"Accept: text/event-stream\"";
+    curl_argv.push_back("-X");
+    curl_argv.push_back("POST");
+    curl_argv.push_back(endpoint);
+    curl_argv.push_back("-H");
+    curl_argv.push_back("Content-Type: application/json");
+    curl_argv.push_back("-H");
+    curl_argv.push_back("Accept: text/event-stream");
     if (!api_key.empty()) {
-        curl += " -H \"Authorization: Bearer " + api_key + "\"";
+        curl_argv.push_back("-H");
+        curl_argv.push_back("Authorization: Bearer " + api_key);
     }
-    curl += " --data-binary @\"" + payload_path.string() + "\"";
+    curl_argv.push_back("--data-binary");
+    curl_argv.push_back("@" + payload_path.string());
 
     if (stream) {
-        const int status = std::system(curl.c_str());
-        if (status != 0) {
-            error = "request to " + endpoint + " failed (non-zero curl exit)";
+        // Let curl write directly to the terminal; capture nothing.
+        std::string ignore;
+        if (!run_argv(curl_argv, false, ignore, error)) {
+            error = "request to " + endpoint + " failed: " + error;
             return 1;
         }
         return 0;
     }
 
     std::string response;
-    if (!run_command(curl, response, error)) {
+    if (!run_argv(curl_argv, true, response, error)) {
+        error = "request to " + endpoint + " failed: " + error;
         return 1;
     }
     std::string content;
@@ -837,13 +1003,13 @@ bool hash_file_sha256(const std::filesystem::path& path,
                       std::string& hash,
                       std::string& error) {
     std::string output;
-    std::string command;
+    std::vector<std::string> argv;
 #ifdef _WIN32
-    command = "certutil -hashfile \"" + path.string() + "\" SHA256";
+    argv = {"certutil", "-hashfile", path.string(), "SHA256"};
 #else
-    command = "sha256sum \"" + path.string() + "\"";
+    argv = {"sha256sum", path.string()};
 #endif
-    if (!run_command(command, output, error)) {
+    if (!run_argv(argv, true, output, error)) {
         return false;
     }
     hash.clear();
@@ -948,11 +1114,17 @@ bool verify_model_file(const std::filesystem::path& path,
         return false;
     }
     if (expected_bytes > 0 && size != expected_bytes) {
-        detail = "size mismatch: expected " + std::to_string(expected_bytes) +
-                 " bytes, found " + std::to_string(size);
-        return false;
+        // The catalog records a snapshot at publish time. A model maintainer
+        // can legitimately re-upload a revision with a different size, so this
+        // is an advisory note rather than a corruption failure. The GGUF header
+        // and (when present) the SHA-256 sidecar remain the authority.
+        detail += "size differs from the catalog snapshot (expected " +
+                  std::to_string(expected_bytes) + " bytes, found " +
+                  std::to_string(size) + " bytes); ";
     }
     std::string checksum_error;
+    const std::filesystem::path sidecar = path.string() + ".sha256";
+    const bool sidecar_exists = std::filesystem::exists(sidecar, ec);
     if (update_checksum) {
         if (!write_checksum_sidecar(path, checksum_error)) {
             detail = checksum_error;
@@ -960,31 +1132,14 @@ bool verify_model_file(const std::filesystem::path& path,
         }
         detail += "checksum sidecar written; ";
     } else if (!hash_matches_sidecar(path, checksum_error)) {
-        // Missing sidecar is informational, not a corruption signal.
+        if (sidecar_exists) {
+            // A present sidecar is authoritative: a mismatch means the model is
+            // corrupt or modified, and must not be silently accepted.
+            detail = checksum_error;
+            return false;
+        }
+        // A missing sidecar is informational, not a corruption signal.
         detail += checksum_error + "; ";
-    }
-    return true;
-}
-
-bool run_command(const std::string& command, std::string& output, std::string& error) {
-#ifdef _WIN32
-    FILE* pipe = _popen(command.c_str(), "r");
-#else
-    FILE* pipe = popen(command.c_str(), "r");
-#endif
-    if (pipe == nullptr) {
-        error = "cannot start command: " + command;
-        return false;
-    }
-    char buffer[4096];
-    output.clear();
-    while (std::fgets(buffer, sizeof(buffer), pipe) != nullptr) {
-        output += buffer;
-    }
-    const int status = PCLOSE(pipe);
-    if (status != 0) {
-        error = "command exited with status " + std::to_string(status) + ": " + command;
-        return false;
     }
     return true;
 }
@@ -1093,12 +1248,15 @@ int handle_model_command(Config& cfg,
             return 1;
         }
 
-        const std::string command =
-            "python3 \"" + helper.string() + "\" --model " + model->id +
-            " --output-dir \"" + cfg.model_dir.string() + "\"";
-        const int status = std::system(command.c_str());
-        if (status != 0) {
-            error = "model download failed for " + model->id;
+        std::string unused_out;
+        std::string download_err;
+        const bool download_ok = run_argv(
+            {"python3", helper.string(), "--model", model->id,
+             "--output-dir", cfg.model_dir.string()},
+            false, unused_out, download_err);
+        if (!download_ok) {
+            error = "model download failed for " + model->id +
+                    (download_err.empty() ? "" : ": " + download_err);
             return 1;
         }
         std::cout << model->file << " installed in " << cfg.model_dir.string() << "\n";
@@ -1131,14 +1289,20 @@ int handle_model_command(Config& cfg,
         std::string detail;
         const bool ok = verify_model_file(target, model->bytes, update, detail);
         if (ok) {
+            std::error_code size_ec;
+            const uint64_t actual =
+                static_cast<uint64_t>(std::filesystem::file_size(target, size_ec));
             std::cout << "Model verified: " << target.string() << "\n";
             std::cout << "  GGUF header: ok\n";
-            std::cout << "  Size: " << to_human_bytes(model->bytes) << " ("
-                      << model->bytes << " bytes)\n";
+            std::cout << "  Size: " << to_human_bytes(actual) << " ("
+                      << actual << " bytes)\n";
             const bool has_sidecar =
                 std::filesystem::exists(target.string() + ".sha256", ec);
             std::cout << "  SHA-256: " << (has_sidecar ? "match" : "not recorded")
                       << (update ? " (written)" : "") << "\n";
+            if (!detail.empty()) {
+                std::cout << "  note: " << detail << "\n";
+            }
             return 0;
         }
         std::cout << "Model verification failed: " << target.string() << "\n";
@@ -1185,12 +1349,13 @@ int handle_git_command(Config& cfg,
                        std::string& error) {
     const std::string action = args.empty() ? "diff" : args[0];
     bool use_cached = false;
-    std::string git_args;
+    std::vector<std::string> git_args;
 
     if (action == "diff" || action == "review" || action == "explain" ||
         action == "commit") {
         use_cached = std::find(args.begin(), args.end(), "--cached") != args.end();
-        git_args = use_cached ? "diff --cached" : "diff";
+        git_args = use_cached ? std::vector<std::string>{"diff", "--cached"}
+                              : std::vector<std::string>{"diff"};
         if (action == "commit" && !use_cached) {
             std::cout << "No --cached diff provided. Use `skifflm git commit --cached` "
                       << "after staging changes.\n";
@@ -1212,7 +1377,7 @@ int handle_git_command(Config& cfg,
 
     if (action == "log") {
         std::string log;
-        if (!run_git("log -n 40 --oneline", log, error)) {
+        if (!run_git({"log", "-n", "40", "--oneline"}, log, error)) {
             return 1;
         }
         cfg.one_shot =
@@ -1224,7 +1389,7 @@ int handle_git_command(Config& cfg,
 
     if (action == "status") {
         std::string status;
-        if (!run_git("status --short", status, error)) {
+        if (!run_git({"status", "--short"}, status, error)) {
             return 1;
         }
         std::cout << status;

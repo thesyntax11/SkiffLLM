@@ -30,9 +30,6 @@ const CatalogModel* find_catalog_model(const std::string& id);
 // The block is intentionally capped so it fits into a small local context.
 std::string build_project_block(const std::filesystem::path& root, std::string& error);
 
-// Run a shell command and capture its stdout. Returns false on failure.
-bool run_command(const std::string& command, std::string& output, std::string& error);
-
 // Subcommand entry points. A negative return means "not handled here".
 // A non-negative return means the process should exit with that code.
 // For "model" this fully handles list/info/install/remove.

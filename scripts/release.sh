@@ -84,7 +84,32 @@ cp -r scripts/completions "${STAGE}/share/"
 cp configs/skifflm.example.conf "${STAGE}/share/"
 cp -r scripts "${STAGE}/share/scripts"
 
-PLATFORM="$(uname -s)-$(uname -m)"
+# Normalize the asset name to the same `<os>-<arch>` convention that
+# scripts/install-from-release.sh looks for. darwin is published as "macos".
+# Release archives are produced on the host that runs this script, so they use
+# the current platform; cross-builds should be produced on each target OS.
+OS_NAME="$(uname -s | tr '[:upper:]' '[:lower:]')"
+if [[ "${OS_NAME}" == "darwin" ]]; then
+    OS_NAME="macos"
+fi
+ARCH_NAME="$(uname -m)"
+case "${ARCH_NAME}" in
+    amd64) ARCH_NAME="x86_64" ;;
+    arm64) ARCH_NAME="arm64" ;;
+    aarch64) ARCH_NAME="aarch64" ;;
+esac
+PLATFORM="${OS_NAME}-${ARCH_NAME}"
+
+# Fail fast if the installer helper has no mapping for this asset name.
+case "${PLATFORM}" in
+    linux-x86_64|linux-aarch64|macos-x86_64|macos-arm64) ;;
+    *)
+        echo "error: no release asset mapping for platform ${PLATFORM}; " \
+             "produce the archive on a supported host (linux/macos)" >&2
+        exit 2
+        ;;
+esac
+
 ARCHIVE="${OUTPUT_DIR}/skifflm-${VERSION}-${PLATFORM}.tar.gz"
 rm -f "${ARCHIVE}"
 tar -czf "${ARCHIVE}" -C "${STAGE}" .

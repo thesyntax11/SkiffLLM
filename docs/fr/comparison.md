@@ -67,8 +67,9 @@ moins transparent.
 
 ### 4. Vous voulez des preuves de chaîne d'approvisionnement
 
-`skifflm model verify` vérifie l'en-tête magique GGUF, la taille attendue et un
-sidecar SHA-256. `model_fetch.py --checksum` enregistre le sidecar et
+`skifflm model verify` vérifie l'en-tête magique GGUF et le sidecar SHA-256.
+La taille du catalogue est indicative, afin qu'une révision amont plus récente
+ne soit pas rejetée à cause d'un décompte d'octets obsolète. `model_fetch.py --checksum` enregistre le sidecar et
 `--verify` vérifie un téléchargement existant sans retélécharger. C'est le type
 de preuve qu'un audit veut : quel modèle, quel hash, d'où vient-il, qu'a-t-on
 mesuré.

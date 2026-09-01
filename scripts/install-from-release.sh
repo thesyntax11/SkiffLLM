@@ -91,8 +91,10 @@ curl -fsSL --retry 3 -o "${TMP}/${ASSET}" "${URL}"
 
 case "${ASSET}" in
     *.zip)
+        # Extract into the same directory used for tar.gz so the binary is
+        # always found at ${TMP}/bin/skifflm.
         command -v unzip >/dev/null 2>&1 || { echo "unzip is required" >&2; exit 2; }
-        unzip -q "${TMP}/${ASSET}" -d "${TMP}/extract"
+        unzip -q "${TMP}/${ASSET}" -d "${TMP}"
         ;;
     *)
         tar -xzf "${TMP}/${ASSET}" -C "${TMP}"

@@ -3,8 +3,9 @@
 
 This is an optional companion helper. The SkiffLLM runtime never downloads or
 registers models; when you run this script it fetches one GGUF file over HTTPS
-from Hugging Face, verifies the GGUF header and download size, and places it in
-your SkiffLLM model directory.
+from Hugging Face, checks the GGUF header, records a SHA-256 sidecar, and places
+it in your SkiffLLM model directory. The catalog byte size is advisory because a
+model maintainer can re-upload a revision with a different size.
 
 Example:
     python3 scripts/model_fetch.py --list
@@ -30,6 +31,7 @@ MODELS = {
         "repo": "Qwen/Qwen2.5-0.5B-Instruct-GGUF",
         "file": "qwen2.5-0.5b-instruct-q4_k_m.gguf",
         "bytes": 491400032,
+        "license": "Apache-2.0",
     },
     "qwen3-0.6b": {
         "name": "Qwen3 0.6B Instruct",
@@ -37,6 +39,7 @@ MODELS = {
         "repo": "bartowski/Qwen_Qwen3-0.6B-GGUF",
         "file": "Qwen_Qwen3-0.6B-Q4_K_M.gguf",
         "bytes": 484220320,
+        "license": "Apache-2.0",
     },
     "llama3.2-1b": {
         "name": "Llama 3.2 1B Instruct",
@@ -44,6 +47,7 @@ MODELS = {
         "repo": "bartowski/Llama-3.2-1B-Instruct-GGUF",
         "file": "Llama-3.2-1B-Instruct-Q4_K_M.gguf",
         "bytes": 807694464,
+        "license": "Llama 3.2 Community License",
     },
     "smollm2-1.7b": {
         "name": "SmolLM2 1.7B Instruct",
@@ -51,6 +55,7 @@ MODELS = {
         "repo": "bartowski/SmolLM2-1.7B-Instruct-GGUF",
         "file": "SmolLM2-1.7B-Instruct-Q4_K_M.gguf",
         "bytes": 1055609824,
+        "license": "Apache-2.0",
     },
     "phi3.5-mini": {
         "name": "Phi-3.5 Mini Instruct",
@@ -58,6 +63,7 @@ MODELS = {
         "repo": "bartowski/Phi-3.5-mini-instruct-GGUF",
         "file": "Phi-3.5-mini-instruct-Q4_K_M.gguf",
         "bytes": 2393232672,
+        "license": "MIT",
     },
 }
 
@@ -104,22 +110,20 @@ def write_sidecar(path: Path) -> None:
     sidecar_path(path).write_text(f"{digest}  {path.name}\n", encoding="ascii")
 
 
-def check_size(entry: dict, path: Path) -> bool:
-    actual = path.stat().st_size
-    return actual == entry["bytes"]
-
-
 def verify(entry: dict, path: Path) -> list[str]:
-    """Return a list of human-readable problems (empty means OK)."""
+    """Return a list of human-readable problems (empty means OK).
+
+    The GGUF header and the SHA-256 sidecar are authoritative. The catalog
+    ``bytes`` value is only a snapshot at publish time and can legitimately
+    change when a model maintainer re-uploads a new revision, so a size
+    difference is reported separately rather than treated as corruption.
+    """
     problems: list[str] = []
     if not path.exists() or not path.is_file():
         return ["file does not exist"]
     if not is_gguf(path):
         problems.append("not a valid GGUF model")
-    if not check_size(entry, path):
-        problems.append(
-            f"size mismatch: expected {entry['bytes']} bytes, found {path.stat().st_size}"
-        )
+        return problems
     sidecar = sidecar_path(path)
     if sidecar.exists():
         expected = sidecar.read_text(encoding="ascii").split()[0].lower()
@@ -129,6 +133,20 @@ def verify(entry: dict, path: Path) -> list[str]:
     else:
         problems.append("no checksum sidecar; run with --checksum to record one")
     return problems
+
+
+def size_note(entry: dict, path: Path) -> str | None:
+    """Return a human-readable advisory note when the size differs from the
+    catalog snapshot, or None when it matches."""
+    if not path.exists() or not path.is_file() or entry["bytes"] <= 0:
+        return None
+    actual = path.stat().st_size
+    if actual == entry["bytes"]:
+        return None
+    return (
+        f"size differs from the catalog snapshot "
+        f"(catalog {entry['bytes']} bytes, found {actual} bytes)"
+    )
 
 
 def set_sidecar(path: Path) -> None:
@@ -167,12 +185,25 @@ def download(entry: dict, output_dir: Path) -> Path:
                     print(f"\r  {human_bytes(downloaded)}", end="", flush=True)
 
     print()
-    if total > 0 and downloaded < total:
+    if total > 0 and downloaded != total:
         temp.unlink(missing_ok=True)
-        raise RuntimeError("download ended before the expected Content-Length")
+        raise RuntimeError(
+            "download size did not match the server's Content-Length "
+            f"(expected {total} bytes, got {downloaded})"
+        )
     if not is_gguf(temp):
         temp.unlink(missing_ok=True)
         raise RuntimeError("downloaded file is not a valid GGUF model")
+    if entry["bytes"] > 0 and temp.stat().st_size != entry["bytes"]:
+        # The catalog records a snapshot of the file at publish time. A model
+        # maintainer can legitimately re-upload a new revision with a different
+        # size, so this is advisory rather than a hard failure.
+        print(
+            f"  note: size differs from the catalog snapshot "
+            f"(catalog {entry['bytes']}, got {temp.stat().st_size}); "
+            "the SHA-256 sidecar below is the authoritative check",
+            file=sys.stderr,
+        )
 
     if output.exists():
         output.unlink()
@@ -210,9 +241,15 @@ def main() -> int:
     if args.list:
         print("Available models:")
         for key, entry in MODELS.items():
-            print(f"  {key:14s} {entry['name']}")
+            print(f"  {key:14s} {entry['name']}  [{entry.get('license', 'see upstream')}]")
             print(f"                 {entry['description']}")
             print(f"                 {human_bytes(entry['bytes'])}  (Q4_K_M)")
+        print()
+        print("Model files are downloaded from Hugging Face under their own")
+        print("upstream license and are not redistributed by SkiffLLM. Respect")
+        print("the license of each model before you use or redistribute it.")
+        print("The Llama 3.2 Community License requires 'Built with Llama'")
+        print("attribution and specific naming for redistributed model names.")
         return 0
 
     if not args.model:
@@ -236,6 +273,9 @@ def main() -> int:
         print(f"Verified: {model_path}")
         print("  GGUF header: ok")
         print(f"  Size: {human_bytes(entry['bytes'])} ({entry['bytes']} bytes)")
+        note = size_note(entry, model_path)
+        if note:
+            print(f"  note: {note}")
         print("  SHA-256: match")
         return 0
 
@@ -246,6 +286,15 @@ def main() -> int:
         write_sidecar(model_path)
         print(f"SHA-256 sidecar written: {sidecar_path(model_path)}")
         return 0
+
+    license_name = entry.get("license", "see upstream license")
+    if license_name != "Apache-2.0" and license_name != "MIT":
+        print(
+            f"Notice: {entry['name']} is distributed under the {license_name}. "
+            "Review its terms (attribution, naming, redistribution) before "
+            "commercial or public use.",
+            file=sys.stderr,
+        )
 
     try:
         download(entry, args.output_dir)
