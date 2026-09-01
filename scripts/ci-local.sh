@@ -29,6 +29,7 @@ ctest --test-dir "${BUILD_DIR}" --output-on-failure
 "${BUILD_DIR}/skifflm" --doctor --network >/dev/null
 "${BUILD_DIR}/skifflm" model list >/dev/null
 "${BUILD_DIR}/skifflm" model info qwen2.5-0.5b >/dev/null
+"${BUILD_DIR}/skifflm" session list >/dev/null
 
 if command -v python3 >/dev/null 2>&1; then
     python3 -m py_compile scripts/model_fetch.py scripts/api_client.py

@@ -46,6 +46,21 @@ Export the loaded conversation as Markdown.
 \fB\-\-warmup\fR
 Warm the model before the first answer.
 .TP
+\fB\-\-summarize <file>\fR
+Summarize a file as a one-shot document task.
+.TP
+\fB\-\-remember <text>\fR
+Save a persistent memory line for future sessions.
+.TP
+\fB\-\-forget <text>\fR
+Remove matching persistent memory lines.
+.TP
+\fB\-\-code\fR
+Propose concrete unified-diff edits without modifying files.
+.TP
+\fB\-\-network\fR
+With --doctor, print network/privacy facts.
+.TP
 \fB\-\-serve\fR
 Serve a local OpenAI-compatible HTTP API.
 .TP
@@ -190,6 +205,9 @@ The server binds to localhost and exposes /health, /v1/models, and
 .TP
 .B /help, /info, /history
 Show help, session details, or the current conversation.
+.TP
+.B /remember <fact>, /forget <text>
+Persist or remove a user memory. /memories lists; /clear-memories clears.
 .TP
 .B /file <path>, /clear-attach
 Attach a file or clear attached files.
