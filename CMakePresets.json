@@ -20,6 +20,23 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "SKIFFLLM_BUILD_TESTS": "ON"
       }
+    },
+    {
+      "name": "default",
+      "displayName": "Default (Debug)",
+      "inherits": "debug"
+    },
+    {
+      "name": "clang",
+      "displayName": "Clang (Debug)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "SKIFFLLM_BUILD_TESTS": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -30,6 +47,14 @@
     {
       "name": "debug",
       "configurePreset": "debug"
+    },
+    {
+      "name": "default",
+      "configurePreset": "default"
+    },
+    {
+      "name": "clang",
+      "configurePreset": "clang"
     }
   ],
   "testPresets": [
@@ -43,6 +68,13 @@
     {
       "name": "debug",
       "configurePreset": "debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "default",
+      "configurePreset": "default",
       "output": {
         "outputOnFailure": true
       }

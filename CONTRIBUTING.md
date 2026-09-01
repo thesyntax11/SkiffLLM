@@ -32,6 +32,12 @@ cd android
 The native build downloads the pinned llama.cpp revision unless you pass
 `-Pskifflm.llamaSourceDir=/path/to/llama.cpp`.
 
+For a scripted Android check with the SDK installed:
+
+```bash
+SKIFFLLM_LLAMA_SOURCE_DIR=/path/to/llama.cpp bash scripts/ci-android.sh
+```
+
 ## What is expected
 
 - Keep the honest-measurement rule. Never invent benchmarks, token counts, or

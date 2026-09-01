@@ -954,8 +954,21 @@ void handle_request(skifflm_socket_t socket_fd,
         return;
     }
     if (request.method == "GET" && request.target == "/health") {
-        send_response(socket_fd, 200, "application/json",
-                      "{\"status\":\"ok\"}\n", error);
+        std::ostringstream out;
+        out << "{\"status\":\"ok\",\"model\":\"" << json_escape(model_name(config)) << "\"}\n";
+        send_response(socket_fd, 200, "application/json", out.str(), error);
+        return;
+    }
+    if (request.method == "GET" && request.target == "/version") {
+        std::ostringstream out;
+        out << "{\"name\":\"skifflm\",\"version\":\"";
+#ifdef SKIFFLLM_VERSION
+        out << SKIFFLLM_VERSION;
+#else
+        out << "unknown";
+#endif
+        out << "\",\"backend\":\"llama.cpp\"}\n";
+        send_response(socket_fd, 200, "application/json", out.str(), error);
         return;
     }
     if (request.method == "GET" && request.target == "/v1/models") {
@@ -969,7 +982,8 @@ void handle_request(skifflm_socket_t socket_fd,
     if (request.method == "GET" && request.target == "/") {
         send_response(socket_fd, 200, "text/plain",
                       "SkiffLLM local inference server\n"
-                      "Endpoints: GET /health, GET /v1/models, POST /v1/chat/completions\n",
+                      "Endpoints: GET /health, GET /version, GET /v1/models, "
+                      "POST /v1/chat/completions\n",
                       error);
         return;
     }

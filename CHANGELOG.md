@@ -12,7 +12,12 @@
 - Added CORS preflight (`OPTIONS`) and CORS headers to the local server.
 - Upgraded `scripts/api_client.py` with `--stream`, `--temperature`,
   `--max-tokens`, and a clean CLI.
-- Added `CONTRIBUTING.md`, `SECURITY.md`, and an `.editorconfig`.
+- Added `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, and an
+  `.editorconfig`.
+- Added `docs/FAQ.md`.
+- Added CMake presets, a convenience `Makefile`, and `scripts/check-format.sh`.
+- Bumped the desktop version to 1.6.0 and added `GET /version` plus model
+  details in `GET /health`.
 
 ### Android 1.6.0
 
