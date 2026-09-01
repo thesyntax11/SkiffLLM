@@ -448,6 +448,8 @@ void test_openai_passthrough_flags() {
         "local",
         "--stream",
         "--no-json",
+        "--api-key",
+        "secret",
         "--max-tokens",
         "64",
     };
@@ -455,6 +457,7 @@ void test_openai_passthrough_flags() {
     std::string error;
     const bool ok = skifflm::parse_args(static_cast<int>(args.size()), args.data(), cfg, error);
     check(ok, "openai passthrough flags should not be rejected by the generic parser");
+    check(cfg.api_key == "secret", "openai api-key should be stored on config");
 }
 
 void test_ui_and_backend_flags() {
