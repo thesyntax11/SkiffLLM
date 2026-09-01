@@ -486,7 +486,13 @@ Program options:
   --help                     Show this help
   --version                  Show the version
 
-Interactive commands: /help /info /warmup /history /settings /tokenize /file /clear-attach /clear /reset /system /model /profile /stop /temp /top-p /top-k /min-p /typical /n /ctx /export /save /exit
+Subcommands:
+  config path                Print the config file path
+  config show                Print the effective configuration
+  config init                Write the current configuration to a file
+  server health [--json]     Check a running local server
+
+Interactive commands: /help /info /warmup /history /settings /stats /compact /tokenize /file /clear-attach /clear /reset /system /model /profile /stop /temp /top-p /top-k /min-p /typical /n /ctx /export /save /exit
 ```
 
 ## Interactive Commands
@@ -496,6 +502,8 @@ Interactive commands: /help /info /warmup /history /settings /tokenize /file /cl
 /info                 Show model and session information
 /warmup               Run a short warm-up pass
 /history              Show the current conversation
+/stats                Show local usage metrics
+/compact              Compress the conversation when it is long
 /export <path>        Export the conversation as Markdown
 /settings             Show the current sampling settings
 /tokenize <text>      Show the token count for the text
@@ -598,8 +606,39 @@ The server binds to `127.0.0.1` by default. It responds to CORS preflight
 (`OPTIONS`) and sends CORS headers on normal and streaming responses, so
 browser-based clients can use it locally. It has no auth and no remote
 exposure; if you bind to `0.0.0.0`, you are responsible for the network
-security of that interface. It is intentionally simple and handles one
-request at a time.
+security of that interface. It handles concurrent requests without
+blocking health checks and model listing.
+
+You can check a running server without loading a model:
+
+```bash
+skifflm server health
+skifflm server health --json --host 127.0.0.1 --port 8080
+```
+
+`server health` reads the same `--host`/`--port`/config values as `--serve`,
+so it is useful in scripts and CI.
+
+## Usage Metrics
+
+Every real generation records a plain-text, tab-separated line in
+`metrics.txt` next to the history file (default
+`~/.local/share/skifflm/metrics.txt`). The file contains only timing and
+token counts; no prompts or generated text are written.
+
+```text
+timestamp    prompt_tokens    generated_tokens    prompt_ms    generation_ms    tps
+```
+
+Inside the interactive shell run:
+
+```text
+/stats
+```
+
+to print totals (messages, prompt/generated tokens, total time, average
+tokens per second) and the metrics file path. Users can inspect or truncate
+`metrics.txt` freely; it is never uploaded.
 
 ## Benchmark
 
@@ -662,6 +701,17 @@ save-history=yes
 ```
 
 Command line arguments take priority over the config file.
+
+Manage the config from the CLI:
+
+```bash
+skifflm config path            # print the config file path
+skifflm config show            # print the effective configuration
+skifflm config init            # write the current effective config to disk
+```
+
+`config init` creates the parent directory if needed and writes every loaded
+option as `key=value` lines, including repeated `stop=` entries.
 
 ## Environment Variables
 

@@ -52,10 +52,36 @@ std::filesystem::path session_file_for(const Config& cfg,
                                        const std::string& name);
 std::vector<std::filesystem::path> list_session_files(const Config& cfg,
                                                       std::string& error);
+bool write_config_file(const std::filesystem::path& path,
+                       const Config& cfg,
+                       std::string& error);
+int handle_config_command(Config& cfg,
+                          const std::vector<std::string>& args,
+                          std::string& error);
+int handle_server_command(Config& cfg,
+                          const std::vector<std::string>& args,
+                          std::string& error);
 std::string load_memories(const Config& cfg);
 bool append_memory(const Config& cfg,
                    const std::string& text,
                    std::string& error);
+std::filesystem::path metrics_path_for(const Config& cfg);
+void record_generation(const Config& cfg,
+                       int prompt_tokens,
+                       int generated_tokens,
+                       double prompt_ms,
+                       double generation_ms,
+                       double tokens_per_second);
+struct UsageStats {
+    int sessions = 0;
+    uint64_t messages = 0;
+    uint64_t prompt_tokens = 0;
+    uint64_t generated_tokens = 0;
+    double total_prompt_ms = 0.0;
+    double total_generation_ms = 0.0;
+};
+bool load_usage_stats(const Config& cfg, UsageStats& stats, std::string& error);
+void print_usage_stats(const Config& cfg, bool as_json);
 bool remove_memory(const Config& cfg,
                    const std::string& needle,
                    size_t& removed,

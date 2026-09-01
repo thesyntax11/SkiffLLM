@@ -632,7 +632,8 @@ bool ask_model(skifflm::LlmEngine& engine,
     return true;
 }
 
-bool compact_session(skifflm::LlmEngine& engine,
+bool compact_session(const skifflm::Config& cfg,
+                     skifflm::LlmEngine& engine,
                      skifflm::Session& session,
                      skifflm::Terminal& terminal,
                      const skifflm::GenerationOptions& options) {
@@ -700,6 +701,9 @@ bool compact_session(skifflm::LlmEngine& engine,
     }
     terminal.success("Conversation compacted and saved.");
     terminal.print_stats(result, "Compacted");
+    skifflm::record_generation(cfg, result.prompt_tokens, result.generated_tokens,
+                               result.prompt_ms, result.generation_ms,
+                               result.tokens_per_second);
     return true;
 }
 
@@ -762,7 +766,11 @@ int run_interactive(skifflm::Config& cfg,
                 continue;
             }
             if (command == "/compact") {
-                compact_session(*engine, session, terminal, options);
+                compact_session(cfg, *engine, session, terminal, options);
+                continue;
+            }
+            if (command == "/stats") {
+                skifflm::print_usage_stats(cfg, false);
                 continue;
             }
             if (command == "/settings") {
@@ -1374,6 +1382,10 @@ int run_one_shot(skifflm::Config& cfg,
         terminal.print_stats(result, "Generated");
     }
 
+    skifflm::record_generation(cfg, result.prompt_tokens, result.generated_tokens,
+                               result.prompt_ms, result.generation_ms,
+                               result.tokens_per_second);
+
     if (!cfg.output_path.empty()) {
         std::string write_error;
         if (!write_text_file(cfg.output_path, result.text, write_error)) {
@@ -1408,7 +1420,8 @@ int main(int argc, char** argv) {
     int argument_start = 1;
     if (argc >= 2) {
         const std::string first(argv[1]);
-        if (first == "model" || first == "git" || first == "session") {
+        if (first == "model" || first == "git" || first == "session" ||
+            first == "config" || first == "server") {
             subcommand = first;
             argument_start = 2;
         }
@@ -1502,6 +1515,26 @@ int main(int argc, char** argv) {
     if (subcommand == "session") {
         error.clear();
         const int status = skifflm::handle_session_command(cfg, sub_args, error);
+        if (status >= 0) {
+            if (!error.empty()) {
+                std::cerr << error << std::endl;
+            }
+            return status;
+        }
+    }
+    if (subcommand == "config") {
+        error.clear();
+        const int status = skifflm::handle_config_command(cfg, sub_args, error);
+        if (status >= 0) {
+            if (!error.empty()) {
+                std::cerr << error << std::endl;
+            }
+            return status;
+        }
+    }
+    if (subcommand == "server") {
+        error.clear();
+        const int status = skifflm::handle_server_command(cfg, sub_args, error);
         if (status >= 0) {
             if (!error.empty()) {
                 std::cerr << error << std::endl;

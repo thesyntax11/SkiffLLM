@@ -985,7 +985,12 @@ std::string usage(const std::string& program) {
     out << "  --show-config              Print the effective configuration\n";
     out << "  --help                     Show this help\n";
     out << "  --version                  Show the version\n";
-    out << "\nInteractive commands: /help /info /history /settings /tokenize /file /clear-attach /clear /reset /system /model /profile /stop /temp /top-p /top-k /min-p /typical /n /ctx /export /save /exit\n";
+    out << "\nSubcommands:\n";
+    out << "  config path                Print the config file path\n";
+    out << "  config show                Print the effective configuration\n";
+    out << "  config init                Write the current configuration to a file\n";
+    out << "  server health [--json]     Check a running local server\n";
+    out << "\nInteractive commands: /help /info /history /settings /stats /compact /warmup /tokenize /file /clear-attach /clear /reset /system /model /profile /stop /temp /top-p /top-k /min-p /typical /n /ctx /export /save /exit\n";
     return out.str();
 }
 

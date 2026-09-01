@@ -357,6 +357,51 @@ void test_tools_features() {
           "catalog should find a known id");
 }
 
+void test_config_and_stats_features() {
+    const auto dir = std::filesystem::temp_directory_path() / "skifflm-config-stats-test";
+    std::filesystem::remove_all(dir);
+    std::filesystem::create_directories(dir);
+
+    skifflm::Config cfg = skifflm::default_config();
+    cfg.config_path = dir / "config";
+    cfg.history_path = dir / "history.skif";
+    cfg.model_path = "qwen2.5-0.5b.gguf";
+    cfg.stop_sequences = {"END", "STOP"};
+    std::string error;
+
+    check(skifflm::write_config_file(cfg.config_path, cfg, error), "config should be written");
+    check(std::filesystem::exists(cfg.config_path), "config path should exist");
+    int keys = 0;
+    {
+        std::ifstream input(cfg.config_path);
+        std::string line;
+        while (std::getline(input, line)) {
+            if (line.find('=') != std::string::npos) {
+                ++keys;
+            }
+        }
+    }
+    check(keys >= 20, "written config should include the main options");
+    check(skifflm::metrics_path_for(cfg) == (dir / "metrics.txt"),
+          "metrics file should live next to history");
+
+    skifflm::record_generation(cfg, 10, 50, 100.0, 500.0, 100.0);
+    skifflm::record_generation(cfg, 5, 20, 80.0, 320.0, 62.5);
+
+    skifflm::UsageStats stats;
+    check(skifflm::load_usage_stats(cfg, stats, error), "usage stats should load");
+    check(stats.sessions == 2, "usage stats should count two generations");
+    check(stats.messages == 85, "usage stats should count prompt+generated tokens");
+    check(stats.prompt_tokens == 15, "usage stats should total prompt tokens");
+    check(stats.generated_tokens == 70, "usage stats should total generated tokens");
+    check(approx(static_cast<float>(stats.total_prompt_ms), 180.0f),
+          "usage stats should total prompt milliseconds");
+    check(approx(static_cast<float>(stats.total_generation_ms), 820.0f),
+          "usage stats should total generation milliseconds");
+
+    std::filesystem::remove_all(dir);
+}
+
 void test_server_and_benchmark_flags() {
     skifflm::Config cfg = skifflm::default_config();
     std::vector<std::string> storage = {
@@ -406,5 +451,6 @@ int main() {
     test_popularity_flags();
     test_server_and_benchmark_flags();
     test_tools_features();
+    test_config_and_stats_features();
     return 0;
 }

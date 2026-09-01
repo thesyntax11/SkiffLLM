@@ -28,8 +28,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -62,9 +64,17 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         SharedIntent.offer(intent)
+        val settingsStore = SettingsStore(applicationContext)
+        val themeName = mutableStateOf(settingsStore.loadTheme("dark"))
         setContent {
-            SkiffTheme {
-                ChatScreen()
+            SkiffTheme(themeName.value) {
+                ChatScreen(
+                    themeName = themeName.value,
+                    onThemeName = { name ->
+                        themeName.value = name
+                        settingsStore.saveTheme(name)
+                    }
+                )
             }
         }
     }
@@ -77,9 +87,41 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun SkiffTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = darkColorScheme(
+private fun SkiffTheme(themeName: String = "dark", content: @Composable () -> Unit) {
+    val scheme = when (themeName) {
+        "light" -> lightColorScheme(
+            primary = Color(0xFF3B6FE0),
+            secondary = Color(0xFF2E5BB5),
+            background = Color(0xFFF4F6FB),
+            surface = Color(0xFFFFFFFF),
+            onPrimary = Color(0xFFFFFFFF),
+            onBackground = Color(0xFF1A1F27),
+            onSurface = Color(0xFF1A1F27)
+        )
+        "system" -> (
+            if (isSystemInDarkTheme()) {
+                darkColorScheme(
+                    primary = Color(0xFF6BA6FF),
+                    secondary = Color(0xFF4A7DFF),
+                    background = Color(0xFF0B0F14),
+                    surface = Color(0xFF151A21),
+                    onPrimary = Color(0xFF0B0F14),
+                    onBackground = Color(0xFFE6EBF2),
+                    onSurface = Color(0xFFE6EBF2)
+                )
+            } else {
+                lightColorScheme(
+                    primary = Color(0xFF3B6FE0),
+                    secondary = Color(0xFF2E5BB5),
+                    background = Color(0xFFF4F6FB),
+                    surface = Color(0xFFFFFFFF),
+                    onPrimary = Color(0xFFFFFFFF),
+                    onBackground = Color(0xFF1A1F27),
+                    onSurface = Color(0xFF1A1F27)
+                )
+            }
+            )
+        else -> darkColorScheme(
             primary = Color(0xFF6BA6FF),
             secondary = Color(0xFF4A7DFF),
             background = Color(0xFF0B0F14),
@@ -87,13 +129,16 @@ private fun SkiffTheme(content: @Composable () -> Unit) {
             onPrimary = Color(0xFF0B0F14),
             onBackground = Color(0xFFE6EBF2),
             onSurface = Color(0xFFE6EBF2)
-        ),
+        )
+    }
+    MaterialTheme(
+        colorScheme = scheme,
         content = content
     )
 }
 
 @Composable
-private fun ChatScreen() {
+private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
     val context = LocalContext.current
     val controller = remember { EngineController(context.applicationContext) }
     val downloader = remember { ModelDownloader(context.applicationContext) }
@@ -307,17 +352,18 @@ private fun ChatScreen() {
         context.startActivity(Intent.createChooser(intent, "Export conversation"))
     }
 
-    Scaffold(
-        topBar = {
-            ChatTopBar(
-                statusText = statusText,
-                modelName = modelName,
-                modelInfo = modelInfo,
-                onSettings = { showSettings = true },
-                onExport = { shareConversation() },
-                onClear = { clearConversation() }
-            )
-        }
+        Scaffold(
+            topBar = {
+                ChatTopBar(
+                    statusText = statusText,
+                    modelName = modelName,
+                    modelInfo = modelInfo,
+                    onSettings = { showSettings = true },
+                    onExport = { shareConversation() },
+                    onClear = { clearConversation() }
+                )
+            }
+        )
     ) { padding ->
         Column(
             modifier = Modifier
@@ -476,6 +522,8 @@ private fun ChatScreen() {
                 quickPrompts.clear()
                 quickPrompts.addAll(settingsStore.loadQuickPrompts())
             },
+            themeName = themeName,
+            onThemeName = onThemeName,
             onOpenModels = {
                 showSettings = false
                 showModels = true
@@ -611,6 +659,8 @@ private fun SettingsDialog(
     quickPrompts: List<String>,
     onAddQuickPrompt: (String) -> Unit,
     onRemoveQuickPrompt: (String) -> Unit,
+    themeName: String,
+    onThemeName: (String) -> Unit,
     onOpenModels: () -> Unit,
     onAbout: () -> Unit,
     onDismiss: () -> Unit
@@ -797,6 +847,28 @@ private fun SettingsDialog(
                         quickPromptInput = ""
                     }) {
                         Text("Add")
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Theme",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    listOf("dark", "light", "system").forEach { name ->
+                        if (themeName == name) {
+                            Button(onClick = { onThemeName(name) }, modifier = Modifier.padding(end = 6.dp)) {
+                                Text(name.replaceFirstChar { it.uppercase() })
+                            }
+                        } else {
+                            OutlinedButton(onClick = { onThemeName(name) }, modifier = Modifier.padding(end = 6.dp)) {
+                                Text(name.replaceFirstChar { it.uppercase() })
+                            }
+                        }
                     }
                 }
                 Spacer(Modifier.height(8.dp))

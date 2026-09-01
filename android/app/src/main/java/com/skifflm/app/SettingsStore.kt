@@ -82,7 +82,15 @@ class SettingsStore(private val appContext: Context) {
         prefs.edit().putStringSet(KEY_QUICK_PROMPTS, updated).apply()
     }
 
+    fun saveTheme(value: String) {
+        prefs.edit().putString(KEY_THEME, value).apply()
+    }
+
+    fun loadTheme(default: String): String =
+        prefs.getString(KEY_THEME, default) ?: default
+
     private companion object {
+        const val KEY_THEME = "theme"
         const val KEY_CONTEXT = "context_size"
         const val KEY_THREADS = "threads"
         const val KEY_GPU_LAYERS = "gpu_layers"

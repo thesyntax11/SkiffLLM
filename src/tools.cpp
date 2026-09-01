@@ -1,11 +1,13 @@
 #include "skifflm/tools.hpp"
 #include "skifflm/session.hpp"
+#include "skifflm/server.hpp"
 
 #include <algorithm>
 #include <cctype>
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
+#include <ctime>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -87,6 +89,35 @@ bool run_git(const std::string& arguments, std::string& output, std::string& err
     return run_command("git " + arguments, output, error);
 }
 
+
+
+
+
+
+
+
+
+
+std::string instruction_for_git(const std::string& sub) {
+    if (sub == "review") {
+        return "You are a senior code reviewer. Review the diff below for bugs, "
+               "security issues, error handling problems, and style regressions. "
+               "Answer with a short prioritized list: HIGH, MEDIUM or LOW per finding, "
+               "include file and line when available, and finish with one line of overall "
+               "verdict. Be concrete; do not invent findings.";
+    }
+    if (sub == "explain") {
+        return "Explain the diff below in plain language. Summarize what changed, "
+               "why it matters, and call out anything risky. Keep it concise.";
+    }
+    if (sub == "commit") {
+        return "Write a conventional commit message below the diff. The diff is "
+               "below. Reply with only the commit subject and body in Git "
+               "format, no extra commentary.";
+    }
+    return "Answer the user's request using the git input below as context.";
+}
+
 std::string compact_preview(const std::string& text, std::size_t limit = 160) {
     std::string result;
     result.reserve(std::min(text.size(), limit + 1));
@@ -111,27 +142,244 @@ std::filesystem::path session_dir_for(const Config& cfg) {
     return std::filesystem::path(".");
 }
 
-std::string instruction_for_git(const std::string& sub) {
-    if (sub == "review") {
-        return "You are a senior code reviewer. Review the diff below for bugs, "
-               "security issues, error handling problems, and style regressions. "
-               "Answer with a short prioritized list: HIGH, MEDIUM or LOW per finding, "
-               "include file and line when available, and finish with one line of overall "
-               "verdict. Be concrete; do not invent findings.";
+}  // namespace
+
+bool load_usage_stats(const Config& cfg, UsageStats& stats, std::string& error) {
+    std::ifstream input(metrics_path_for(cfg));
+    if (!input.is_open()) {
+        return true;
     }
-    if (sub == "explain") {
-        return "Explain the diff below in plain language. Summarize what changed, "
-               "why it matters, and call out anything risky. Keep it concise.";
+    std::string line;
+    while (std::getline(input, line)) {
+        std::istringstream row(line);
+        std::string field;
+        std::vector<std::string> parts;
+        while (std::getline(row, field, '\t')) {
+            parts.push_back(field);
+        }
+        if (parts.size() < 6) {
+            continue;
+        }
+        const int prompt = std::atoi(parts[1].c_str());
+        const int generated = std::atoi(parts[2].c_str());
+        const double prompt_ms = std::atof(parts[3].c_str());
+        const double generation_ms = std::atof(parts[4].c_str());
+        if (prompt < 0 || generated < 0 || prompt_ms < 0 || generation_ms < 0) {
+            continue;
+        }
+        stats.sessions += 1;
+        stats.messages += static_cast<uint64_t>(prompt + generated);
+        stats.prompt_tokens += static_cast<uint64_t>(prompt);
+        stats.generated_tokens += static_cast<uint64_t>(generated);
+        stats.total_prompt_ms += prompt_ms;
+        stats.total_generation_ms += generation_ms;
     }
-    if (sub == "commit") {
-        return "Write a conventional commit message below the diff. The diff is "
-               "below. Reply with only the commit subject and body in Git "
-               "format, no extra commentary.";
+    if (!input.bad()) {
+        return true;
     }
-    return "Answer the user's request using the git input below as context.";
+    error = "failed to read metrics file: " + metrics_path_for(cfg).string();
+    return false;
 }
 
-}  // namespace
+bool write_config_file(const std::filesystem::path& path,
+                       const Config& cfg,
+                       std::string& error) {
+    if (path.empty()) {
+        error = "config path is empty";
+        return false;
+    }
+    std::error_code ec;
+    const auto parent = path.parent_path();
+    if (!parent.empty()) {
+        std::filesystem::create_directories(parent, ec);
+        if (ec) {
+            error = "cannot create config directory: " + parent.string();
+            return false;
+        }
+    }
+    std::ofstream out(path, std::ios::trunc | std::ios::binary);
+    if (!out.is_open()) {
+        error = "cannot open config file for writing: " + path.string();
+        return false;
+    }
+    out << "# SkiffLLM configuration\n";
+    out << "# One key=value (option) per line. CLI flags override this file.\n\n";
+    out << "model=" << (cfg.model_path.empty() ? "" : cfg.model_path.string()) << "\n";
+    out << "model-dir=" << cfg.model_dir.string() << "\n";
+    out << "history=" << cfg.history_path.string() << "\n";
+    out << "session=" << cfg.session_name << "\n";
+    out << "system=" << cfg.system_prompt << "\n";
+    out << "chat-template=" << cfg.chat_template << "\n";
+    out << "profile=" << cfg.profile_name << "\n";
+    out << "ctx=" << cfg.context_size << "\n";
+    out << "batch=" << cfg.batch_size << "\n";
+    if (cfg.n_ubatch > 0) {
+        out << "ubatch=" << cfg.n_ubatch << "\n";
+    }
+    if (cfg.reserve_ctx > 0) {
+        out << "reserve-ctx=" << cfg.reserve_ctx << "\n";
+    }
+    if (cfg.n_threads > 0) {
+        out << "threads=" << cfg.n_threads << "\n";
+    }
+    out << "gpu-layers=" << cfg.n_gpu_layers << "\n";
+    out << "temp=" << cfg.temperature << "\n";
+    out << "top-p=" << cfg.top_p << "\n";
+    out << "top-k=" << cfg.top_k << "\n";
+    out << "min-p=" << cfg.min_p << "\n";
+    out << "typical=" << cfg.typical_p << "\n";
+    out << "repeat-penalty=" << cfg.repeat_penalty << "\n";
+    out << "repeat-last-n=" << cfg.repeat_last_n << "\n";
+    out << "n-predict=" << cfg.n_predict << "\n";
+    out << "numa=" << (cfg.numa ? "yes" : "no") << "\n";
+    out << "flash-attn=" << (cfg.flash_attn ? "yes" : "no") << "\n";
+    out << "mlock=" << (cfg.use_mlock ? "yes" : "no") << "\n";
+    out << "mmap=" << (cfg.use_mmap ? "yes" : "no") << "\n";
+    for (const auto& stop : cfg.stop_sequences) {
+        out << "stop=" << stop << "\n";
+    }
+    out.flush();
+    if (!out) {
+        error = "failed to write config file";
+        return false;
+    }
+    return true;
+}
+
+int handle_config_command(Config& cfg,
+                          const std::vector<std::string>& args,
+                          std::string& error) {
+    const std::string action = args.empty() ? "path" : args[0];
+    if (action == "help") {
+        std::cout << "Usage: skifflm config path|show|init\n";
+        return 0;
+    }
+    if (action == "path") {
+        std::cout << cfg.config_path.string() << "\n";
+        return 0;
+    }
+    if (action == "show") {
+        print_config(cfg);
+        return 0;
+    }
+    if (action == "init" || action == "write") {
+        std::string write_error;
+        if (!write_config_file(cfg.config_path, cfg, write_error)) {
+            error = write_error;
+            return 1;
+        }
+        std::cout << "Config written to " << cfg.config_path.string() << "\n";
+        return 0;
+    }
+    error = "unknown config action: " + action + " (use path, show or init)";
+    return 2;
+}
+
+int handle_server_command(Config& cfg,
+                          const std::vector<std::string>& args,
+                          std::string& error) {
+    if (args.empty() || args[0] == "help") {
+        std::cout << "Usage: skifflm server health [--json] [--host <addr>] [--port <n>]\n";
+        std::cout << "       skifflm server help\n";
+        return 0;
+    }
+    if (args[0] == "health") {
+        std::string host = cfg.server_host;
+        int port = cfg.server_port;
+        bool as_json = false;
+        for (size_t i = 1; i < args.size(); ++i) {
+            if (args[i] == "--json") {
+                as_json = true;
+            } else if (args[i] == "--host" && i + 1 < args.size()) {
+                host = args[++i];
+            } else if (args[i] == "--port" && i + 1 < args.size()) {
+                port = std::atoi(args[++i].c_str());
+            }
+        }
+        std::string output;
+        std::string command =
+            "curl -sf --max-time 3 http://" + host + ":" + std::to_string(port) + "/health";
+        if (!run_command(command, output, error)) {
+            if (as_json) {
+                error = "server is not reachable at http://" + host + ":" + std::to_string(port);
+                return 1;
+            }
+            std::cout << "Server not responding at http://" << host << ":" << port << "\n";
+            error.clear();
+            return 0;
+        }
+        if (as_json) {
+            std::cout << output;
+        } else {
+            std::cout << "Server healthy at http://" << host << ":" << port << "\n";
+            std::cout << output;
+        }
+        return 0;
+    }
+    error = "unknown server action: " + args[0] + " (use health or help)";
+    return 2;
+}
+
+std::filesystem::path metrics_path_for(const Config& cfg) {
+    if (!cfg.history_path.empty() && !cfg.history_path.parent_path().empty()) {
+        return cfg.history_path.parent_path() / "metrics.txt";
+    }
+    return std::filesystem::path("metrics.txt");
+}
+
+
+
+void print_usage_stats(const Config& cfg, bool as_json) {
+    UsageStats stats;
+    std::string error;
+    if (!load_usage_stats(cfg, stats, error)) {
+        std::cerr << error << std::endl;
+        return;
+    }
+    const double total_ms = stats.total_prompt_ms + stats.total_generation_ms;
+    const double tps = total_ms > 0.0
+                           ? static_cast<double>(stats.generated_tokens) / (total_ms / 1000.0)
+                           : 0.0;
+    if (as_json) {
+        std::cout << "{\"sessions\":" << stats.sessions
+                  << ",\"messages\":" << stats.messages
+                  << ",\"prompt_tokens\":" << stats.prompt_tokens
+                  << ",\"generated_tokens\":" << stats.generated_tokens
+                  << ",\"total_time_ms\":" << total_ms
+                  << ",\"avg_tokens_per_second\":" << tps << "}\n";
+        return;
+    }
+    std::cout << "SkiffLLM usage stats\n";
+    std::cout << "  Generations:      " << stats.sessions << "\n";
+    std::cout << "  Messages:         " << stats.messages << "\n";
+    std::cout << "  Prompt tokens:    " << stats.prompt_tokens << "\n";
+    std::cout << "  Generated tokens: " << stats.generated_tokens << "\n";
+    std::cout << "  Total time:       " << (total_ms / 1000.0) << " s\n";
+    std::cout << "  Avg speed:        " << tps << " tok/s\n";
+    std::cout << "  Metrics file:     " << metrics_path_for(cfg).string() << "\n";
+}
+
+void record_generation(const Config& cfg,
+                       int prompt_tokens,
+                       int generated_tokens,
+                       double prompt_ms,
+                       double generation_ms,
+                       double tokens_per_second) {
+    const std::filesystem::path path = metrics_path_for(cfg);
+    std::error_code ec;
+    std::filesystem::create_directories(path.parent_path(), ec);
+    std::ofstream out(path, std::ios::app | std::ios::binary);
+    if (!out.is_open()) {
+        return;
+    }
+    // One tab-separated line per generation. Kept plain-text so users can
+    // inspect and truncate it easily.
+    out << std::time(nullptr) << "\t" << prompt_tokens << "\t" << generated_tokens
+        << "\t" << prompt_ms << "\t" << generation_ms << "\t" << tokens_per_second
+        << "\n";
+    out.close();
+}
+
 
 const std::vector<CatalogModel>& model_catalog() {
     static const std::vector<CatalogModel> catalog = {
