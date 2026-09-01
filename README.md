@@ -8,7 +8,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License MIT"/>
   <img src="https://img.shields.io/badge/c%2B%2B-17-blue.svg" alt="C++17"/>
-  <img src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows%20%7C%20Android-lightgrey" alt="Platforms"/>
+  <img src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows%20%7C%20Android%20%7C%20iOS-lightgrey" alt="Platforms"/>
   <img src="https://img.shields.io/badge/runtime-offline-green" alt="Offline"/>
 </p>
 
@@ -63,6 +63,7 @@ git diff | skifflm --json "classify this diff"
 | Project/code context | ✅ | ❌ | ❌ |
 | Local OpenAI-compatible API | ✅ | n/a | ✅ |
 | Native Android client | ✅ | ❌ | ✅ |
+| Native iOS client | ✅ | ❌ | ❌ |
 
 SkiffLLM is the lightweight tool you keep at the end of a pipe: no daemon, no
 registry, no account. You bring the GGUF file, it brings the inference.
@@ -300,22 +301,28 @@ tar -xzf skifflm-*.tar.gz && ./bin/skifflm --help
 
 # Android development APK (requires the SDK)
 bash scripts/ci-android.sh
+
+# iOS development (requires macOS/Xcode + XcodeGen)
+bash scripts/ios-setup.sh
 ```
 
 Prebuilt asset names follow the pattern `skifflm-<version>-<platform>.tar.gz`
 with a `checksums.txt`. Release workflow files target Linux/macOS/Windows and
 an Android APK.
 
-## Android
+## Mobile apps
 
-A native Android client is included under [`android/`](android/README.md). It runs
-supported GGUF models entirely on the phone with Jetpack Compose and a llama.cpp
-JNI bridge. Tokens stream into a dark/light/system theme, and every response
-shows a live context-usage progress bar plus real measured token count, time,
-and tokens per second. The app remembers the last loaded model, and it can
-download recommended GGUF models directly from Hugging Face over HTTPS and
-record a SHA-256 checksum sidecar. The only network use is those downloads;
+The desktop client has native mobile apps for [iOS](ios/README.md) (SwiftUI +
+a llama.cpp Objective-C++ bridge) and [Android](android/README.md) (Jetpack
+Compose + a llama.cpp JNI bridge). Both run supported GGUF models entirely on
+the phone, stream tokens into a dark/light/system theme, and show a live
+context-usage progress bar plus real measured token count, time, and tokens
+per second. The apps remember the last loaded model, and can download
+recommended GGUF models directly from Hugging Face over HTTPS and record a
+SHA-256 checksum sidecar. The only network use is those explicit downloads;
 prompts and history never leave the device.
+
+### Android
 
 Android GPU/NPU acceleration is opt-in at build time:
 
@@ -969,6 +976,7 @@ tests/                        Unit and integration tests
 configs/                      Example configuration
 scripts/                      CI, release, model fetch, API client, completions
 android/                      Kotlin/Compose Android app and llama.cpp JNI
+ios/                          SwiftUI iOS app and llama.cpp Objective-C++ bridge
 docs/                         Setup, usage, architecture, FAQ, release docs
 .github/                      Issue templates, PR template, CI workflow
 CONTRIBUTING.md               Contribution guide

@@ -1,0 +1,38 @@
+name: SkiffLLM
+options:
+  bundleIdPrefix: com.skifflm
+  deploymentTarget:
+    iOS: "16.4"
+  createIntermediateGroups: true
+  xcodeVersion: "15.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+targets:
+  SkiffLLM:
+    type: application
+    platform: iOS
+    sources:
+      - path: SkiffLLM
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.skifflm.app
+        PRODUCT_NAME: SkiffLLM
+        INFOPLIST_FILE: SkiffLLM/Info.plist
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: ""
+        CLANG_ENABLE_MODULES: YES
+        CLANG_CXX_LANGUAGE_STANDARD: c++17
+        SWIFT_OBJC_BRIDGING_HEADER: SkiffLLM/SkiffLLM-Bridging-Header.h
+        HEADER_SEARCH_PATHS:
+          - $(SRCROOT)/third_party/llama/build-apple/llama.xcframework/ios-arm64/llama.framework/Headers
+          - $(SRCROOT)/third_party/llama/build-apple/llama.xcframework/ios-arm64_x86_64-simulator/llama.framework/Headers
+    dependencies:
+      - framework: third_party/llama/build-apple/llama.xcframework
+        embed: true
+        link: true
+      - framework: Metal.framework
+        link: true
+      - framework: Accelerate.framework
+        link: true
