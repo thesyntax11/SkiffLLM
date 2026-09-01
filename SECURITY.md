@@ -12,9 +12,12 @@ machine.
   from sources you trust. Both the Android app and `scripts/model_fetch.py`
   verify the GGUF header and download size, but that is not an authenticity
   guarantee.
-- Local server: `--serve` exposes an HTTP API on the bind address. It has no
-  authentication. Keep it on `127.0.0.1` unless you fully trust the network.
-  If you bind to `0.0.0.0`, you are responsible for protecting that interface.
+- Local server: `--serve` exposes an HTTP API on the bind address. The
+  `/v1/*` endpoints are public by default; pass `--api-key` (or set
+  `SKIFFLLM_API_KEY`) to require `Authorization: Bearer <key>` on `/v1/models`
+  and `/v1/chat/completions` while `/health`, `/version`, and `/` stay public.
+  Keep the default `127.0.0.1` binding; if you bind to `0.0.0.0`, always set
+  `--api-key` and protect the token like a password.
 
 ## Network behavior
 
