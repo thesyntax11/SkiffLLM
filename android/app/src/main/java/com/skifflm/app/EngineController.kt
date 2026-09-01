@@ -332,6 +332,10 @@ class EngineController(private val appContext: Context) {
             temp.delete()
             throw IOException("Unable to store the model file")
         }
+        ModelDownloader.verifyModel(target)?.let { message ->
+            target.delete()
+            throw IOException(message)
+        }
         return target
     }
 

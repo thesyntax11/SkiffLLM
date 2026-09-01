@@ -50,7 +50,8 @@ Choose a device/simulator and Run. If you only want the simulator, edit
 - Custom quick-prompt chips above the composer.
 - Hugging Face model download with progress and CANCEL/DOWNLOAD, verified by
   GGUF magic header + size + SHA-256 sidecar, then loaded automatically.
-- Import a local GGUF from the Files app.
+- Import a local GGUF from the Files app; the GGUF header is verified before
+  the model is loaded.
 - Share text to SkiffLLM from another app through the built-in Share
   Extension; the main app shows it as a “Shared from another app” banner.
 - Attach a text, JSON, or XML file with the paperclip button. The file is read

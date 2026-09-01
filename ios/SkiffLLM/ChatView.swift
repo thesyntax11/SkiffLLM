@@ -515,10 +515,16 @@ struct ChatView: View {
                 if !FileManager.default.fileExists(atPath: dest.path) {
                     try FileManager.default.copyItem(at: url, to: dest)
                 }
-                DispatchQueue.main.async {
-                    app.refreshModels()
-                    app.errorMessage = nil
-                    app.useModel(dest)
+                if let verification = app.downloader.verifyImportedModel(at: dest) {
+                    DispatchQueue.main.async {
+                        app.errorMessage = verification
+                    }
+                } else {
+                    DispatchQueue.main.async {
+                        app.refreshModels()
+                        app.errorMessage = nil
+                        app.useModel(dest)
+                    }
                 }
             } catch {
                 DispatchQueue.main.async {

@@ -57,6 +57,13 @@ final class ModelDownloader: NSObject, ObservableObject, URLSessionDownloadDeleg
         try? FileManager.default.removeItem(at: URL(fileURLWithPath: url.path + ".sha256"))
     }
 
+    func verifyImportedModel(at url: URL) -> String? {
+        guard isGGUF(url) else {
+            return "Selected file is not a valid GGUF model."
+        }
+        return nil
+    }
+
     func urlSession(_ session: URLSession,
                     downloadTask: URLSessionDownloadTask,
                     didWriteData bytesWritten: Int64,

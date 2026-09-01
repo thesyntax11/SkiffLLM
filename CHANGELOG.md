@@ -103,6 +103,9 @@
 - Android and iOS add a one-tap copy action for the most recent assistant
   answer (Android also shows a toast), matching the desktop clipboard-friendly
   one-shot workflow.
+- Importing a GGUF from the device now verifies the GGUF header before
+  loading on both Android and iOS, matching the desktop `model verify` rule and
+  rejecting arbitrary or truncated files.
 - iOS and Android READMEs document the shared settings surface; the Android
   app exposes stop sequences, profiles, and compaction from its Settings
   dialog.

@@ -171,6 +171,16 @@ class ModelDownloader(private val appContext: Context) {
             }
             return deleted
         }
+
+        fun verifyModel(file: File, expectedBytes: Long = -1L): String? {
+            if (expectedBytes > 0L && file.length() != expectedBytes) {
+                return "Size mismatch: expected $expectedBytes bytes, found ${file.length()} bytes"
+            }
+            if (!file.isGgufFile()) {
+                return "Selected file is not a valid GGUF model"
+            }
+            return null
+        }
     }
 }
 

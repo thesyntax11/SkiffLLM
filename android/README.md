@@ -67,7 +67,8 @@ Option B — load your own `.gguf`:
 2. Open SkiffLLM.
 3. Tap `Settings`, `Models`, then `Browse device`.
 4. Pick the GGUF file from the file picker.
-5. The app copies it into internal storage and loads it.
+5. The app copies it into internal storage, verifies the GGUF header, and only
+   then loads it.
 
 The app calculates token counts, generation time, and tokens per second from
 real inference, and shows a live context-usage progress bar under the composer.
