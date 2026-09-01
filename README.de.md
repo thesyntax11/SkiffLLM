@@ -109,12 +109,26 @@ Vollständige Einrichtung: [docs/de/INSTALL.md](docs/de/INSTALL.md).
 | Unix-Pipelines | ✅ | ❌ | ❌ |
 | Projekt-/Code-Kontext | ✅ | ❌ | ❌ |
 | Lokale OpenAI-kompatible API | ✅ | n/a | ✅ |
-| Nativer Android-Client | ✅ | ❌ | ✅ |
-| Nativer iOS-Client | ✅ | ❌ | ❌ |
+| Nativer Android-Client | ✅ | ❌ | Community |
+| Nativer iOS-Client | ✅ | ❌ | Community |
 
 Die Laufzeit lädt nie Modelle herunter, sendet keine Daten nach außen und
 benötigt kein Konto. Sie bringen die GGUF-Datei mit; SkiffLLM übernimmt die
 Inferenz.
+
+### Und warum nicht einfach Ollama?
+
+Kurz gesagt: Nutzen Sie Ollama, wenn Sie einen schnellen, katalogorientierten
+Modellserver mit Ein-Zeilen-Downloads wollen; nutzen Sie SkiffLLM, wenn das
+Modell wie ein natives Unix-Werkzeug, eine luftspaltige (air-gapped) Komponente
+oder eine eingebettete Engine in einem CI-, Desktop- oder Mobil-Workflow
+arbeiten soll — ohne Daemon, ohne Netzwerk zur Laufzeit, ein einziges Binary.
+Die ehrliche Entscheidungsmatrix, die wirklichen Abwägungen und eine
+aufgabenweise Migrationsanleitung finden Sie in
+[docs/de/comparison.md](docs/de/comparison.md) und auf Englisch vollständig in
+[docs/COMPARISON.md](docs/COMPARISON.md). Für Unternehmensbereitstellung,
+Server-Härtung und Supply Chain siehe [docs/ENTERPRISE.md](docs/ENTERPRISE.md)
+(englisch).
 
 ---
 

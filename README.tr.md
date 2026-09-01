@@ -107,11 +107,24 @@ Tam kurulum: [docs/tr/INSTALL.md](docs/tr/INSTALL.md).
 | Unix boru hatları | ✅ | ❌ | ❌ |
 | Proje/kod bağlamı | ✅ | ❌ | ❌ |
 | Yerel OpenAI uyumlu API | ✅ | yok | ✅ |
-| Yerel Android istemci | ✅ | ❌ | ✅ |
-| Yerel iOS istemci | ✅ | ❌ | ❌ |
+| Yerel Android istemci | ✅ | ❌ | topluluk |
+| Yerel iOS istemci | ✅ | ❌ | topluluk |
 
 Çalışma zamanı asla model indirmez, dışarıya veri göndermez ve hesap gerektirmez.
 Siz GGUF dosyasını getirirsiniz; SkiffLLM çıkarımı yapar.
+
+### Peki Ollama varken neden SkiffLLM?
+
+Kısa cevap: Büyük bir model kataloğu ve tek komutla indirme isteyen hızlı bir
+model sunucusu için Ollama'yı; modelin Unix aracı gibi davranmasını, hava
+boşluklu (air-gapped) bir bileşen ya da CI/masaüstü/mobil iş akışına gömülü bir
+motor olmasını istiyorsan SkiffLLM'i kullan. SkiffLLM arka plan servisi
+çalıştırmaz (daemon yok), çalışma zamanında ağ kullanmaz ve tek bir binary'dir.
+Dürüst karar matrisi, gerçek ödünler ve görev görev geçiş rehberi
+[docs/tr/comparison.md](docs/tr/comparison.md) ile İngilizce tam sürümde:
+[docs/COMPARISON.md](docs/COMPARISON.md). Kurumsal dağıtım, sunucu sıkılaştırma
+ve tedarik zinciri için İngilizce [docs/ENTERPRISE.md](docs/ENTERPRISE.md)
+sayfasına bakın.
 
 ---
 

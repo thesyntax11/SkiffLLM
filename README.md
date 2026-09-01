@@ -106,11 +106,20 @@ Full setup: [docs/INSTALL.md](docs/INSTALL.md).
 | Unix pipelines | ✅ | ❌ | ❌ |
 | Project/code context | ✅ | ❌ | ❌ |
 | Local OpenAI-compatible API | ✅ | n/a | ✅ |
-| Native Android client | ✅ | ❌ | ✅ |
-| Native iOS client | ✅ | ❌ | ❌ |
+| Native Android client | ✅ | ❌ | community |
+| Native iOS client | ✅ | ❌ | community |
 
 The runtime never downloads models, never phones home, and never needs an
 account. You bring the GGUF file; SkiffLLM brings the inference.
+
+### Why not just Ollama?
+
+Short answer: use Ollama when you want a fast, catalogue-first model server with
+one-line downloads; use SkiffLLM when you want the model to behave like a native
+Unix tool, an air-gapped component, or an embedded engine inside a CI, desktop,
+or mobile workflow — no daemon, no runtime network, one binary. The honest
+decision matrix, the real trade-offs, and a task-for-task migration guide are
+in [docs/COMPARISON.md](docs/COMPARISON.md).
 
 ---
 
@@ -351,6 +360,27 @@ skifflm --doctor --network
 
 prints the runtime facts: no outbound network calls, no telemetry, no cloud
 APIs, local history storage, and a `✓ OFFLINE` status.
+
+---
+
+## Enterprise & operations
+
+SkiffLLM is built to be deployed, hardened, and audited as an inference
+component rather than as a chat daemon.
+
+- [docs/ENTERPRISE.md](docs/ENTERPRISE.md) — production deployment, server
+  hardening, model supply chain, air-gapped and CI reference topologies,
+  sizing, and the honest runbook.
+- [docs/OLLAMA_MIGRATION.md](docs/OLLAMA_MIGRATION.md) — task-for-task mapping
+  from Ollama habits to SkiffLLM.
+- [configs/enterprise.example.conf](configs/enterprise.example.conf) — locked
+  down config (loopback server, pinned model, deterministic sampling).
+- Docker — multi-stage server image and loopback compose stack in
+  `docker/`; models are mounted read-only, never baked into the image.
+- `scripts/enterprise-check.sh` — non-destructive preflight (binary, model,
+  SHA-256 sidecar, config, disk, backends).
+- `scripts/check-links.sh` — validates every relative Markdown link in the
+  README and docs before a release.
 
 ---
 

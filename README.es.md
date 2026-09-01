@@ -106,11 +106,24 @@ Configuración completa: [docs/es/INSTALL.md](docs/es/INSTALL.md).
 | Tuberías Unix | ✅ | ❌ | ❌ |
 | Contexto de proyecto/código | ✅ | ❌ | ❌ |
 | API local compatible con OpenAI | ✅ | n/a | ✅ |
-| Cliente Android nativo | ✅ | ❌ | ✅ |
-| Cliente iOS nativo | ✅ | ❌ | ❌ |
+| Cliente Android nativo | ✅ | ❌ | comunidad |
+| Cliente iOS nativo | ✅ | ❌ | comunidad |
 
 El motor nunca descarga modelos, nunca envía datos al exterior y nunca necesita
 una cuenta. Tú traes el archivo GGUF; SkiffLLM hace la inferencia.
+
+### ¿Y por qué no simplemente Ollama?
+
+Respuesta corta: usa Ollama cuando quieres un servidor de modelos rápido y
+centrado en un catálogo con descargas en un solo comando; usa SkiffLLM cuando
+quieres que el modelo se comporte como una herramienta Unix nativa, un
+componente aislado de la red (air-gapped) o un motor incrustado en un flujo CI,
+de escritorio o móvil: sin demonio, sin red en tiempo de ejecución, un único
+binario. La matriz de decisión honesta, las compensaciones reales y una guía de
+migración tarea a tarea están en [docs/es/comparison.md](docs/es/comparison.md)
+y, completo en inglés, en [docs/COMPARISON.md](docs/COMPARISON.md). Para
+despliegue empresarial, endurecimiento de servidor y cadena de suministro, ve
+[docs/ENTERPRISE.md](docs/ENTERPRISE.md) (en inglés).
 
 ---
 

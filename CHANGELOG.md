@@ -24,6 +24,28 @@
   model, and `scripts/install-from-release.sh` for prebuilt release installs.
 - Added Homebrew packaging documentation under `packaging/homebrew/`.
 
+### Positioning and enterprise readiness
+
+- Added an honest `docs/COMPARISON.md` answering "why SkiffLLM instead of
+  Ollama", with a decision matrix, clear differentiators, honest trade-offs,
+  and a "when to use each" table.
+- Added `docs/OLLAMA_MIGRATION.md` mapping common Ollama habits to SkiffLLM
+  tasks, plus a clear "when to stay on Ollama" section.
+- Added `docs/ENTERPRISE.md` for production deployment: air-gapped and CI
+  topologies, server hardening, model supply-chain with SHA-256 pinning,
+  audit/data-handling notes, sizing, and a runbook.
+- Added `configs/enterprise.example.conf` (loopback server, pinned model,
+  deterministic sampling) using only keys the runtime parses.
+- Added a multi-stage `docker/Dockerfile` plus a loopback `docker/compose.yaml`
+  and `docker/.env.example`. Models are mounted read-only, never baked into the
+  image, and the server runs as a non-root user.
+- Added `scripts/enterprise-check.sh` as a non-destructive preflight over the
+  binary, model, SHA-256 sidecar, config, disk, and linked backends.
+- Added `scripts/check-links.sh` to validate every relative Markdown link in the
+  README and docs before a release.
+- Added translated `comparison.md` summaries and "why not just Ollama?" sections
+  to the Turkish, German, Spanish, and French docs.
+
 ## v1.6.0 — 2026-09-01
 
 ### Desktop
