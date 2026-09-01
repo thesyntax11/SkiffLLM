@@ -10,7 +10,8 @@
         android:largeHeap="true"
         android:roundIcon="@drawable/ic_launcher"
         android:supportsRtl="true"
-        android:theme="@style/Theme.SkiffLLM">
+        android:theme="@style/Theme.SkiffLLM"
+        android:usesCleartextTraffic="false">
 
         <activity
             android:name=".MainActivity"
