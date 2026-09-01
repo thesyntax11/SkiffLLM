@@ -528,6 +528,39 @@ final class AppState: ObservableObject {
             currentConversation = finalName
         }
     }
+
+    func conversationBackupString() -> String {
+        conversations.exportJson(systemPrompt: systemPrompt,
+                                 messages: messages,
+                                 sampling: sampling,
+                                 codeMode: codeMode) ?? ""
+    }
+
+    @discardableResult
+    func importConversationBackup(text: String, name: String) -> String? {
+        guard let snap = conversations.importJson(from: text) else {
+            return "Invalid conversation backup."
+        }
+        let finalName = conversations.create(name)
+        conversations.save(systemPrompt: snap.systemPrompt,
+                           messages: snap.messages,
+                           sampling: snap.sampling,
+                           codeMode: snap.codeMode)
+        refreshConversations()
+        currentConversation = finalName
+        messages = snap.messages
+        systemPrompt = snap.systemPrompt
+        if let savedSampling = snap.sampling {
+            sampling = savedSampling
+            settings.saveSampling(savedSampling)
+        }
+        if let savedCodeMode = snap.codeMode {
+            codeMode = savedCodeMode
+            settings.saveCodeMode(savedCodeMode)
+        }
+        resetSessionStats()
+        return nil
+    }
 }
 
 struct ChatView: View {
@@ -535,6 +568,7 @@ struct ChatView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var showFileImporter = false
     @State private var showTextImporter = false
+    @State private var showBackupImporter = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -588,7 +622,12 @@ struct ChatView: View {
                 showFileImporter = true
             })
         }
-        .sheet(isPresented: $app.showConversations) { ConversationsSheet(app: app) }
+        .sheet(isPresented: $app.showConversations) {
+            ConversationsSheet(app: app, onImportBackup: {
+                app.showConversations = false
+                showBackupImporter = true
+            })
+        }
         .fileImporter(isPresented: $showFileImporter,
                       allowedContentTypes: [.data],
                       allowsMultipleSelection: false) { result in
@@ -601,6 +640,13 @@ struct ChatView: View {
                       allowsMultipleSelection: false) { result in
             if case .success(let urls) = result, let url = urls.first {
                 attachImportedText(url)
+            }
+        }
+        .fileImporter(isPresented: $showBackupImporter,
+                      allowedContentTypes: [.json, .text, .data],
+                      allowsMultipleSelection: false) { result in
+            if case .success(let urls) = result, let url = urls.first {
+                importBackup(url)
             }
         }
         .onAppear { app.refreshSharedText() }
@@ -660,6 +706,32 @@ struct ChatView: View {
             } catch {
                 DispatchQueue.main.async {
                     app.errorMessage = "Unable to read the attached file: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    private func importBackup(_ url: URL) {
+        let accessed = url.startAccessingSecurityScopedResource()
+        DispatchQueue.global(qos: .userInitiated).async { [app] in
+            defer {
+                if accessed { url.stopAccessingSecurityScopedResource() }
+            }
+            do {
+                let text = try String(contentsOf: url, encoding: .utf8)
+                let suggested = url.deletingPathExtension().lastPathComponent
+                DispatchQueue.main.async {
+                    let error = app.importConversationBackup(text: text, name: suggested)
+                    if let error {
+                        app.errorMessage = error
+                    } else {
+                        app.errorMessage = nil
+                        app.showConversations = false
+                    }
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    app.errorMessage = "Unable to read the conversation backup: \(error.localizedDescription)"
                 }
             }
         }
@@ -1115,6 +1187,7 @@ struct ModelsSheet: View {
 
 struct ConversationsSheet: View {
     @ObservedObject var app: AppState
+    let onImportBackup: () -> Void
     @State private var newName = ""
     @State private var renameTarget: String?
     @State private var renameInput = ""
@@ -1156,6 +1229,19 @@ struct ConversationsSheet: View {
                             }
                         }
                     }
+                }
+                Section("Backup") {
+                    ShareLink(item: app.conversationBackupString()) {
+                        Label("Export current conversation", systemImage: "square.and.arrow.up")
+                    }
+                    Button {
+                        onImportBackup()
+                    } label: {
+                        Label("Import backup", systemImage: "square.and.arrow.down")
+                    }
+                    Text("Backups are JSON files kept on this device; importing creates a new conversation.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
                 Section("New") {
                     HStack {

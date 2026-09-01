@@ -520,6 +520,72 @@ final class ConversationStore {
         _ = create(currentName())
     }
 
+    func exportJson(systemPrompt: String,
+                    messages: [ChatMessage],
+                    sampling: SamplingParams?,
+                    codeMode: Bool?) -> String? {
+        var payload: [String: Any] = [
+            "format": "skifflm-conversation",
+            "version": 1,
+            "system_prompt": systemPrompt,
+            "messages": messages.map { ["role": $0.role, "content": $0.content] },
+        ]
+        if let sampling {
+            payload["sampling"] = [
+                "temperature": sampling.temperature,
+                "top_p": sampling.topP,
+                "top_k": sampling.topK,
+                "min_p": sampling.minP,
+                "typical_p": sampling.typicalP,
+                "repeat_penalty": sampling.repeatPenalty,
+                "repeat_last_n": sampling.repeatLastN,
+                "max_tokens": sampling.maxTokens,
+                "seed": Int(sampling.seed),
+            ]
+        }
+        if let codeMode {
+            payload["code_mode"] = codeMode
+        }
+        guard let data = try? JSONSerialization.data(withJSONObject: payload, options: [.prettyPrinted, .sortedKeys]) else {
+            return nil
+        }
+        return String(data: data, encoding: .utf8)
+    }
+
+    func importJson(from text: String) -> ConversationSnapshot? {
+        guard let data = text.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return nil
+        }
+        guard json["format"] as? String == "skifflm-conversation" || json["messages"] != nil else {
+            return nil
+        }
+        let system = (json["system_prompt"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+            ?? "You are SkiffLLM, a helpful local assistant."
+        let raw = json["messages"] as? [[String: Any]] ?? []
+        let messages = raw.compactMap { item -> ChatMessage? in
+            guard let role = item["role"] as? String,
+                  let content = item["content"] as? String,
+                  !role.isEmpty, !content.isEmpty else { return nil }
+            return ChatMessage(role: role, content: content)
+        }
+        let sampling: SamplingParams? = (json["sampling"] as? [String: Any]).flatMap { obj in
+            SamplingParams(
+                temperature: (obj["temperature"] as? NSNumber)?.floatValue ?? 0.7,
+                topP: (obj["top_p"] as? NSNumber)?.floatValue ?? 0.95,
+                topK: (obj["top_k"] as? NSNumber)?.intValue ?? 40,
+                minP: (obj["min_p"] as? NSNumber)?.floatValue ?? 0.0,
+                typicalP: (obj["typical_p"] as? NSNumber)?.floatValue ?? 0.0,
+                repeatPenalty: (obj["repeat_penalty"] as? NSNumber)?.floatValue ?? 1.10,
+                repeatLastN: (obj["repeat_last_n"] as? NSNumber)?.intValue ?? 64,
+                maxTokens: (obj["max_tokens"] as? NSNumber)?.intValue ?? 512,
+                seed: UInt32((obj["seed"] as? NSNumber)?.intValue ?? Int(0xFFFFFFFF))
+            )
+        }
+        let codeMode = (json["code_mode"] as? NSNumber)?.boolValue
+        return ConversationSnapshot(systemPrompt: system, messages: messages, sampling: sampling, codeMode: codeMode)
+    }
+
     private func migrateLegacy() {
         if FileManager.default.fileExists(atPath: legacyFile.path),
            !FileManager.default.fileExists(atPath: fileFor("default").path) {

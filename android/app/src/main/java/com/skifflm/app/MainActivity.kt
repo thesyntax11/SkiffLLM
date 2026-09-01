@@ -357,6 +357,66 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
         }
     }
 
+    val conversationExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            errorText = null
+            try {
+                val json = conversationStore.exportJson(
+                    systemPrompt.value,
+                    messages.toList(),
+                    sampling.value,
+                    codeMode.value
+                )
+                context.contentResolver.openOutputStream(uri)?.use { stream ->
+                    stream.write(json.toByteArray(Charsets.UTF_8))
+                } ?: throw java.io.IOException("Unable to write the conversation backup")
+            } catch (t: Throwable) {
+                errorText = t.message ?: "Unable to export the conversation"
+            }
+        }
+    }
+
+    val conversationImportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            errorText = null
+            try {
+                val text = context.contentResolver.openInputStream(uri)?.use { stream ->
+                    stream.reader(Charsets.UTF_8).readText()
+                } ?: throw java.io.IOException("Unable to read the conversation backup")
+                val snap = conversationStore.importJson(text)
+                    ?: throw java.io.IOException("Invalid conversation backup")
+                val suggested = uri.lastPathSegment?.substringBeforeLast('.')
+                    ?.takeUnless { it.isBlank() } ?: "imported"
+                val finalName = conversationStore.create(suggested)
+                conversationStore.save(snap.systemPrompt, snap.messages, snap.sampling, snap.codeMode)
+                systemPrompt.value = snap.systemPrompt
+                messages.clear()
+                messages.addAll(snap.messages)
+                snap.sampling?.let {
+                    sampling.value = it
+                    settingsStore.saveSampling(it)
+                }
+                snap.codeMode?.let {
+                    codeMode.value = it
+                    settingsStore.saveCodeMode(it)
+                }
+                conversationName.value = finalName
+                conversationNames.clear()
+                conversationNames.addAll(conversationStore.listConversations())
+                stats = null
+                draft = ""
+                input = ""
+                sessionStats = SessionStats()
+            } catch (t: Throwable) {
+                errorText = t.message ?: "Unable to import the conversation"
+            }
+        }
+    }
+
     val textPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
@@ -911,6 +971,14 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
                 conversationNames.clear()
                 conversationNames.addAll(conversationStore.listConversations())
             },
+            onExport = {
+                showConversations = false
+                conversationExportLauncher.launch("skifflm-conversation.json")
+            },
+            onImport = {
+                showConversations = false
+                conversationImportLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
+            },
             onCreate = { name ->
                 val finalName = conversationStore.create(name)
                 val snap = conversationStore.load()
@@ -1464,6 +1532,8 @@ private fun ConversationsDialog(
     onOpen: (String) -> Unit,
     onCreate: (String) -> Unit,
     onRename: (String, String) -> Unit,
+    onExport: () -> Unit,
+    onImport: () -> Unit,
     onDelete: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -1488,6 +1558,20 @@ private fun ConversationsDialog(
                     "Current: $current",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary
+                )
+                Row {
+                    OutlinedButton(onClick = onExport) {
+                        Text("Export")
+                    }
+                    Spacer(Modifier.width(6.dp))
+                    OutlinedButton(onClick = onImport) {
+                        Text("Import")
+                    }
+                }
+                Text(
+                    "Backup exports the active conversation locally; import creates a new conversation from a .json backup.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF8A94A6)
                 )
                 Spacer(Modifier.height(8.dp))
                 conversations.forEach { name ->

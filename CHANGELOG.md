@@ -117,6 +117,10 @@
   code-mode flag inside the local conversation JSON, so switching conversations
   restores that conversation's exact setup instead of relying on global
   defaults.
+- Android and iOS can export the active conversation to a local `.json` backup
+  (system prompt, messages, sampling, code mode) and import a backup as a new
+  conversation, giving mobile users the same portable history workflow as the
+  desktop session files.
 - iOS and Android READMEs document the shared settings surface; the Android
   app exposes stop sequences, profiles, and compaction from its Settings
   dialog.

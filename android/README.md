@@ -105,11 +105,14 @@ usual. The shared text stays on the device.
 ## Conversations
 
 The top bar exposes a `Chats` button. There you can create,
-open, rename, and delete local conversations. Each conversation is stored as
-a JSON file in app-private storage; switching loads that conversation
-immediately and the active name is shown next to the SkiffLLM title. Each
-conversation also remembers its own sampling settings and code-mode toggle, so
-switching back restores exactly how you set that chat up.
+open, rename, export, import, and delete local conversations. Each
+conversation is stored as a JSON file in app-private storage; switching loads
+that conversation immediately and the active name is shown next to the
+SkiffLLM title. Each conversation also remembers its own sampling settings and
+code-mode toggle, so switching back restores exactly how you set that chat up.
+The `Export`/`Import` buttons write or read a `.json` backup that includes the
+system prompt, messages, sampling settings, and code mode; import always
+creates a new conversation and never overwrites an existing one.
 
 ## Attach a text file
 

@@ -211,6 +211,66 @@ class ConversationStore(private val appContext: Context) {
         fileFor(currentName()).delete()
     }
 
+    fun exportJson(
+        systemPrompt: String,
+        messages: List<ChatMessage>,
+        sampling: SamplingParams?,
+        codeMode: Boolean?
+    ): String {
+        val raw = JSONArray()
+        messages.forEach { message ->
+            raw.put(JSONObject().apply {
+                put("role", message.role)
+                put("content", message.content)
+            })
+        }
+        return JSONObject().apply {
+            put("format", "skifllm-conversation")
+            put("version", 1)
+            put("system_prompt", systemPrompt)
+            put("messages", raw)
+            if (sampling != null) {
+                put("sampling", JSONObject().apply {
+                    put("temperature", sampling.temperature)
+                    put("top_p", sampling.topP)
+                    put("top_k", sampling.topK)
+                    put("min_p", sampling.minP)
+                    put("typical_p", sampling.typicalP)
+                    put("repeat_penalty", sampling.repeatPenalty)
+                    put("repeat_last_n", sampling.repeatLastN)
+                    put("max_tokens", sampling.maxTokens)
+                    put("seed", sampling.seed)
+                })
+            }
+            if (codeMode != null) {
+                put("code_mode", codeMode)
+            }
+        }.toString()
+    }
+
+    fun importJson(text: String): ConversationSnapshot? {
+        val json = runCatching { JSONObject(text) }.getOrNull() ?: return null
+        val system = json.optString("system_prompt")
+            .ifBlank { "You are SkiffLLM, a helpful local assistant." }
+        val raw = json.optJSONArray("messages") ?: JSONArray()
+        val messages = buildList {
+            for (i in 0 until raw.length()) {
+                val item = raw.optJSONObject(i) ?: continue
+                val role = item.optString("role")
+                val content = item.optString("content")
+                if (role.isNotBlank() && content.isNotBlank()) {
+                    add(ChatMessage(role, content))
+                }
+            }
+        }
+        return ConversationSnapshot(
+            system,
+            messages,
+            sampling = samplingFromJson(json),
+            codeMode = if (json.has("code_mode")) json.optBoolean("code_mode") else null
+        )
+    }
+
     private fun migrateLegacy() {
         if (legacyFile.exists() && !fileFor("default").exists()) {
             runCatching {

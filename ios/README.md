@@ -47,6 +47,8 @@ Choose a device/simulator and Run. If you only want the simulator, edit
 - Dark / Light / System theme.
 - Multiple local conversations (create / open / rename / delete). Each
   conversation remembers its own sampling settings and code-mode toggle.
+  Conversations can be exported as a local `.json` backup and imported back;
+  importing always creates a new conversation.
 - Persistent facts injected into the system prompt every turn.
 - Custom quick-prompt chips above the composer.
 - Hugging Face model download with progress and CANCEL/DOWNLOAD, verified by
