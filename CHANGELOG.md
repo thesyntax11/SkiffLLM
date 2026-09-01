@@ -31,6 +31,8 @@
 - Added safe `--code` mode that proposes unified diffs without editing files,
   and made `scripts/release.sh` emit `checksums.txt` plus an optional Android
   APK.
+- Added an honest `docs/demo.md` transcript and set up repository labels for
+  good-first-issue work.
 - Added free-storage checks before Android model downloads.
 - Persist Android load, sampling, and system-prompt settings across restarts.
 
