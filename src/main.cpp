@@ -1410,6 +1410,17 @@ int main(int argc, char** argv) {
         cfg.one_shot = block + "\n" + cfg.one_shot;
     }
 
+    // Safe code mode: want concrete, reviewable edits, never automatic file
+    // mutation. The model returns a proposal; applying it remains manual.
+    if (cfg.code_mode && !cfg.one_shot.empty()) {
+        const std::string code_header =
+            "You are a careful coding assistant. Propose concrete edits as a "
+            "unified diff (file paths, +/-, context). Use the code context below. "
+            "Never claim a file was changed; output the proposal only and wait for "
+            "a human to apply it.\n\n";
+        cfg.one_shot = code_header + cfg.one_shot;
+    }
+
     llama_backend_init();
     if (cfg.log_llama) {
         llama_log_set(log_to_stderr, nullptr);

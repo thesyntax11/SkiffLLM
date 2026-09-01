@@ -11,7 +11,6 @@ if [[ -z "${VERSION}" ]]; then
 fi
 
 STAGE="${PROJECT_DIR}/staged"
-ARCHIVE="skifflm-${VERSION}.tar.gz"
 PLATFORM="$(uname -s)-$(uname -m)"
 
 rm -rf "${STAGE}"
@@ -24,9 +23,25 @@ cp -r scripts/completions "${STAGE}/share/"
 cp configs/skifflm.example.conf "${STAGE}/share/"
 cp -r scripts "${STAGE}/share/scripts"
 
+ARCHIVE="skifflm-${VERSION}-${PLATFORM}.tar.gz"
 tar -czf "${ARCHIVE}" -C "${STAGE}" .
+
+# Android APK, when present, joins the same bundle.
+if [[ -f "${PROJECT_DIR}/android/app/build/outputs/apk/debug/app-debug.apk" ]]; then
+    cp "${PROJECT_DIR}/android/app/build/outputs/apk/debug/app-debug.apk" \
+        "${PROJECT_DIR}/SkiffLLM-${VERSION}-Android.apk"
+fi
+
+# Always publish a checksum file for the archives in this directory.
+rm -f "${PROJECT_DIR}/checksums.txt"
+for asset in "skifflm-${VERSION}-"*.tar.gz "SkiffLLM-${VERSION}-"*.apk; do
+    if [[ -f "${asset}" ]]; then
+        sha256sum "${asset}" >> "${PROJECT_DIR}/checksums.txt"
+    fi
+done
 
 echo
 echo "Release archive: ${ARCHIVE}"
-echo "Platform: ${PLATFORM}"
-echo "Use: tar -xzf ${ARCHIVE} && ./bin/skifflm --help"
+echo "Platform:        ${PLATFORM}"
+echo "Checksums:       ${PROJECT_DIR}/checksums.txt"
+echo "Use:             tar -xzf ${ARCHIVE} && ./bin/skifflm --help"

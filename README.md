@@ -139,6 +139,16 @@ skifflm --project src/ "what does the server do?"
 The block reports total files, source/test/config counts, a file index, and up
 to a fixed-size slice of source files. It never walks build caches or `.git`.
 
+### Safe code mode
+
+```bash
+skifflm --code --project . "fix the bug in src/server.cpp"
+```
+
+`--code` asks for a concrete, reviewable unified diff proposal. It deliberately
+does **not** modify files: outputs from a local model need human review, and
+applying them automatically is a safety decision the project leaves to you.
+
 ## Model manager
 
 SkiffLLM stays offline at runtime. Model retrieval is an explicit, separate

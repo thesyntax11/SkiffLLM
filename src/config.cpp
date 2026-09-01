@@ -632,6 +632,11 @@ bool apply_key_value(Config& cfg,
         if (!set_flag(cfg.doctor, true, false, value, key)) {
             return false;
         }
+    } else if (key == "code") {
+        if (!set_flag(cfg.code_mode, true, false, value, key)) {
+            return false;
+        }
+        cfg.interactive = false;
     } else if (key == "network") {
         if (!set_flag(cfg.doctor_network, true, false, value, key)) {
             return false;
@@ -806,8 +811,9 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
             key == "no-auto-trim" || key == "json" || key == "list-models" ||
             key == "flash-attn" || key == "no-flash-attn" || key == "numa" ||
             key == "kv-offload" || key == "no-kv-offload" ||
-            key == "doctor" || key == "network" || key == "model-info" ||
-            key == "smoke" || key == "warmup" || key == "serve") {
+            key == "doctor" || key == "network" || key == "code" ||
+            key == "model-info" || key == "smoke" || key == "warmup" ||
+            key == "serve") {
             if (has_value) {
                 error = "option --" + key + " does not take a value";
                 return false;
@@ -900,6 +906,7 @@ std::string usage(const std::string& program) {
     out << "  --model-info              Print model metadata and exit\n";
     out << "  --smoke                   Run a quick generation smoke test\n";
     out << "  --warmup                  Warm the model before the first answer\n";
+    out << "  --code                    Propose concrete code edits (never applies them)\n";
     out << "  --doctor                  Print system and privacy diagnostics\n";
     out << "  --network                 With --doctor, show network/privacy facts\n";
     out << "  --tokenize <text>         Tokenize text and print token counts\n";

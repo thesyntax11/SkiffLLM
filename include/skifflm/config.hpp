@@ -63,6 +63,7 @@ struct Config {
     bool doctor = false;
     bool doctor_network = false;
     bool smoke = false;
+    bool code_mode = false;
     bool warmup = false;
     bool json_output = false;
     bool read_stdin = false;

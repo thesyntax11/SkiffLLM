@@ -280,6 +280,19 @@ void test_tools_features() {
         check(!cfg.interactive, "a positional prompt should disable interactive mode");
     }
 
+    // Safe code mode is a flag, not a file-mutating feature.
+    {
+        skifflm::Config code_cfg = skifflm::default_config();
+        std::vector<std::string> storage = {"skifflm", "--code", "--project", ".", "fix it"};
+        auto args = args_from(storage);
+        std::string parse_error;
+        check(skifflm::parse_args(static_cast<int>(args.size()), args.data(), code_cfg, parse_error),
+              "code flag should parse");
+        check(code_cfg.code_mode, "code mode should be enabled");
+        check(code_cfg.project_path == ".", "project path should be stored");
+        check(code_cfg.one_shot == "fix it", "positional prompt should be retained");
+    }
+
     // Project context is bounded but includes the real map and source slice.
     const auto dir = std::filesystem::temp_directory_path() / "skifflm-project-test";
     std::filesystem::remove_all(dir);

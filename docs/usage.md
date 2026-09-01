@@ -47,6 +47,14 @@ skifflm git log
 skifflm git status
 ```
 
+## Safe code mode
+
+```bash
+skifflm --code --project . "fix the bug in src/server.cpp"
+```
+
+`--code` produces a unified-diff proposal and never edits a file itself.
+
 ## Interactive Mode
 
 ```bash

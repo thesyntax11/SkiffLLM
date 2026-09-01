@@ -28,6 +28,9 @@
   diff/review/explain/commit/log/status`, and `skifflm --doctor --network`.
 - Added `scripts/install.sh`, `docs/GOOD_FIRST_ISSUES.md`, and removed the
   duplicate lowercase `docs/architecture.md`.
+- Added safe `--code` mode that proposes unified diffs without editing files,
+  and made `scripts/release.sh` emit `checksums.txt` plus an optional Android
+  APK.
 - Added free-storage checks before Android model downloads.
 - Persist Android load, sampling, and system-prompt settings across restarts.
 
