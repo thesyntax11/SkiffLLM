@@ -12,7 +12,7 @@ _skifflm_complete() {
     local openai_flags="--base-url --base --stream --json --no-json --temp --max-tokens --model --api-key"
     local config_actions="path show init help"
     local server_actions="health help"
-    local options="--help --version --show-config --list-models --model-info --doctor --network --smoke --tokenize --warmup --code --serve --host --port --benchmark --model --model-dir --config --history --session --profile --system --stop --attach --file --export --chat-template --output --prompt --prompt-file --project --summarize --remember --forget --stdin --json --non-interactive --ctx --batch --ubatch --reserve-ctx --n-keep --threads --gpu-layers --mmap --no-mmap --mlock --flash-attn --no-flash-attn --numa --kv-offload --no-kv-offload --temp --top-p --top-k --min-p --typical --repeat-penalty --repeat-last-n --n-predict --seed --reset-history --no-save --auto-trim --no-auto-trim --color --no-color --no-banner --verbose --debug --context-bar --no-context-bar --backend-info"
+    local options="--help --version --show-config --list-models --model-info --doctor --network --smoke --tokenize --warmup --code --serve --host --port --api-key --benchmark --model --model-dir --config --history --session --profile --system --stop --attach --file --export --chat-template --output --prompt --prompt-file --project --summarize --remember --forget --stdin --json --non-interactive --ctx --batch --ubatch --reserve-ctx --n-keep --threads --gpu-layers --mmap --no-mmap --mlock --flash-attn --no-flash-attn --numa --kv-offload --no-kv-offload --temp --top-p --top-k --min-p --typical --repeat-penalty --repeat-last-n --n-predict --seed --reset-history --no-save --auto-trim --no-auto-trim --color --no-color --no-banner --verbose --debug --context-bar --no-context-bar --backend-info"
 
     if [[ "${COMP_CWORD}" -eq 1 ]]; then
         COMPREPLY=( $(compgen -W "${subcommands} ${options}" -- "${cur}") )
@@ -63,6 +63,10 @@ _skifflm_complete() {
             ;;
         --port|--benchmark)
             COMPREPLY=( $(compgen -W "8080 8081 9090 3 5 10" -- "${cur}") )
+            return 0
+            ;;
+        --api-key)
+            COMPREPLY=( $(compgen -f -- "${cur}") )
             return 0
             ;;
         --profile)

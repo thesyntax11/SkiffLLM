@@ -18,6 +18,7 @@ _skifflm() {
         '--serve[Serve a local OpenAI-compatible API]'
         '--host[Local server bind address]:host:(127.0.0.1 0.0.0.0 ::1)'
         '--port[Local server port]:integer'
+        '--api-key[Bearer token required by the local server]:text'
         '--benchmark[Run a real generation benchmark]:integer'
         '--attach[Attach file]:file:_files'
         '--file[Attach file]:file:_files'
