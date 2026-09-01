@@ -1393,6 +1393,13 @@ int run_one_shot(skifflm::Config& cfg,
                                result.prompt_ms, result.generation_ms,
                                result.tokens_per_second);
 
+    if (cfg.context_bar && !cfg.json_output) {
+        const uint32_t capacity = engine->context_capacity();
+        const uint64_t used = static_cast<uint64_t>(result.prompt_tokens) +
+                              static_cast<uint64_t>(result.generated_tokens);
+        terminal.print_context_bar(used, capacity);
+    }
+
     if (!cfg.output_path.empty()) {
         std::string write_error;
         if (!write_text_file(cfg.output_path, result.text, write_error)) {
