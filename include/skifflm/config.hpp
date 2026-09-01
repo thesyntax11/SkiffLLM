@@ -77,6 +77,10 @@ struct Config {
     int benchmark_runs = 0;
     std::string one_shot;
     std::string tokenize_text;
+
+    // UI / diagnostics
+    bool context_bar = true;
+    bool backend_info = false;
 };
 
 Config default_config();

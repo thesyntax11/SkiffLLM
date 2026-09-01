@@ -37,6 +37,46 @@
         "CMAKE_CXX_COMPILER": "clang++",
         "SKIFFLLM_BUILD_TESTS": "ON"
       }
+    },
+    {
+      "name": "release-cuda",
+      "displayName": "Release + CUDA",
+      "inherits": "release",
+      "cacheVariables": {
+        "SKIFFLLM_LLAMA_BACKEND": "cuda"
+      }
+    },
+    {
+      "name": "release-vulkan",
+      "displayName": "Release + Vulkan",
+      "inherits": "release",
+      "cacheVariables": {
+        "SKIFFLLM_LLAMA_BACKEND": "vulkan"
+      }
+    },
+    {
+      "name": "release-metal",
+      "displayName": "Release + Metal (macOS)",
+      "inherits": "release",
+      "cacheVariables": {
+        "SKIFFLLM_LLAMA_BACKEND": "metal"
+      }
+    },
+    {
+      "name": "release-opencl",
+      "displayName": "Release + OpenCL",
+      "inherits": "release",
+      "cacheVariables": {
+        "SKIFFLLM_LLAMA_BACKEND": "opencl"
+      }
+    },
+    {
+      "name": "release-blas",
+      "displayName": "Release + BLAS",
+      "inherits": "release",
+      "cacheVariables": {
+        "SKIFFLLM_LLAMA_BACKEND": "blas"
+      }
     }
   ],
   "buildPresets": [

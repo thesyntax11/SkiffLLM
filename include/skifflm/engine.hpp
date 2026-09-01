@@ -61,6 +61,10 @@ public:
     void close();
 
     const ModelInfo& info() const;
+    uint32_t context_capacity() const;
+    // Human-readable list of the backends linked into this build
+    // (CPU, CUDA, Metal, Vulkan, OpenCL, BLAS...). Empty when unavailable.
+    std::string active_backends() const;
     bool tokenize(const std::string& text,
                   std::vector<int32_t>& tokens,
                   std::string& error) const;

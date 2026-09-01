@@ -16,6 +16,8 @@ option(SKIFFLLM_ENABLE_ROOTFS_CHECK "Allow the CMake configure step to continue 
 option(SKIFFLLM_USE_READLINE "Use GNU Readline for line editing when available" ON)
 set(SKIFFLLM_LLAMA_GIT_TAG "85c55223caf0a2ad0d1d88e5a73ab3fe36107867" CACHE STRING "llama.cpp git revision")
 set(SKIFFLLM_LLAMA_SOURCE_DIR "" CACHE PATH "Path to an existing llama.cpp checkout")
+set(SKIFFLLM_LLAMA_BACKEND "auto" CACHE STRING "Hardware backend: auto, cuda, metal, vulkan, opencl, blas, cpu")
+set_property(CACHE SKIFFLLM_LLAMA_BACKEND PROPERTY STRINGS auto cuda metal vulkan opencl blas cpu)
 
 if(SKIFFLLM_BUILD_SHARED_LLAMA)
     set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
@@ -34,6 +36,27 @@ set(LLAMA_BUILD_UI OFF CACHE BOOL "" FORCE)
 set(GGML_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GGML_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(GGML_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
+
+# Hardware-acceleration backend selection. The default "auto" keeps the
+# upstream llm.cpp defaults (CPU only unless the platform already enables
+# another backend).
+if(SKIFFLLM_LLAMA_BACKEND STREQUAL "cuda")
+    set(GGML_CUDA ON CACHE BOOL "" FORCE)
+elseif(SKIFFLLM_LLAMA_BACKEND STREQUAL "metal")
+    set(GGML_METAL ON CACHE BOOL "" FORCE)
+elseif(SKIFFLLM_LLAMA_BACKEND STREQUAL "vulkan")
+    set(GGML_VULKAN ON CACHE BOOL "" FORCE)
+elseif(SKIFFLLM_LLAMA_BACKEND STREQUAL "opencl")
+    set(GGML_OPENCL ON CACHE BOOL "" FORCE)
+elseif(SKIFFLLM_LLAMA_BACKEND STREQUAL "blas")
+    set(GGML_BLAS ON CACHE BOOL "" FORCE)
+elseif(SKIFFLLM_LLAMA_BACKEND STREQUAL "cpu")
+    set(GGML_CUDA OFF CACHE BOOL "" FORCE)
+    set(GGML_METAL OFF CACHE BOOL "" FORCE)
+    set(GGML_VULKAN OFF CACHE BOOL "" FORCE)
+    set(GGML_OPENCL OFF CACHE BOOL "" FORCE)
+    set(GGML_BLAS OFF CACHE BOOL "" FORCE)
+endif()
 
 if(SKIFFLLM_FETCH_LLAMA OR SKIFFLLM_LLAMA_SOURCE_DIR)
     include(FetchContent)
@@ -60,6 +83,27 @@ add_library(skifflm_core
     src/tools.cpp
 )
 target_compile_definitions(skifflm_core PRIVATE SKIFFLLM_VERSION="${PROJECT_VERSION}")
+
+# Mirror the build-time backend selection into the core target so that
+# `skifflm --backend-info` reports the real compile-time accelerators.
+if(GGML_CUDA)
+    target_compile_definitions(skifflm_core PRIVATE GGML_USE_CUDA)
+endif()
+if(GGML_CUBLAS)
+    target_compile_definitions(skifflm_core PRIVATE GGML_USE_CUBLAS)
+endif()
+if(GGML_METAL)
+    target_compile_definitions(skifflm_core PRIVATE GGML_USE_METAL)
+endif()
+if(GGML_VULKAN)
+    target_compile_definitions(skifflm_core PRIVATE GGML_USE_VULKAN)
+endif()
+if(GGML_OPENCL)
+    target_compile_definitions(skifflm_core PRIVATE GGML_USE_OPENCL)
+endif()
+if(GGML_BLAS)
+    target_compile_definitions(skifflm_core PRIVATE GGML_USE_BLAS)
+endif()
 
 target_include_directories(skifflm_core
     PUBLIC
@@ -117,6 +161,7 @@ if(SKIFFLLM_BUILD_TESTS)
     add_test(NAME config COMMAND skifflm --show-config)
     add_test(NAME list_models COMMAND skifflm --list-models)
     add_test(NAME doctor COMMAND skifflm --doctor)
+    add_test(NAME backend_info COMMAND skifflm --backend-info)
     add_test(NAME export COMMAND skifflm --export ${CMAKE_CURRENT_BINARY_DIR}/export-test.md --no-save --quiet)
 endif()
 

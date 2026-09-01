@@ -61,6 +61,9 @@ int handle_config_command(Config& cfg,
 int handle_server_command(Config& cfg,
                           const std::vector<std::string>& args,
                           std::string& error);
+int handle_chat_template_command(Config& cfg,
+                                 const std::vector<std::string>& args,
+                                 std::string& error);
 std::string load_memories(const Config& cfg);
 bool append_memory(const Config& cfg,
                    const std::string& text,

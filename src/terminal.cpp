@@ -5,6 +5,7 @@
 #include <cstring>
 #include <filesystem>
 #include <iostream>
+#include <sstream>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -214,6 +215,30 @@ void Terminal::write_raw_line(const std::string& text) const {
         std::cout << "\n";
     }
     std::cout.flush();
+}
+
+void Terminal::print_context_bar(std::uint64_t used_tokens,
+                                 std::uint64_t capacity_tokens) const {
+    if (capacity_tokens == 0) {
+        return;
+    }
+    const double fraction =
+        static_cast<double>(used_tokens) / static_cast<double>(capacity_tokens);
+    const int percent = static_cast<int>(fraction * 100.0);
+    const int bar_width = 20;
+    const int filled = static_cast<int>(fraction * static_cast<double>(bar_width));
+    std::string bar;
+    bar.reserve(bar_width);
+    for (int i = 0; i < bar_width; ++i) {
+        bar.push_back(i < filled ? '#' : '-');
+    }
+    std::ostringstream out;
+    out << "Context: [" << bar << "] " << percent << "% ("
+        << used_tokens << "/" << capacity_tokens << " tokens)\n";
+    const Color color = percent >= 85 ? Color::Yellow
+                        : percent >= 60 ? Color::Cyan
+                        : Color::Dim;
+    write(out.str(), color);
 }
 
 void Terminal::finish_live() const {

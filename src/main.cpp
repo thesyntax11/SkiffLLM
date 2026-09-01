@@ -1136,6 +1136,13 @@ int run_interactive(skifflm::Config& cfg,
                 terminal.error(error);
             }
         }
+
+        if (cfg.context_bar) {
+            const uint32_t capacity = engine->context_capacity();
+            const uint64_t used = static_cast<uint64_t>(result.prompt_tokens) +
+                                  static_cast<uint64_t>(result.generated_tokens);
+            terminal.print_context_bar(used, capacity);
+        }
     }
 
     if (cfg.save_history) {
@@ -1420,8 +1427,8 @@ int main(int argc, char** argv) {
     int argument_start = 1;
     if (argc >= 2) {
         const std::string first(argv[1]);
-        if (first == "model" || first == "git" || first == "session" ||
-            first == "config" || first == "server") {
+        if (first == "run" || first == "model" || first == "git" || first == "session" ||
+            first == "chat-template" || first == "config" || first == "server") {
             subcommand = first;
             argument_start = 2;
         }
@@ -1491,6 +1498,19 @@ int main(int argc, char** argv) {
         return 0;
     }
 
+    if (cfg.backend_info) {
+        const skifflm::LlmEngine probe(cfg);
+        std::cout << "Backends linked into this build: "
+                  << (probe.active_backends().empty() ? "CPU-only" : probe.active_backends()) << "\n";
+        std::cout << "GPU layers configured: " << cfg.n_gpu_layers << "\n";
+        std::cout << "Flash attention: " << (cfg.flash_attn ? "yes" : "no") << "\n";
+        std::cout << "KV offload: " << (cfg.offload_kqv ? "yes" : "no") << "\n";
+        std::cout << "For optimal hardware acceleration, rebuild with "
+                  << "-DSKIFFLLM_LLAMA_BACKEND=cuda (Linux), -DSKIFFLLM_LLAMA_BACKEND=metal (macOS), "
+                  << "-DSKIFFLLM_LLAMA_BACKEND=vulkan or -DSKIFFLLM_LLAMA_BACKEND=opencl, then pass --gpu-layers.\n";
+        return 0;
+    }
+
     // Fully-local subcommands first (model list/info/install/remove, git status).
     if (subcommand == "model") {
         error.clear();
@@ -1535,6 +1555,16 @@ int main(int argc, char** argv) {
     if (subcommand == "server") {
         error.clear();
         const int status = skifflm::handle_server_command(cfg, sub_args, error);
+        if (status >= 0) {
+            if (!error.empty()) {
+                std::cerr << error << std::endl;
+            }
+            return status;
+        }
+    }
+    if (subcommand == "chat-template") {
+        error.clear();
+        const int status = skifflm::handle_chat_template_command(cfg, sub_args, error);
         if (status >= 0) {
             if (!error.empty()) {
                 std::cerr << error << std::endl;

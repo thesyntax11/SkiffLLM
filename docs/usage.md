@@ -53,11 +53,37 @@ skifflm --summarize error.log --model qwen2.5-0.5b.gguf
 skifflm model list
 skifflm model info qwen2.5-0.5b
 skifflm model install qwen2.5-0.5b
+skifflm model verify qwen2.5-0.5b
+skifflm model verify qwen2.5-0.5b --update
 skifflm model remove qwen2.5-0.5b --force
 ```
 
+`model verify` checks the GGUF magic header, the expected file size, and a
+SHA-256 sidecar whenever one exists. `--update` records a local SHA-256
+sidecar. Downloads from `model_fetch.py` also write that sidecar automatically
+and support `--verify` without re-downloading.
+
 Inference stays offline. `model install` runs the explicit `model_fetch.py`
 helper over HTTPS.
+
+## One-shot run and chat templates
+
+```bash
+skifflm run "Hello" --ctx 2048 --temp 0.3 --threads 4
+skifflm chat-template list
+skifflm chat-template detect --model model.gguf
+```
+
+## Hardware acceleration
+
+```bash
+skifflm --backend-info
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DSKIFFLLM_LLAMA_BACKEND=cuda
+./build/skifflm --model model.gguf --gpu-layers -1 --flash-attn
+```
+
+Backends are chosen at build time; `--backend-info` reports what is actually
+linked.
 
 ## Git integration
 

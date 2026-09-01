@@ -15,6 +15,7 @@ Example:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import sys
 import urllib.request
@@ -83,6 +84,57 @@ def is_gguf(path: Path) -> bool:
         return False
 
 
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while True:
+            chunk = handle.read(1024 * 1024)
+            if not chunk:
+                break
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def sidecar_path(path: Path) -> Path:
+    return Path(str(path) + ".sha256")
+
+
+def write_sidecar(path: Path) -> None:
+    digest = file_sha256(path)
+    sidecar_path(path).write_text(f"{digest}  {path.name}\n", encoding="ascii")
+
+
+def check_size(entry: dict, path: Path) -> bool:
+    actual = path.stat().st_size
+    return actual == entry["bytes"]
+
+
+def verify(entry: dict, path: Path) -> list[str]:
+    """Return a list of human-readable problems (empty means OK)."""
+    problems: list[str] = []
+    if not path.exists() or not path.is_file():
+        return ["file does not exist"]
+    if not is_gguf(path):
+        problems.append("not a valid GGUF model")
+    if not check_size(entry, path):
+        problems.append(
+            f"size mismatch: expected {entry['bytes']} bytes, found {path.stat().st_size}"
+        )
+    sidecar = sidecar_path(path)
+    if sidecar.exists():
+        expected = sidecar.read_text(encoding="ascii").split()[0].lower()
+        actual = file_sha256(path)
+        if actual != expected:
+            problems.append("SHA-256 mismatch (file is corrupt or modified)")
+    else:
+        problems.append("no checksum sidecar; run with --checksum to record one")
+    return problems
+
+
+def set_sidecar(path: Path) -> None:
+    write_sidecar(path)
+
+
 def download(entry: dict, output_dir: Path) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     output = output_dir / entry["file"]
@@ -125,7 +177,9 @@ def download(entry: dict, output_dir: Path) -> Path:
     if output.exists():
         output.unlink()
     temp.rename(output)
+    write_sidecar(output)
     print(f"Saved to {output}")
+    print(f"  SHA-256 sidecar: {sidecar_path(output)}")
     print(f"  Now run: skifflm --model {output}")
     return output
 
@@ -140,6 +194,16 @@ def main() -> int:
         type=Path,
         default=default_model_dir(),
         help="model directory (default: ~/.local/share/skifflm/models)",
+    )
+    parser.add_argument(
+        "--verify",
+        action="store_true",
+        help="verify an existing downloaded model without downloading",
+    )
+    parser.add_argument(
+        "--checksum",
+        action="store_true",
+        help="write a SHA-256 sidecar for an existing model",
     )
     args = parser.parse_args()
 
@@ -160,6 +224,28 @@ def main() -> int:
         print(f"Unknown model id: {args.model}", file=sys.stderr)
         print("Use --list to see available ids.", file=sys.stderr)
         return 2
+
+    model_path = args.output_dir / entry["file"]
+    if args.verify:
+        problems = verify(entry, model_path)
+        if problems:
+            print(f"Verification failed for {model_path}:", file=sys.stderr)
+            for problem in problems:
+                print(f"  - {problem}", file=sys.stderr)
+            return 1
+        print(f"Verified: {model_path}")
+        print("  GGUF header: ok")
+        print(f"  Size: {human_bytes(entry['bytes'])} ({entry['bytes']} bytes)")
+        print("  SHA-256: match")
+        return 0
+
+    if args.checksum:
+        if not model_path.exists():
+            print(f"Model not found: {model_path}", file=sys.stderr)
+            return 1
+        write_sidecar(model_path)
+        print(f"SHA-256 sidecar written: {sidecar_path(model_path)}")
+        return 0
 
     try:
         download(entry, args.output_dir)

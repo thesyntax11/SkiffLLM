@@ -17,6 +17,9 @@ LLAMA_ARGS=()
 if [[ -n "${SKIFFLLM_LLAMA_SOURCE_DIR:-}" ]]; then
     LLAMA_ARGS+=("-Pskifflm.llamaSourceDir=${SKIFFLLM_LLAMA_SOURCE_DIR}")
 fi
+if [[ -n "${SKIFFLLM_BACKEND:-}" ]]; then
+    LLAMA_ARGS+=("-Pskifflm.backend=${SKIFFLLM_BACKEND}")
+fi
 
 ./gradlew --stacktrace assembleDebug "${LLAMA_ARGS[@]}"
 

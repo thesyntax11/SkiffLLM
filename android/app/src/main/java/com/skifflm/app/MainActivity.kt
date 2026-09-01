@@ -399,8 +399,17 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
                 )
             }
             stats?.let {
+                val capacity = loadParams.value.contextSize.coerceAtLeast(1)
+                val used = it.promptTokens + it.generatedTokens
+                val fraction = (used.toFloat() / capacity.toFloat()).coerceIn(0f, 1f)
+                LinearProgressIndicator(
+                    progress = { fraction },
+                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
+                )
                 Text(
-                    "${it.generatedTokens} tokens in ${"%.1f".format(it.generationMs / 1000.0)} s at ${"%.1f".format(it.tokensPerSecond)} tok/s",
+                    "Context: $used/$capacity tokens (${(fraction * 100).toInt()}%) · " +
+                        "${it.generatedTokens} tokens in ${"%.1f".format(it.generationMs / 1000.0)} s " +
+                        "at ${"%.1f".format(it.tokensPerSecond)} tok/s",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color(0xFF8A94A6)
                 )

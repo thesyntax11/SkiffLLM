@@ -69,7 +69,24 @@ Option B — load your own `.gguf`:
 5. The app copies it into internal storage and loads it.
 
 The app calculates token counts, generation time, and tokens per second from
-real inference.
+real inference, and shows a live context-usage progress bar under the composer.
+
+## Theme
+
+`Settings -> Theme` selects Dark, Light, or System. The choice is persisted
+locally and applies immediately.
+
+## GPU/NPU acceleration
+
+Native GPU acceleration is opt-in because the toolchain must be configured
+before the shared library is built:
+
+```bash
+./gradlew assembleDebug -Pskifflm.backend=vulkan   # or opencl
+```
+
+The desktop equivalent is `-DSKIFFLLM_LLAMA_BACKEND=vulkan|opencl`. The app
+keeps `--gpu-layers` equivalent under `Settings -> GPU layers`.
 
 ## Recommended models
 

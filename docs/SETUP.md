@@ -20,11 +20,21 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release -j
 ```
 
+Or use the convenience installer with an explicit GPU/NPU backend:
+
+```bash
+bash scripts/install.sh                            # CPU / platform default
+BACKEND=cuda bash scripts/install.sh               # CUDA
+BACKEND=vulkan bash scripts/install.sh             # Vulkan
+BACKEND=metal bash scripts/install.sh              # macOS Metal
+./build/skifflm --backend-info                     # inspect linked backends
+```
+
 Use an existing llama.cpp checkout to avoid the optional configure-time
 download:
 
 ```bash
-scripts/setup.sh --source-dir /path/to/llama.cpp
+scripts/setup.sh --source-dir /path/to/llama.cpp --backend cuda
 ```
 
 ## Install

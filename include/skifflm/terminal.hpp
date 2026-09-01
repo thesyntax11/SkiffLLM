@@ -42,6 +42,8 @@ public:
     void write_live(const std::string& text, std::size_t tokens) const;
     void write_raw_line(const std::string& text) const;
     void finish_live() const;
+    void print_context_bar(std::uint64_t used_tokens,
+                           std::uint64_t capacity_tokens) const;
 
     bool read_prompt(const std::string& prompt, std::string& output);
     void print_banner(const std::string& version, const ModelInfo& info, const Config& config);

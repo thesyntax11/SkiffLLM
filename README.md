@@ -310,11 +310,20 @@ an Android APK.
 
 A native Android client is included under [`android/`](android/README.md). It runs
 supported GGUF models entirely on the phone with Jetpack Compose and a llama.cpp
-JNI bridge. Tokens stream into a dark chat UI, and every response shows real
-measured token count, time, and tokens per second. The app remembers the last
-loaded model, and it can download recommended GGUF models directly from Hugging
-Face over HTTPS. The only network use is those downloads; prompts and history
-never leave the device.
+JNI bridge. Tokens stream into a dark/light/system theme, and every response
+shows a live context-usage progress bar plus real measured token count, time,
+and tokens per second. The app remembers the last loaded model, and it can
+download recommended GGUF models directly from Hugging Face over HTTPS and
+record a SHA-256 checksum sidecar. The only network use is those downloads;
+prompts and history never leave the device.
+
+Android GPU/NPU acceleration is opt-in at build time:
+
+```bash
+./gradlew assembleDebug -Pskifflm.backend=vulkan   # or opencl
+```
+
+The desktop equivalent is `-DSKIFFLLM_LLAMA_BACKEND=vulkan|opencl`.
 
 See the [Android model guide](android/models.md) for the recommended small,
 quantized models for phones.
@@ -483,17 +492,50 @@ Program options:
   --verbose                  Print llama.cpp logs
   --config <path>            Config file path
   --show-config              Print the effective configuration
+  --context-bar              Show the live context usage bar (default)
+  --no-context-bar           Hide the context usage bar
+  --backend-info             Print the active llama.cpp backends and exit
   --help                     Show this help
   --version                  Show the version
 
 Subcommands:
-  config path                Print the config file path
-  config show                Print the effective configuration
-  config init                Write the current configuration to a file
+  run [prompt] [opts]        One-shot prompt (e.g. `skifflm run "Merhaba" --ctx 2048 --temp 0.3 --threads 4`)
+  model list|info|install|remove|verify
+  chat-template list|detect|info
+  config path|show|init      Manage the config file
   server health [--json]     Check a running local server
 
 Interactive commands: /help /info /warmup /history /settings /stats /compact /tokenize /file /clear-attach /clear /reset /system /model /profile /stop /temp /top-p /top-k /min-p /typical /n /ctx /export /save /exit
 ```
+
+### One-shot `run`
+
+```bash
+skifflm run "Merhaba" --ctx 2048 --temp 0.3 --threads 4
+skifflm run "Summarize this file" --attach report.txt --n-predict 256
+```
+
+`run` accepts the same inference and sampling flags as any one-shot mode and
+streams the answer token-by-token when stdout is a terminal.
+
+### `chat-template`
+
+```bash
+skifflm chat-template list                  # known templates
+skifflm chat-template detect --model x.gguf # read the template embedded in a model
+skifflm model info <id>                     # show catalog + installed model checksum
+```
+
+### `model verify`
+
+```bash
+skifflm model verify <id>                   # size + GGUF header + SHA-256 sidecar
+skifflm model verify <id> --update          # record the local SHA-256 sidecar
+python3 scripts/model_fetch.py --model <id> --verify
+```
+
+Downloads and locally-recorded checksums are permanent except when the user
+deletes the `.gguf.sha256` sidecar. No checksum is ever fabricated.
 
 ## Interactive Commands
 
@@ -814,13 +856,23 @@ This requires a system llama package that CMake can find.
 
 ### Build and run a specific backend
 
-llama.cpp detects the available backends. For CUDA:
+SkiffLLM exposes a single `SKIFFLLM_LLAMA_BACKEND` option that selects the
+hardware-acceleration backend at build time:
 
 ```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DGGML_CUDA=ON
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DSKIFFLLM_LLAMA_BACKEND=cuda
+cmake --build build -j
+./build/skifflm --backend-info   # shows the backends linked into this build
+./build/skifflm --model model.gguf --gpu-layers -1 --flash-attn
 ```
 
-For Metal on macOS, the Metal backend is enabled automatically.
+Supported values: `auto` (default, CPU or platform default), `cuda`, `metal`,
+`vulkan`, `opencl`, `blas`, `cpu`. The equivalent CMake presets are
+`release-cuda`, `release-vulkan`, `release-metal`, `release-opencl`, and
+`release-blas`. GPU/NPU code is never enabled implicitly; you must pass the
+backend at configure time and offload layers at runtime with `--gpu-layers`.
+
+For Metal on macOS, the `metal` preset enables the Metal backend.
 
 ## Install
 

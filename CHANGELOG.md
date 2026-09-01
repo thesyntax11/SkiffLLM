@@ -4,6 +4,20 @@
 
 ### Desktop
 
+- Added `skifflm run "<prompt>" [--ctx N --temp T --threads N]` as the primary
+  one-shot CLI entry point.
+- Added `--context-bar` / `--no-context-bar` and a live context-usage progress
+  bar after each interactive generation.
+- Added `--backend-info` and `-DSKIFFLLM_LLAMA_BACKEND=cuda|metal|vulkan|opencl|blas`
+  so hardware acceleration is explicitly opt-in and observable.
+- Added `skifflm chat-template list|detect|info` for automatic template
+  discovery and `skifflm model verify <id> [--update]` for GGUF size/header and
+  SHA-256 integrity checks.
+- `model_fetch.py` now writes a `.gguf.sha256` sidecar and supports
+  `--verify` and `--checksum`.
+- Random sampling seeds are resolved per generation when `--seed random`.
+- Added `release-cuda|vulkan|metal|opencl|blas` CMake presets and backward
+  Android `-Pskifflm.backend=` GPU builds.
 - Added `scripts/model_fetch.py` to fetch a recommended GGUF model once over
   HTTPS. The runtime itself still never downloads or registers models.
 - Moved model warmup into the engine so the desktop `--warmup` path and the

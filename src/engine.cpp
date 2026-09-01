@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstring>
 #include <filesystem>
+#include <random>
 #include <thread>
 
 namespace skifflm {
@@ -18,6 +19,14 @@ double now_ms() {
 }
 
 uint32_t resolve_seed(uint32_t seed) {
+    // 0xFFFFFFFF is SkiffLLM's "random" marker. Resolve it to a fresh value
+    // per generation so repeated runs are actually varied unless a fixed
+    // --seed is explicitly requested.
+    if (seed == 0xFFFFFFFFu) {
+        std::random_device rd;
+        const uint32_t value = rd();
+        return value == 0xFFFFFFFFu ? 0x9E3779B9u : value;
+    }
     return seed;
 }
 
@@ -147,6 +156,48 @@ void LlmEngine::close() {
 
 const ModelInfo& LlmEngine::info() const {
     return info_;
+}
+
+uint32_t LlmEngine::context_capacity() const {
+    return ctx_ == nullptr ? 0 : llama_n_ctx(ctx_);
+}
+
+std::string LlmEngine::active_backends() const {
+    std::ostringstream out;
+    bool first = true;
+    const auto add = [&](const char* name) {
+        if (name == nullptr || name[0] == '\0') {
+            return;
+        }
+        if (!first) {
+            out << ", ";
+        }
+        first = false;
+        out << name;
+    };
+    add("CPU");
+#ifdef GGML_USE_CUDA
+    add("CUDA");
+#endif
+#ifdef GGML_USE_CUBLAS
+    add("CUDA");
+#endif
+#ifdef GGML_USE_METAL
+    add("Metal");
+#endif
+#ifdef GGML_USE_VULKAN
+    add("Vulkan");
+#endif
+#ifdef GGML_USE_OPENCL
+    add("OpenCL");
+#endif
+#ifdef GGML_USE_BLAS
+    add("BLAS");
+#endif
+#ifdef GGML_USE_RPC
+    add("RPC");
+#endif
+    return out.str();
 }
 
 bool LlmEngine::tokenize(const std::string& text,

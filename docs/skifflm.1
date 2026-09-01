@@ -163,11 +163,33 @@ Use the given config file.
 \fB\-\-show-config\fR
 Print the effective configuration.
 .TP
+\fB\-\-context-bar / \-\-no-context-bar\fR
+Enable or disable the live context usage bar. Enabled by default.
+.TP
+\fB\-\-backend-info\fR
+Print the llama.cpp backends linked into this build and exit.
+.TP
 \fB\-\-help\fR
 Show help.
 .TP
 \fB\-\-version\fR
 Show version.
+.SH SUBCOMMANDS
+.TP
+.B skifflm run [prompt] [options]
+Run a one-shot prompt, e.g. skifflm run "Merhaba" --ctx 2048 --temp 0.3.
+.TP
+.B skifflm model list|info|install|remove|verify
+Manage the local model catalog and verify downloaded GGUF files.
+.TP
+.B skifflm chat-template list|detect|info
+List known chat templates or detect the template embedded in a model.
+.TP
+.B skifflm config path|show|init
+Print, inspect, or write the configuration file.
+.TP
+.B skifflm server health [--json]
+Check a running local server.
 .SH ENVIRONMENT
 .TP
 \fBSKIFFLLM_MODEL\fR

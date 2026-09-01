@@ -723,6 +723,18 @@ bool apply_key_value(Config& cfg,
         if (!set_flag(cfg.debug, true, false, value, key)) {
             return false;
         }
+    } else if (key == "context-bar") {
+        if (!set_flag(cfg.context_bar, true, false, value, key)) {
+            return false;
+        }
+    } else if (key == "no-context-bar") {
+        if (!set_flag(cfg.context_bar, true, true, value, key)) {
+            return false;
+        }
+    } else if (key == "backend-info") {
+        if (!set_flag(cfg.backend_info, true, false, value, key)) {
+            return false;
+        }
     } else {
         error = "unknown option: " + key;
         return false;
@@ -821,7 +833,8 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
             key == "kv-offload" || key == "no-kv-offload" ||
             key == "doctor" || key == "network" || key == "code" ||
             key == "model-info" || key == "smoke" || key == "warmup" ||
-            key == "serve") {
+            key == "serve" || key == "context-bar" || key == "no-context-bar" ||
+            key == "backend-info") {
             if (has_value) {
                 error = "option --" + key + " does not take a value";
                 return false;
@@ -983,12 +996,16 @@ std::string usage(const std::string& program) {
     out << "  --verbose                  Print llama.cpp logs\n";
     out << "  --config <path>            Config file path\n";
     out << "  --show-config              Print the effective configuration\n";
+    out << "  --context-bar              Show the live context usage bar (default)\n";
+    out << "  --no-context-bar           Hide the context usage bar\n";
+    out << "  --backend-info             Print the active llama.cpp backends and exit\n";
     out << "  --help                     Show this help\n";
     out << "  --version                  Show the version\n";
     out << "\nSubcommands:\n";
-    out << "  config path                Print the config file path\n";
-    out << "  config show                Print the effective configuration\n";
-    out << "  config init                Write the current configuration to a file\n";
+    out << "  run [prompt] [opts]        One-shot prompt (e.g. `skifflm run \"Merhaba\" --ctx 2048 --temp 0.3 --threads 4`)\n";
+    out << "  model list|info|install|remove|verify\n";
+    out << "  chat-template list|detect|info\n";
+    out << "  config path|show|init      Manage the config file\n";
     out << "  server health [--json]     Check a running local server\n";
     out << "\nInteractive commands: /help /info /history /settings /stats /compact /warmup /tokenize /file /clear-attach /clear /reset /system /model /profile /stop /temp /top-p /top-k /min-p /typical /n /ctx /export /save /exit\n";
     return out.str();
@@ -1050,6 +1067,8 @@ void print_config(const Config& cfg) {
     std::cout << "warmup           " << (cfg.warmup ? "yes" : "no") << "\n";
     std::cout << "serve            " << (cfg.serve ? "yes" : "no") << "\n";
     std::cout << "debug            " << (cfg.debug ? "yes" : "no") << "\n";
+    std::cout << "context_bar      " << (cfg.context_bar ? "yes" : "no") << "\n";
+    std::cout << "backend_info     " << (cfg.backend_info ? "yes" : "no") << "\n";
     std::cout << "stop_sequences   ";
     if (cfg.stop_sequences.empty()) {
         std::cout << "(none)";

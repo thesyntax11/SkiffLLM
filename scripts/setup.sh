@@ -6,6 +6,7 @@ BUILD_DIR="${PROJECT_DIR}/build"
 BUILD_TYPE="${CMAKE_BUILD_TYPE:-Release}"
 PREFIX=""
 SOURCE_DIR=""
+BACKEND="auto"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -25,8 +26,12 @@ while [[ $# -gt 0 ]]; do
             BUILD_TYPE="${2:-}"
             shift 2
             ;;
+        --backend)
+            BACKEND="${2:-}"
+            shift 2
+            ;;
         *)
-            echo "Usage: scripts/setup.sh [--prefix <path>] [--source-dir <path>] [--build-dir <path>] [--build-type <type>]"
+            echo "Usage: scripts/setup.sh [--prefix <path>] [--source-dir <path>] [--build-dir <path>] [--build-type <type>] [--backend auto|cuda|metal|vulkan|opencl|blas|cpu]"
             exit 2
             ;;
     esac
@@ -39,10 +44,12 @@ if [[ -n "${SOURCE_DIR}" ]]; then
     cmake -S . -B "${BUILD_DIR}" \
         -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
         -DSKIFFLLM_LLAMA_SOURCE_DIR="${SOURCE_DIR}" \
-        -DSKIFFLLM_FETCH_LLAMA=OFF
+        -DSKIFFLLM_FETCH_LLAMA=OFF \
+        -DSKIFFLLM_LLAMA_BACKEND="${BACKEND}"
 else
     cmake -S . -B "${BUILD_DIR}" \
-        -DCMAKE_BUILD_TYPE="${BUILD_TYPE}"
+        -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
+        -DSKIFFLLM_LLAMA_BACKEND="${BACKEND}"
 fi
 
 cmake --build "${BUILD_DIR}" --config "${BUILD_TYPE}" -j

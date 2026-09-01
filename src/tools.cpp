@@ -1,4 +1,5 @@
 #include "skifflm/tools.hpp"
+#include "skifflm/engine.hpp"
 #include "skifflm/session.hpp"
 #include "skifflm/server.hpp"
 
@@ -7,6 +8,7 @@
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <ctime>
 #include <fstream>
 #include <iomanip>
@@ -235,6 +237,8 @@ bool write_config_file(const std::filesystem::path& path,
     out << "flash-attn=" << (cfg.flash_attn ? "yes" : "no") << "\n";
     out << "mlock=" << (cfg.use_mlock ? "yes" : "no") << "\n";
     out << "mmap=" << (cfg.use_mmap ? "yes" : "no") << "\n";
+    out << "context-bar=" << (cfg.context_bar ? "yes" : "no") << "\n";
+    out << "backend-info=" << (cfg.backend_info ? "yes" : "no") << "\n";
     for (const auto& stop : cfg.stop_sequences) {
         out << "stop=" << stop << "\n";
     }
@@ -317,6 +321,63 @@ int handle_server_command(Config& cfg,
         return 0;
     }
     error = "unknown server action: " + args[0] + " (use health or help)";
+    return 2;
+}
+
+int handle_chat_template_command(Config& cfg,
+                                 const std::vector<std::string>& args,
+                                 std::string& error) {
+    const std::string action = args.empty() ? "list" : args[0];
+    if (action == "list" || action == "ls" || action == "help") {
+        std::cout << "Known chat templates:\n";
+        std::cout << "  chatml      <|im_start|> ... <|im_end|> (Qwen, many models)\n";
+        std::cout << "  llama3      <|start_header_id|> ... (Llama 3.x)\n";
+        std::cout << "  mistral     [INST] ... [/INST] (Mistral/Mixtral)\n";
+        std::cout << "  gemma       <start_of_turn> ... (Gemma/Gemma 2)\n";
+        std::cout << "  phi3        <|user|> ... <|end|> (Phi-3)\n";
+        std::cout << "  vicuna      USER: ... ASSISTANT: (older chat models)\n";
+        std::cout << "  default     generic assistant/chat style\n";
+        std::cout << "\nUse `skifflm chat-template detect --model <file.gguf>` to read the\n";
+        std::cout << "template embedded in a specific model, or run `skifflm model info <id>`.\n";
+        return 0;
+    }
+    if (action == "detect" || action == "info") {
+        std::string model_path;
+        for (std::size_t i = 1; i < args.size(); ++i) {
+            if (args[i] == "--model" && i + 1 < args.size()) {
+                model_path = args[++i];
+            } else if (args[i].compare(0, 8, "--model=") == 0) {
+                model_path = args[i].substr(8);
+            }
+        }
+        if (model_path.empty()) {
+            model_path = cfg.model_path.string();
+        }
+        if (model_path.empty()) {
+            error = "usage: skifflm chat-template detect --model <path.gguf> (or set --model)";
+            return 2;
+        }
+        cfg.model_path = expand_path(model_path);
+        LlmEngine engine(cfg);
+        std::string load_error;
+        if (!engine.load(load_error)) {
+            error = "cannot load model to detect template: " + load_error;
+            return 1;
+        }
+        const std::string detected = engine.info().chat_template.empty()
+                                         ? "(none / model default)"
+                                         : engine.info().chat_template;
+        std::cout << "Model: " << cfg.model_path.string() << "\n";
+        std::cout << "Detected chat template: " << detected << "\n";
+        std::cout << "  overridden internally as: "
+                  << (engine.info().chat_template.empty() ? "chatml" : engine.info().chat_template)
+                  << "\n";
+        if (detected != "(none / model default)") {
+            std::cout << "Use with: --chat-template \"" << detected << "\"\n";
+        }
+        return 0;
+    }
+    error = "unknown chat-template action: " + action + " (use list, detect or info)";
     return 2;
 }
 
@@ -527,6 +588,149 @@ std::string build_project_block(const std::filesystem::path& root, std::string& 
     return out.str();
 }
 
+bool is_gguf_file(const std::filesystem::path& path) {
+    std::ifstream input(path, std::ios::binary);
+    if (!input.is_open()) {
+        return false;
+    }
+    char header[4] = {};
+    input.read(header, 4);
+    return input.gcount() == 4 && std::memcmp(header, "GGUF", 4) == 0;
+}
+
+bool hash_file_sha256(const std::filesystem::path& path,
+                      std::string& hash,
+                      std::string& error) {
+    std::string output;
+    std::string command;
+#ifdef _WIN32
+    command = "certutil -hashfile \"" + path.string() + "\" SHA256";
+#else
+    command = "sha256sum \"" + path.string() + "\"";
+#endif
+    if (!run_command(command, output, error)) {
+        return false;
+    }
+    hash.clear();
+    for (const unsigned char ch : output) {
+        if (std::isxdigit(ch)) {
+            hash.push_back(static_cast<char>(ch));
+        } else if (!hash.empty()) {
+            break;
+        }
+    }
+    if (hash.size() < 64) {
+        error = "could not parse SHA-256 from checksum output";
+        return false;
+    }
+    hash.resize(64);
+    for (char& ch : hash) {
+        ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    }
+    return true;
+}
+
+bool hash_matches_sidecar(const std::filesystem::path& model_path,
+                          std::string& error) {
+    const std::filesystem::path sidecar = model_path.string() + ".sha256";
+    std::ifstream input(sidecar);
+    if (!input.is_open()) {
+        error = "no checksum sidecar found at " + sidecar.string() +
+                "; run `skifflm model verify --update` to store the local hash";
+        return false;
+    }
+    std::string expected;
+    std::getline(input, expected);
+    for (char& ch : expected) {
+        ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    }
+    const std::string needle = model_path.filename().string();
+    if (const std::size_t pos = expected.find(needle); pos != std::string::npos) {
+        expected = expected.substr(0, pos);
+    }
+    std::string hex;
+    hex.reserve(expected.size());
+    for (const char ch : expected) {
+        if (std::isxdigit(static_cast<unsigned char>(ch))) {
+            hex.push_back(ch);
+        }
+    }
+    expected = hex;
+    if (expected.size() != 64) {
+        error = "malformed checksum sidecar at " + sidecar.string();
+        return false;
+    }
+    std::string actual;
+    if (!hash_file_sha256(model_path, actual, error)) {
+        return false;
+    }
+    if (actual != expected) {
+        error = "SHA-256 mismatch: model file is corrupt or was modified\n"
+                "  expected " + expected + "\n"
+                "  actual   " + actual;
+        return false;
+    }
+    return true;
+}
+
+bool write_checksum_sidecar(const std::filesystem::path& model_path,
+                            std::string& error) {
+    std::string hash;
+    if (!hash_file_sha256(model_path, hash, error)) {
+        return false;
+    }
+    const std::filesystem::path sidecar = model_path.string() + ".sha256";
+    std::ofstream output(sidecar, std::ios::trunc | std::ios::binary);
+    if (!output.is_open()) {
+        error = "cannot write checksum sidecar: " + sidecar.string();
+        return false;
+    }
+    output << hash << "  " << model_path.filename().string() << "\n";
+    if (!output) {
+        error = "failed to write checksum sidecar";
+        return false;
+    }
+    return true;
+}
+
+bool verify_model_file(const std::filesystem::path& path,
+                       uint64_t expected_bytes,
+                       bool update_checksum,
+                       std::string& detail) {
+    std::error_code ec;
+    detail.clear();
+    if (!std::filesystem::exists(path, ec)) {
+        detail = "model file does not exist: " + path.string();
+        return false;
+    }
+    if (!is_gguf_file(path)) {
+        detail = "not a valid GGUF model (bad magic header): " + path.string();
+        return false;
+    }
+    const uint64_t size = static_cast<uint64_t>(std::filesystem::file_size(path, ec));
+    if (ec) {
+        detail = "cannot read model file size: " + ec.message();
+        return false;
+    }
+    if (expected_bytes > 0 && size != expected_bytes) {
+        detail = "size mismatch: expected " + std::to_string(expected_bytes) +
+                 " bytes, found " + std::to_string(size);
+        return false;
+    }
+    std::string checksum_error;
+    if (update_checksum) {
+        if (!write_checksum_sidecar(path, checksum_error)) {
+            detail = checksum_error;
+            return false;
+        }
+        detail += "checksum sidecar written; ";
+    } else if (!hash_matches_sidecar(path, checksum_error)) {
+        // Missing sidecar is informational, not a corruption signal.
+        detail += checksum_error + "; ";
+    }
+    return true;
+}
+
 bool run_command(const std::string& command, std::string& output, std::string& error) {
 #ifdef _WIN32
     FILE* pipe = _popen(command.c_str(), "r");
@@ -601,6 +805,15 @@ int handle_model_command(Config& cfg,
         std::cout << "Size:       " << to_human_bytes(model->bytes) << "\n";
         std::cout << "RAM:        " << model->ram_note << "\n";
         std::cout << "Installed:  " << (installed(*model) ? "yes" : "no") << "\n";
+        const std::filesystem::path target = cfg.model_dir / model->file;
+        if (installed(*model)) {
+            std::string detail;
+            const bool ok = verify_model_file(target, model->bytes, false, detail);
+            std::cout << "Integrity:  " << (ok ? "ok" : "needs attention") << "\n";
+            const bool has_sidecar = std::filesystem::exists(target.string() + ".sha256", ec);
+            std::cout << "Checksum:   " << (has_sidecar ? "recorded" : "not recorded")
+                      << " (use `skifflm model verify " << model->id << " --update`)\n";
+        }
         return 0;
     }
 
@@ -654,7 +867,48 @@ int handle_model_command(Config& cfg,
             return 1;
         }
         std::cout << model->file << " installed in " << cfg.model_dir.string() << "\n";
+        // Validate the freshly downloaded file before accepting it as usable.
+        std::string verify_detail;
+        if (!verify_model_file(cfg.model_dir / model->file, model->bytes, false,
+                               verify_detail)) {
+            std::cout << "Warning: " << verify_detail << "\n";
+        }
         return 0;
+    }
+
+    if (action == "verify" || action == "check") {
+        if (args.size() < 2) {
+            error = "usage: skifflm model verify <id> [--update]";
+            return 2;
+        }
+        const CatalogModel* model = find_catalog_model(args[1]);
+        if (model == nullptr) {
+            error = "unknown model id: " + args[1] + " (use `skifflm model list`)";
+            return 2;
+        }
+        const std::filesystem::path target = cfg.model_dir / model->file;
+        if (!std::filesystem::exists(target, ec)) {
+            std::cout << model->file << " is not installed. Run `skifflm model install "
+                      << model->id << "` first.\n";
+            return 1;
+        }
+        const bool update = std::find(args.begin(), args.end(), "--update") != args.end();
+        std::string detail;
+        const bool ok = verify_model_file(target, model->bytes, update, detail);
+        if (ok) {
+            std::cout << "Model verified: " << target.string() << "\n";
+            std::cout << "  GGUF header: ok\n";
+            std::cout << "  Size: " << to_human_bytes(model->bytes) << " ("
+                      << model->bytes << " bytes)\n";
+            const bool has_sidecar =
+                std::filesystem::exists(target.string() + ".sha256", ec);
+            std::cout << "  SHA-256: " << (has_sidecar ? "match" : "not recorded")
+                      << (update ? " (written)" : "") << "\n";
+            return 0;
+        }
+        std::cout << "Model verification failed: " << target.string() << "\n";
+        std::cout << "  " << detail << "\n";
+        return 1;
     }
 
     if (action == "remove" || action == "rm") {

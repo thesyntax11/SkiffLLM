@@ -6,6 +6,9 @@ _skifflm() {
         '--help[Show help]'
         '--version[Show version]'
         '--show-config[Print effective configuration]'
+        '--context-bar[Show the live context usage bar]'
+        '--no-context-bar[Hide the context usage bar]'
+        '--backend-info[Print the active llama.cpp backends]'
         '--list-models[List discovered GGUF models]'
         '--model-info[Print model metadata]'
         '--doctor[Print system diagnostics]'
@@ -68,7 +71,7 @@ _skifflm() {
         '--verbose[Verbose logs]'
         '--debug[Debug mode]'
     )
-    _arguments "${opts[@]}" '*:model file:_files'
+    _arguments "${opts[@]}" '1:subcommand:(run model chat-template config server)' '*:model file:_files'
 }
 
 _skifflm "$@"

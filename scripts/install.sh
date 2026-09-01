@@ -9,17 +9,27 @@ cd "${PROJECT_DIR}"
 
 PREFIX="${PREFIX:-${HOME}/.local}"
 CMAKE="${CMAKE:-cmake}"
+BACKEND="${BACKEND:-auto}"
 
-echo "Configuring Release build..."
-${CMAKE} --preset release 2>/dev/null \
-    || ${CMAKE} -S . -B build/Release -DCMAKE_BUILD_TYPE=Release -DSKIFFLLM_BUILD_TESTS=ON
+echo "Configuring Release build (backend: ${BACKEND})..."
+if [[ "${BACKEND}" == "auto" ]]; then
+    ${CMAKE} --preset release 2>/dev/null \
+        || ${CMAKE} -S . -B build/Release -DCMAKE_BUILD_TYPE=Release -DSKIFFLLM_BUILD_TESTS=ON
+else
+    ${CMAKE} -S . -B "build/Release-${BACKEND}" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DSKIFFLLM_BUILD_TESTS=ON \
+        -DSKIFFLLM_LLAMA_BACKEND="${BACKEND}"
+    BUILD_DIR="build/Release-${BACKEND}"
+fi
 
-echo "Building..."
-${CMAKE} --build build/Release -j
+BUILD_DIR="${BUILD_DIR:-build/Release}"
+echo "Building (${BUILD_DIR})..."
+${CMAKE} --build "${BUILD_DIR}" -j
 
 echo "Installing to ${PREFIX}/bin ..."
 install -d "${PREFIX}/bin"
-install -m 0755 build/Release/skifflm "${PREFIX}/bin/skifflm"
+install -m 0755 "${BUILD_DIR}/skifflm" "${PREFIX}/bin/skifflm"
 
 echo
 echo "Installed: ${PREFIX}/bin/skifflm"

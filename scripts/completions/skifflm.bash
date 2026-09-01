@@ -4,11 +4,14 @@ _skifflm_complete() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    local subcommands="model git session"
-    local model_actions="list info install remove"
+    local subcommands="run model git session chat-template config server"
+    local model_actions="list info install remove verify"
     local git_actions="diff review explain commit log status"
     local session_actions="list show use remove"
-    local options="--help --version --show-config --list-models --model-info --doctor --network --smoke --tokenize --warmup --code --serve --host --port --benchmark --model --model-dir --config --history --session --profile --system --stop --attach --file --export --chat-template --output --prompt --prompt-file --project --summarize --remember --forget --stdin --json --non-interactive --ctx --batch --ubatch --reserve-ctx --n-keep --threads --gpu-layers --mmap --no-mmap --mlock --flash-attn --no-flash-attn --numa --kv-offload --no-kv-offload --temp --top-p --top-k --min-p --typical --repeat-penalty --repeat-last-n --n-predict --seed --reset-history --no-save --auto-trim --no-auto-trim --color --no-color --no-banner --verbose --debug"
+    local chat_actions="list detect info"
+    local config_actions="path show init help"
+    local server_actions="health help"
+    local options="--help --version --show-config --list-models --model-info --doctor --network --smoke --tokenize --warmup --code --serve --host --port --benchmark --model --model-dir --config --history --session --profile --system --stop --attach --file --export --chat-template --output --prompt --prompt-file --project --summarize --remember --forget --stdin --json --non-interactive --ctx --batch --ubatch --reserve-ctx --n-keep --threads --gpu-layers --mmap --no-mmap --mlock --flash-attn --no-flash-attn --numa --kv-offload --no-kv-offload --temp --top-p --top-k --min-p --typical --repeat-penalty --repeat-last-n --n-predict --seed --reset-history --no-save --auto-trim --no-auto-trim --color --no-color --no-banner --verbose --debug --context-bar --no-context-bar --backend-info"
 
     if [[ "${COMP_CWORD}" -eq 1 ]]; then
         COMPREPLY=( $(compgen -W "${subcommands} ${options}" -- "${cur}") )
@@ -24,6 +27,18 @@ _skifflm_complete() {
     fi
     if [[ "${COMP_WORDS[1]}" == "session" && "${COMP_CWORD}" -eq 2 ]]; then
         COMPREPLY=( $(compgen -W "${session_actions}" -- "${cur}") )
+        return 0
+    fi
+    if [[ "${COMP_WORDS[1]}" == "chat-template" && "${COMP_CWORD}" -eq 2 ]]; then
+        COMPREPLY=( $(compgen -W "${chat_actions}" -- "${cur}") )
+        return 0
+    fi
+    if [[ "${COMP_WORDS[1]}" == "config" && "${COMP_CWORD}" -eq 2 ]]; then
+        COMPREPLY=( $(compgen -W "${config_actions}" -- "${cur}") )
+        return 0
+    fi
+    if [[ "${COMP_WORDS[1]}" == "server" && "${COMP_CWORD}" -eq 2 ]]; then
+        COMPREPLY=( $(compgen -W "${server_actions}" -- "${cur}") )
         return 0
     fi
 

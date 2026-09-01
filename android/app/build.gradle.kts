@@ -28,6 +28,11 @@ android {
                 if (llamaDir != null && llamaDir.isNotBlank()) {
                     arguments += "-DSKIFFLLM_LLAMA_SOURCE_DIR=$llamaDir"
                 }
+                // GPU/NPU acceleration on Android: `./gradlew ... -Pskifflm.backend=vulkan|opencl|cpu`
+                val backend = project.findProperty("skifflm.backend") as String?
+                if (!backend.isNullOrBlank()) {
+                    arguments += "-DSKIFFLLM_LLAMA_BACKEND=$backend"
+                }
             }
         }
     }

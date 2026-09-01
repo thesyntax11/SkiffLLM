@@ -381,9 +381,21 @@ void test_config_and_stats_features() {
             }
         }
     }
-    check(keys >= 20, "written config should include the main options");
+    check(keys >= 22, "written config should include the main options");
     check(skifflm::metrics_path_for(cfg) == (dir / "metrics.txt"),
           "metrics file should live next to history");
+    {
+        std::ifstream input(cfg.config_path);
+        std::string line;
+        bool saw_context_bar = false;
+        bool saw_backend_info = false;
+        while (std::getline(input, line)) {
+            saw_context_bar = saw_context_bar || line == "context-bar=yes";
+            saw_backend_info = saw_backend_info || line == "backend-info=no";
+        }
+        check(saw_context_bar, "written config should include context-bar");
+        check(saw_backend_info, "written config should include backend-info");
+    }
 
     skifflm::record_generation(cfg, 10, 50, 100.0, 500.0, 100.0);
     skifflm::record_generation(cfg, 5, 20, 80.0, 320.0, 62.5);
@@ -400,6 +412,26 @@ void test_config_and_stats_features() {
           "usage stats should total generation milliseconds");
 
     std::filesystem::remove_all(dir);
+}
+
+void test_ui_and_backend_flags() {
+    skifflm::Config cfg = skifflm::default_config();
+    std::vector<std::string> storage = {
+        "skifflm", "--no-context-bar", "--backend-info",
+    };
+    auto args = args_from(storage);
+    std::string error;
+    const bool ok = skifflm::parse_args(static_cast<int>(args.size()), args.data(), cfg, error);
+    check(ok, "context-bar and backend-info flags should parse");
+    check(!cfg.context_bar, "no-context-bar should disable the context bar");
+    check(cfg.backend_info, "backend-info should be enabled");
+
+    skifflm::Config cfg2 = skifflm::default_config();
+    std::vector<std::string> storage2 = {"skifflm", "--context-bar"};
+    auto args2 = args_from(storage2);
+    check(skifflm::parse_args(static_cast<int>(args2.size()), args2.data(), cfg2, error),
+          "context-bar flag should parse");
+    check(cfg2.context_bar, "context-bar should be enabled by default");
 }
 
 void test_server_and_benchmark_flags() {
@@ -452,5 +484,6 @@ int main() {
     test_server_and_benchmark_flags();
     test_tools_features();
     test_config_and_stats_features();
+    test_ui_and_backend_flags();
     return 0;
 }
