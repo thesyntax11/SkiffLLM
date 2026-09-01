@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Tooling and developer experience
+
+- Split HTTP Bearer auth into a small, unit-tested `http_auth` module so the
+  local server's token check can be verified without loading a real GGUF model.
+- Added a root `Makefile` with `release`, `debug`, `tests`, `check`, `format`,
+  `install`, and `clean` targets.
+- Upgraded `scripts/install.sh` with `--prefix`, `--backend` and
+  `--skip-tests`, prerequisite checks, and staged docs/man/completions/config
+  install.
+- Added `docs/INSTALL.md` and a compact SVG logo to the README.
+
 ## v1.6.0 — 2026-09-01
 
 ### Desktop
