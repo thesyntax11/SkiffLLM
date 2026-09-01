@@ -69,6 +69,37 @@
 - Added free-storage checks before Android model downloads.
 - Persist Android load, sampling, and system-prompt settings across restarts.
 
+### Mobile parity
+
+- Android now passes user-defined stop sequences through the JNI bridge into
+  `GenerationOptions.stop_sequences`, matching the desktop CLI and iOS client.
+- Android and iOS add sampling profile presets
+  (balanced/fast/creative/code/precise) that apply immediately and remain
+  editable.
+- Android and iOS add conversation compaction (`Compact conversation` /
+  `compactConversation()`), mirroring the desktop `/compact` command with the
+  same compression prompt, temperature `0.2`, disabled stop sequences, and
+  preserved bullet-summary history.
+- Android and iOS header/model info now include model parameter count and
+  training context in addition to the native model description, so the three
+  clients display the same useful model metadata.
+- Android and iOS can attach a text/JSON/XML file from the system picker,
+  read it locally as UTF-8 (capped at 64 KB), and include it in the next user
+  message, mirroring the desktop `--attach`/`/file` workflow. Attached content
+  never leaves the device.
+- Android and iOS add a persisted `Code mode` toggle that mirrors the desktop
+  safe `--code` behavior: models propose concrete unified diffs without
+  claiming files were changed, and applying the proposal stays manual.
+- Android model downloads now verify the expected catalog size, validate the
+  GGUF header, and write/delete a `.gguf.sha256` sidecar, so both mobile
+  clients (and `skifflm model verify`) use the same local integrity convention
+  as the desktop CLI.
+- iOS and Android READMEs document the shared settings surface; the Android
+  app exposes stop sequences, profiles, and compaction from its Settings
+  dialog.
+- The Android model info JSON path (`EngineController.modelDescription()`)
+  now surfaces `description`, `params`, and `context_train`.
+
 ### Android 1.6.0
 
 - Added a native Android app under `android/` built with Kotlin, Jetpack

@@ -82,12 +82,38 @@ class SettingsStore(private val appContext: Context) {
         prefs.edit().putStringSet(KEY_QUICK_PROMPTS, updated).apply()
     }
 
+    fun loadStopSequences(): List<String> =
+        prefs.getStringSet(KEY_STOP_SEQUENCES, emptySet())
+            ?.mapNotNull { it.takeIf(String::isNotBlank) }
+            ?.sorted()
+            ?: emptyList()
+
+    fun addStopSequence(value: String) {
+        val trimmed = value.trim().takeIf { it.isNotEmpty() } ?: return
+        val updated = loadStopSequences().toMutableList()
+        if (!updated.contains(trimmed)) {
+            updated.add(trimmed)
+        }
+        prefs.edit().putStringSet(KEY_STOP_SEQUENCES, updated.toSet()).apply()
+    }
+
+    fun removeStopSequence(value: String) {
+        val updated = loadStopSequences().filter { it != value }.toSet()
+        prefs.edit().putStringSet(KEY_STOP_SEQUENCES, updated).apply()
+    }
+
     fun saveTheme(value: String) {
         prefs.edit().putString(KEY_THEME, value).apply()
     }
 
     fun loadTheme(default: String): String =
         prefs.getString(KEY_THEME, default) ?: default
+
+    fun saveCodeMode(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_CODE_MODE, enabled).apply()
+    }
+
+    fun loadCodeMode(): Boolean = prefs.getBoolean(KEY_CODE_MODE, false)
 
     private companion object {
         const val KEY_THEME = "theme"
@@ -107,5 +133,7 @@ class SettingsStore(private val appContext: Context) {
         const val KEY_SYSTEM_PROMPT = "system_prompt"
         const val KEY_PERSISTENT_FACTS = "persistent_facts"
         const val KEY_QUICK_PROMPTS = "quick_prompts"
+        const val KEY_STOP_SEQUENCES = "stop_sequences"
+        const val KEY_CODE_MODE = "code_mode"
     }
 }

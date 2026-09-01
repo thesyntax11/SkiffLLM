@@ -7,6 +7,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -169,6 +170,7 @@ Java_com_skifflm_app_SkiffNative_generate(
         jint repeat_last_n,
         jint max_tokens,
         jlong seed,
+        jobjectArray stop_sequences,
         jobject callback) {
     NativeState* state = state_from(handle);
 
@@ -222,6 +224,17 @@ Java_com_skifflm_app_SkiffNative_generate(
         env->DeleteLocalRef(content);
     }
 
+    std::vector<std::string> stop_sequence_values;
+    if (stop_sequences != nullptr) {
+        const jsize stop_count = env->GetArrayLength(stop_sequences);
+        stop_sequence_values.reserve(static_cast<size_t>(stop_count));
+        for (jsize i = 0; i < stop_count; ++i) {
+            jobject value = env->GetObjectArrayElement(stop_sequences, i);
+            stop_sequence_values.push_back(to_string(env, value));
+            env->DeleteLocalRef(value);
+        }
+    }
+
     skifflm::GenerationOptions options;
     options.temperature = static_cast<float>(temperature);
     options.top_p = static_cast<float>(top_p);
@@ -232,6 +245,7 @@ Java_com_skifflm_app_SkiffNative_generate(
     options.repeat_last_n = static_cast<int>(repeat_last_n);
     options.n_predict = static_cast<int>(max_tokens);
     options.seed = static_cast<uint32_t>(seed);
+    options.stop_sequences = std::move(stop_sequence_values);
     options.auto_trim = true;
     options.token_callback = [env, callback, on_token](const std::string& part) {
         jstring piece = env->NewStringUTF(part.c_str());

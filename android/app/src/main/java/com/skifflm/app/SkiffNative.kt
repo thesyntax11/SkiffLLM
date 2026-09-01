@@ -37,6 +37,7 @@ object SkiffNative {
         repeatLastN: Int,
         maxTokens: Int,
         seed: Long,
+        stopSequences: Array<String>,
         callback: Callback
     ): Boolean
 

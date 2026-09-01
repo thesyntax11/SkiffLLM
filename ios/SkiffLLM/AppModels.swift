@@ -274,6 +274,14 @@ final class SettingsStore {
     func saveLastModelPath(_ path: String) {
         defaults.set(path, forKey: "last_model_path")
     }
+
+    func loadCodeMode() -> Bool {
+        defaults.bool(forKey: "code_mode")
+    }
+
+    func saveCodeMode(_ enabled: Bool) {
+        defaults.set(enabled, forKey: "code_mode")
+    }
 }
 
 struct ConversationSnapshot {

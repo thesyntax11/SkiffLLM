@@ -56,8 +56,9 @@ Option A — download a recommended model:
 1. Open SkiffLLM.
 2. Tap `Settings` then `Models`.
 3. Pick a quantized model from the catalog and tap `Download`.
-4. The app downloads it over HTTPS, verifies the GGUF header, stores it in
-   internal storage, and loads it automatically.
+4. The app downloads it over HTTPS, verifies the GGUF header, records a
+   `.gguf.sha256` sidecar alongside it, stores it in internal storage, and
+   loads it automatically.
 
 Option B — load your own `.gguf`:
 
@@ -107,10 +108,44 @@ open, and delete local conversations. Each conversation is stored as a JSON
 file in app-private storage; switching loads that conversation immediately and
 the active name is shown next to the SkiffLLM title.
 
+## Attach a text file
+
+Tap `Attach` above the composer to pick a text, JSON, or XML file. The app
+reads it locally (UTF-8, capped at 64 KB), shows a note when the file is
+truncated, and puts the content into the composer so it is sent as part of the
+next user message. The file never leaves the device.
+
 ## Quick prompts
 
 Save a prompt you reuse in `Settings -> Quick prompts`. It appears as a tap-to-
 insert chip above the composer and is stored locally.
+
+## Sampling profiles
+
+`Settings -> Profile presets` applies a balanced, fast, creative, code, or
+precise sampling profile immediately. The chosen values remain fully editable
+under the ordinary sampling fields.
+
+## Code mode
+
+`Settings -> Code mode` toggles safe-code behavior: the app instructs the model
+to propose concrete, reviewable edits as unified diffs and never to claim that
+a file was changed. It mirrors the desktop `--code` mode; applying the proposal
+remains a manual, human step.
+
+## Stop sequences
+
+`Settings -> Stop sequences` lets you add one or more strings that end the
+generation as soon as the model emits them. Stop sequences are local and are
+passed to the native engine on every turn (they are intentionally disabled
+during conversation compaction).
+
+## Compact conversation
+
+The Compose settings panel includes `Compact conversation`. It sends the
+current transcript back through the loaded model (at `temperature 0.2`) and
+replaces the conversation with a compact bullet summary, preserving facts,
+decisions, preferences, and unfinished work.
 
 ## Persistent facts
 
@@ -133,12 +168,17 @@ answers"*. They are injected on every turn and never leave the phone.
 - Repeat penalty
 - Repeat last N
 - Max generated tokens
+- Sampling profile presets (balanced/fast/creative/code/precise)
+- Code mode (unified-diff proposals)
 - System prompt
 - Persistent facts
 - Quick prompts
+- Stop sequences
+- Conversation compaction
 - Stop generation
 - Clear conversation
 - Export conversation
+- Attach text/JSON/XML file
 
 ## Runtime behavior
 
@@ -149,8 +189,9 @@ answers"*. They are injected on every turn and never leave the phone.
 - Downloads run on a separate thread so chat and local model loading stay
   usable while a GGUF is downloading.
 - Download progress is shown per model and can be cancelled.
-- Download checks free storage before starting, validates the GGUF header,
-  and rejects incomplete files before they become usable.
+- Download checks free storage before starting, verifies the expected size and
+  GGUF header, writes a local `.gguf.sha256` sidecar, and rejects incomplete
+  files before they become usable.
 - The last successfully loaded model is remembered and reloaded on the next
   launch.
 - Conversations, the system prompt, and sampling/load settings are saved
@@ -159,6 +200,8 @@ answers"*. They are injected on every turn and never leave the phone.
 - Stop signals a cancellation request to the native generator.
 - Conversation export creates a Markdown document and opens the Android share
   sheet. This is offline; it never uploads anything.
+- Text, JSON, and XML files can be attached via the system file picker and are
+  read locally as UTF-8 (capped at 64 KB).
 
 ## Network privacy
 

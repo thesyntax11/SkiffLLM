@@ -35,6 +35,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
@@ -159,6 +160,8 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
         mutableStateOf(settingsStore.loadPersistentFacts(""))
     }
     val quickPrompts = remember { mutableStateListOf<String>().also { it.addAll(settingsStore.loadQuickPrompts()) } }
+    val stopSequences = remember { mutableStateListOf<String>().also { it.addAll(settingsStore.loadStopSequences()) } }
+    val codeMode = remember { mutableStateOf(settingsStore.loadCodeMode()) }
     val loadParams = remember { mutableStateOf(settingsStore.loadLoadParams(defaultThreads)) }
     val sampling = remember { mutableStateOf(settingsStore.loadSampling()) }
     val conversationName = remember { mutableStateOf(conversationStore.currentName()) }
@@ -182,10 +185,18 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
     fun effectiveSystemPrompt(): String {
         val base = systemPrompt.value
         val facts = persistentFacts.value.trim()
-        return if (facts.isNotEmpty()) {
+        val withFacts = if (facts.isNotEmpty()) {
             "$base\n\nPersistent facts:\n$facts"
         } else {
             base
+        }
+        return if (codeMode.value) {
+            "$withFacts\n\nYou are a careful coding assistant. Propose concrete " +
+                "edits as a unified diff (file paths, +/-, context). Use the code " +
+                "context below. Never claim a file was changed; output the proposal " +
+                "only and wait for a human to apply it."
+        } else {
+            withFacts
         }
     }
 
@@ -197,7 +208,7 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
 
     fun handleModelLoaded(name: String) {
         modelName = name
-        modelInfo = controller.modelDescription()?.take(120)
+        modelInfo = controller.modelDescription()?.take(200)
         statusText = "Model ready"
         errorText = null
         refreshLocalModels()
@@ -257,6 +268,26 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
         }
     }
 
+    val textPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            errorText = null
+            try {
+                val content = context.contentResolver.openInputStream(uri)?.use { stream ->
+                    stream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                } ?: throw java.io.IOException("Unable to read the attached file")
+                val bounded = content.take(MAX_ATTACH_BYTES)
+                input = if (input.isBlank()) bounded else "$input\n\n$bounded"
+                if (bounded.length < content.length) {
+                    errorText = "Attached the first ${MAX_ATTACH_BYTES / 1024} KB of the file."
+                }
+            } catch (t: Throwable) {
+                errorText = t.message ?: "Unable to read the attached file"
+            }
+        }
+    }
+
     fun startDownload(entry: ModelCatalogEntry) {
         errorText = null
         downloadErrors.remove(entry.id)
@@ -302,6 +333,82 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
         )
     }
 
+    fun applyProfile(profile: String) {
+        val base = sampling.value
+        sampling.value = when (profile) {
+            "fast" -> base.copy(
+                temperature = 0.60f, topP = 0.90f, topK = 30, minP = 0.00f,
+                typicalP = 0.0f, repeatPenalty = 1.05f, maxTokens = 256
+            )
+            "creative" -> base.copy(
+                temperature = 1.00f, topP = 0.98f, topK = 60, minP = 0.05f,
+                typicalP = 0.0f, repeatPenalty = 1.20f, maxTokens = 512
+            )
+            "code" -> base.copy(
+                temperature = 0.20f, topP = 0.90f, topK = 20, minP = 0.00f,
+                typicalP = 0.0f, repeatPenalty = 1.20f, maxTokens = 1024
+            )
+            "precise" -> base.copy(
+                temperature = 0.00f, topP = 0.90f, topK = 20, minP = 0.00f,
+                typicalP = 0.0f, repeatPenalty = 1.00f, maxTokens = 650
+            )
+            else -> base.copy(
+                temperature = 0.70f, topP = 0.95f, topK = 40, minP = 0.00f,
+                typicalP = 0.0f, repeatPenalty = 1.10f, maxTokens = 512
+            )
+        }
+        settingsStore.saveSampling(sampling.value)
+    }
+
+    fun compactConversation() {
+        if (generating || modelName == null || messages.size < 2) {
+            return
+        }
+        val transcript = StringBuilder()
+        for (message in messages) {
+            if (message.role != "system") {
+                transcript.append(message.role).append(": ").append(message.content).append("\n\n")
+            }
+        }
+        val ask = listOf(
+            ChatMessage(
+                "system",
+                "You are a memory compression assistant. Preserve facts, decisions, the user's preferences, file paths, and unfinished work. Keep it compact and complete."
+            ),
+            ChatMessage(
+                "user",
+                "Compress this conversation into a compact bullet summary.\n\n<conversation>\n$transcript</conversation>\n"
+            )
+        )
+        draft = ""
+        stats = null
+        errorText = null
+        generating = true
+        controller.generate(
+            ask,
+            sampling.value.copy(temperature = 0.2f, maxTokens = 512),
+            emptyList(),
+            onToken = { part -> draft += part },
+            onDone = { result ->
+                val summary = draft.trim()
+                messages.clear()
+                messages.add(ChatMessage("user", "[Compacted conversation]"))
+                if (summary.isNotEmpty()) {
+                    messages.add(ChatMessage("assistant", summary))
+                }
+                conversationStore.save(systemPrompt.value, messages.toList())
+                stats = result
+                generating = false
+                draft = ""
+            },
+            onError = { message ->
+                errorText = message
+                generating = false
+                draft = ""
+            }
+        )
+    }
+
     fun send() {
         val text = input.trim()
         if (text.isEmpty() || generating) {
@@ -317,6 +424,7 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
         controller.generate(
             full,
             sampling.value,
+            stopSequences.toList(),
             onToken = { part -> draft += part },
             onDone = { result ->
                 stats = result
@@ -492,6 +600,10 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
                     keyboardActions = KeyboardActions(onSend = { send() })
                 )
                 Spacer(Modifier.width(8.dp))
+                OutlinedButton(onClick = { textPicker.launch(arrayOf("text/*", "application/json", "application/xml")) }) {
+                    Text("Attach")
+                }
+                Spacer(Modifier.width(6.dp))
                 if (generating) {
                     OutlinedButton(onClick = { stop() }) {
                         Text("Stop")
@@ -537,6 +649,27 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
                 settingsStore.removeQuickPrompt(value)
                 quickPrompts.clear()
                 quickPrompts.addAll(settingsStore.loadQuickPrompts())
+            },
+            stopSequences = stopSequences.toList(),
+            onAddStopSequence = { value ->
+                settingsStore.addStopSequence(value)
+                stopSequences.clear()
+                stopSequences.addAll(settingsStore.loadStopSequences())
+            },
+            onRemoveStopSequence = { value ->
+                settingsStore.removeStopSequence(value)
+                stopSequences.clear()
+                stopSequences.addAll(settingsStore.loadStopSequences())
+            },
+            onApplyProfile = { profile -> applyProfile(profile) },
+            onCompact = {
+                showSettings = false
+                compactConversation()
+            },
+            codeMode = codeMode.value,
+            onCodeMode = { enabled ->
+                codeMode.value = enabled
+                settingsStore.saveCodeMode(enabled)
             },
             themeName = themeName,
             onThemeName = onThemeName,
@@ -737,6 +870,13 @@ private fun SettingsDialog(
     quickPrompts: List<String>,
     onAddQuickPrompt: (String) -> Unit,
     onRemoveQuickPrompt: (String) -> Unit,
+    stopSequences: List<String>,
+    onAddStopSequence: (String) -> Unit,
+    onRemoveStopSequence: (String) -> Unit,
+    onApplyProfile: (String) -> Unit,
+    onCompact: () -> Unit,
+    codeMode: Boolean,
+    onCodeMode: (Boolean) -> Unit,
     themeName: String,
     onThemeName: (String) -> Unit,
     onOpenModels: () -> Unit,
@@ -744,6 +884,7 @@ private fun SettingsDialog(
     onDismiss: () -> Unit
 ) {
     var quickPromptInput by remember { mutableStateOf("") }
+    var stopSequenceInput by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = { onDismiss() },
         confirmButton = {
@@ -796,6 +937,23 @@ private fun SettingsDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = Color(0xFF8A94A6)
                 )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Profile presets",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                listOf("balanced", "fast", "creative", "code", "precise").forEach { name ->
+                    TextButton(onClick = { onApplyProfile(name) }) {
+                        Text(name.replaceFirstChar { it.uppercase() })
+                    }
+                }
+                Text(
+                    "Applies the sampling values shown below immediately. Fine-tune after choosing a preset.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF8A94A6)
+                )
+                Spacer(Modifier.height(8.dp))
                 NumberField(
                     label = "Temperature",
                     value = sampling.temperature.toString(),
@@ -927,6 +1085,92 @@ private fun SettingsDialog(
                         Text("Add")
                     }
                 }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Stop sequences",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                if (stopSequences.isEmpty()) {
+                    Text(
+                        "No stop sequences yet. Add one below.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF8A94A6)
+                    )
+                } else {
+                    stopSequences.forEach { sequence ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                sequence,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(vertical = 2.dp)
+                            )
+                            TextButton(onClick = { onRemoveStopSequence(sequence) }) {
+                                Text("Remove")
+                            }
+                        }
+                    }
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    OutlinedTextField(
+                        value = stopSequenceInput,
+                        onValueChange = { stopSequenceInput = it },
+                        label = { Text("New stop sequence") },
+                        singleLine = true,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    TextButton(onClick = {
+                        onAddStopSequence(stopSequenceInput)
+                        stopSequenceInput = ""
+                    }) {
+                        Text("Add")
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Button(onClick = onCompact) {
+                    Text("Compact conversation")
+                }
+                Text(
+                    "Compacts the current conversation into a bullet summary using the loaded model.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF8A94A6)
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Code mode",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        "Request unified-diff proposals (never editing files)",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Switch(
+                        checked = codeMode,
+                        onCheckedChange = onCodeMode
+                    )
+                }
+                Text(
+                    "Appends the safe-code instructions to the system prompt. Outputs are proposals; apply them manually.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF8A94A6)
+                )
                 Spacer(Modifier.height(8.dp))
                 Text(
                     "Theme",
@@ -1300,6 +1544,8 @@ private fun NumberField(
         modifier = Modifier.fillMaxWidth()
     )
 }
+
+private const val MAX_ATTACH_BYTES = 64 * 1024
 
 private fun buildMarkdown(systemPrompt: String, messages: List<ChatMessage>): String {
     val out = StringBuilder()

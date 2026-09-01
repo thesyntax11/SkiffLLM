@@ -76,7 +76,7 @@ class EngineController(private val appContext: Context) {
         if (isModelLoaded(file)) {
             return false
         }
-        return file.delete()
+        return ModelDownloader.deleteWithSidecar(file)
     }
 
     fun hasStoredModel(): Boolean = prefs.getString(KEY_MODEL_PATH, null)?.let(::File)?.exists() == true
@@ -174,6 +174,7 @@ class EngineController(private val appContext: Context) {
     fun generate(
         messages: List<ChatMessage>,
         params: SamplingParams,
+        stopSequences: List<String>,
         onToken: (String) -> Unit,
         onDone: (GenerationStats) -> Unit,
         onError: (String) -> Unit
@@ -257,6 +258,7 @@ class EngineController(private val appContext: Context) {
                 params.repeatLastN,
                 params.maxTokens,
                 params.seed,
+                stopSequences.toTypedArray(),
                 callback
             )
         }
@@ -273,9 +275,22 @@ class EngineController(private val appContext: Context) {
             return null
         }
         val json = SkiffNative.infoJson(handle) ?: return null
-        return runCatching { JSONObject(json).optString("description") }
-            .getOrNull()
-            ?.takeIf { it.isNotBlank() }
+        return runCatching {
+            val obj = JSONObject(json)
+            val description = obj.optString("description").takeIf { it.isNotBlank() } ?: "GGUF"
+            val params = obj.optLong("params")
+            val ctx = obj.optInt("context_train")
+            val paramsText = when {
+                params >= 1_000_000_000L -> "%.1fB params".format(params / 1_000_000_000.0)
+                params > 0 -> "${params / 1_000_000L}M params"
+                else -> ""
+            }
+            buildList {
+                add(description)
+                if (paramsText.isNotEmpty()) add(paramsText)
+                if (ctx > 0) add("ctx $ctx")
+            }.joinToString(" · ")
+        }.getOrNull()
     }
 
     private fun copyToInternal(uri: Uri): File {

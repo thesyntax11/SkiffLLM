@@ -53,12 +53,23 @@ Choose a device/simulator and Run. If you only want the simulator, edit
 - Import a local GGUF from the Files app.
 - Share text to SkiffLLM from another app through the built-in Share
   Extension; the main app shows it as a “Shared from another app” banner.
+- Attach a text, JSON, or XML file with the paperclip button. The file is read
+  locally as UTF-8 (capped at 64 KB), with a notice when it is truncated, and
+  inserted into the composer for the next message.
 - Export the current conversation as Markdown through the iOS share sheet.
 - Model warm-up after loading to reduce first-answer latency.
 - Model description + active backend shown in the header.
 - Sampling controls match the desktop/Android clients: profiles
   (balanced/fast/creative/code/precise), temperature, top-p, top-k, min-p,
   typical-p, repeat penalty/last-N, max tokens, seed, and stop sequences.
+- Conversation compaction (`Settings -> Compact conversation`) sends the
+  current transcript back through the loaded model at `temperature 0.2` and
+  replaces the conversation with a compact bullet summary, preserving facts,
+  decisions, preferences, and unfinished work. Stop sequences are disabled
+  during compaction.
+- Safe `Code mode` (`Settings`) mirrors the desktop `--code` mode: the model is
+  told to propose concrete, reviewable unified diffs and never to claim a file
+  was changed. Applying the proposal stays a manual step.
 - Keep the same short catalog IDs as the desktop CLI.
 
 ## Models

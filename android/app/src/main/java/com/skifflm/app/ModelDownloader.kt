@@ -9,6 +9,8 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.DigestInputStream
+import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -94,6 +96,11 @@ class ModelDownloader(private val appContext: Context) {
                     throw IOException("Download incomplete")
                 }
                 val completed = temp ?: throw IOException("Missing temporary file")
+                if (entry.bytes > 0L && completed.length() != entry.bytes) {
+                    throw IOException(
+                        "Size mismatch: expected ${entry.sizeText}, found ${completed.length()} bytes"
+                    )
+                }
                 if (!completed.isGgufFile()) {
                     throw IOException("Downloaded file is not a valid GGUF model")
                 }
@@ -105,6 +112,7 @@ class ModelDownloader(private val appContext: Context) {
                 if (!completed.renameTo(target)) {
                     throw IOException("Unable to store the downloaded model")
                 }
+                writeSha256Sidecar(target)
                 uiHandler.post { onProgress(100, target.length(), target.length()) }
                 uiHandler.post { onDone(target) }
             } catch (t: Throwable) {
@@ -138,6 +146,31 @@ class ModelDownloader(private val appContext: Context) {
             val stat = StatFs(modelDir.absolutePath)
             stat.availableBytes > bytes + (64L * 1024L * 1024L)
         }.getOrDefault(true)
+    }
+
+    private fun writeSha256Sidecar(file: File) {
+        val digest = MessageDigest.getInstance("SHA-256")
+        DigestInputStream(file.inputStream(), digest).use { input ->
+            val buffer = ByteArray(64 * 1024)
+            while (input.read(buffer) != -1) {
+                // Continue draining the stream so the digest covers the whole file.
+            }
+        }
+        val hex = digest.digest().joinToString("") { byte ->
+            "%02x".format(byte.toInt() and 0xFF)
+        }
+        File(file.absolutePath + ".sha256").writeText("$hex  ${file.name}\n")
+    }
+
+    companion object {
+        fun deleteWithSidecar(file: File): Boolean {
+            val deleted = file.delete()
+            val sidecar = File(file.absolutePath + ".sha256")
+            if (sidecar.exists()) {
+                sidecar.delete()
+            }
+            return deleted
+        }
     }
 }
 

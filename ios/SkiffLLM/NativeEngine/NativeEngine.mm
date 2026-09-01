@@ -8,9 +8,11 @@
 #include <atomic>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <sstream>
 #include <string>
 #include <thread>
 #include <vector>
@@ -116,8 +118,25 @@ NSString *utf8_to_ns(const std::string &value) {
     if (!_model) return @"";
     char buffer[4096] = {0};
     int32_t written = llama_model_desc(_model, buffer, sizeof(buffer));
-    if (written <= 0) return @"";
-    return [NSString stringWithUTF8String:buffer];
+    std::string desc = written > 0 ? std::string(buffer, (size_t)written) : "";
+    uint64_t params = llama_model_n_params(_model);
+    int32_t ctx = llama_model_n_ctx_train(_model);
+    std::string out = desc;
+    if (!out.empty() && out.back() == '\n') out.pop_back();
+    std::ostringstream info;
+    if (params >= 1000000000ULL) {
+        char buf[64] = {0};
+        snprintf(buf, sizeof(buf), "%.1fB params", (double)params / 1000000000.0);
+        info << buf;
+    } else if (params > 0) {
+        info << (params / 1000000ULL) << "M params";
+    }
+    if (ctx > 0) info << " · ctx " << ctx;
+    if (!out.empty() && !info.str().empty()) {
+        out += " · ";
+    }
+    out += info.str();
+    return [NSString stringWithUTF8String:out.c_str()];
 }
 
 - (BOOL)loadModelAtPath:(NSString *)path

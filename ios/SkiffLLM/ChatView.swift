@@ -2,6 +2,8 @@ import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 
+private let MAX_ATTACH_BYTES = 64 * 1024
+
 final class AppState: ObservableObject {
     let engine = NativeEngine()
     let settings = SettingsStore()
@@ -26,6 +28,7 @@ final class AppState: ObservableObject {
     @Published var persistentFacts: String = ""
     @Published var quickPrompts: [String] = []
     @Published var stopSequences: [String] = []
+    @Published var codeMode = false
     @Published var sharedText: String?
     @Published var localModels: [URL] = []
     @Published var showSettings = false
@@ -40,6 +43,7 @@ final class AppState: ObservableObject {
         persistentFacts = settings.loadPersistentFacts()
         quickPrompts = settings.loadQuickPrompts()
         stopSequences = settings.loadStopSequences()
+        codeMode = settings.loadCodeMode()
         theme = settings.loadTheme()
         currentConversation = conversations.currentName()
         let snap = conversations.load()
@@ -61,7 +65,12 @@ final class AppState: ObservableObject {
     func effectiveSystemPrompt() -> String {
         let base = systemPrompt.isEmpty ? "You are SkiffLLM, a helpful local assistant." : systemPrompt
         let facts = persistentFacts.trimmingCharacters(in: .whitespacesAndNewlines)
-        return facts.isEmpty ? base : "\(base)\n\nPersistent facts:\n\(facts)"
+        let withFacts = facts.isEmpty ? base : "\(base)\n\nPersistent facts:\n\(facts)"
+        guard codeMode else { return withFacts }
+        return withFacts + "\n\nYou are a careful coding assistant. Propose concrete " +
+            "edits as a unified diff (file paths, +/-, context). Use the code " +
+            "context below. Never claim a file was changed; output the proposal " +
+            "only and wait for a human to apply it."
     }
 
     func refreshModels() {
@@ -99,6 +108,62 @@ final class AppState: ObservableObject {
     func applyProfile(_ profile: SamplingProfile) {
         sampling = profile.apply(to: sampling)
         settings.saveSampling(sampling)
+    }
+
+    func compactConversation() {
+        guard !generating, !loadingModel, modelName != nil, messages.count >= 2 else { return }
+        let transcript = messages
+            .filter { $0.role != "system" }
+            .map { "\($0.role): \($0.content)" }
+            .joined(separator: "\n\n")
+        let payload: [[String: String]] = [
+            ["role": "system",
+             "content": "You are a memory compression assistant. Preserve facts, decisions, the user's preferences, file paths, and unfinished work. Keep it compact and complete."],
+            ["role": "user",
+             "content": "Compress this conversation into a compact bullet summary.\n\n<conversation>\n\(transcript)\n</conversation>\n"],
+        ]
+        generating = true
+        draft = ""
+        stats = nil
+        errorMessage = nil
+        engine.generateMessages(payload,
+                                temperature: 0.2,
+                                topP: sampling.topP,
+                                topK: Int32(sampling.topK),
+                                minP: sampling.minP,
+                                typicalP: sampling.typicalP,
+                                repeatPenalty: sampling.repeatPenalty,
+                                repeatLastN: Int32(sampling.repeatLastN),
+                                maxTokens: 512,
+                                seed: sampling.seed,
+                                stopSequences: [],
+                                tokenCallback: { [weak self] part in
+                                    DispatchQueue.main.async { self?.draft += part ?? "" }
+                                },
+                                completion: { [weak self] result, error in
+                                    guard let self else { return }
+                                    self.generating = false
+                                    if error != nil || self.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                        self.errorMessage = error?.localizedDescription ?? "Compaction failed."
+                                    } else {
+                                        let summary = self.draft
+                                        self.messages.removeAll()
+                                        self.messages.append(ChatMessage(role: "user", content: "[Compacted conversation]"))
+                                        self.messages.append(ChatMessage(role: "assistant", content: summary))
+                                        self.conversations.save(systemPrompt: self.systemPrompt, messages: self.messages)
+                                    }
+                                    if let result {
+                                        self.stats = GenerationStats(
+                                            promptTokens: Int(result.promptTokens),
+                                            generatedTokens: Int(result.generatedTokens),
+                                            promptMs: result.promptMs,
+                                            generationMs: result.generationMs,
+                                            tokensPerSecond: result.tokensPerSecond,
+                                            stopped: result.stopped
+                                        )
+                                    }
+                                    self.draft = ""
+                                })
     }
 
     private func autoLoadLastModel() {
@@ -248,6 +313,7 @@ struct ChatView: View {
     @StateObject private var app = AppState()
     @Environment(\.scenePhase) private var scenePhase
     @State private var showFileImporter = false
+    @State private var showTextImporter = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -287,6 +353,13 @@ struct ChatView: View {
                 importModel(url)
             }
         }
+        .fileImporter(isPresented: $showTextImporter,
+                      allowedContentTypes: [.text, .data],
+                      allowsMultipleSelection: false) { result in
+            if case .success(let urls) = result, let url = urls.first {
+                attachImportedText(url)
+            }
+        }
         .onAppear { app.refreshSharedText() }
         .onChange(of: scenePhase) { phase in
             if phase == .active {
@@ -314,6 +387,30 @@ struct ChatView: View {
             } catch {
                 DispatchQueue.main.async {
                     app.errorMessage = "Unable to import model: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    private func attachImportedText(_ url: URL) {
+        let accessed = url.startAccessingSecurityScopedResource()
+        DispatchQueue.global(qos: .userInitiated).async { [app] in
+            defer {
+                if accessed { url.stopAccessingSecurityScopedResource() }
+            }
+            do {
+                let content = try String(contentsOf: url, encoding: .utf8)
+                let bounded = String(content.prefix(MAX_ATTACH_BYTES))
+                DispatchQueue.main.async {
+                    app.errorMessage = content.count > MAX_ATTACH_BYTES
+                        ? "Attached the first \(MAX_ATTACH_BYTES / 1024) KB of the file."
+                        : nil
+                    let existing = app.input.trimmingCharacters(in: .whitespacesAndNewlines)
+                    app.input = existing.isEmpty ? bounded : existing + "\n\n" + bounded
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    app.errorMessage = "Unable to read the attached file: \(error.localizedDescription)"
                 }
             }
         }
@@ -475,6 +572,12 @@ struct ChatView: View {
                 .background(Color(.secondarySystemBackground))
                 .cornerRadius(12)
 
+            Button { showTextImporter = true } label: {
+                Image(systemName: "paperclip")
+            }
+            .buttonStyle(.bordered)
+            .disabled(app.generating)
+
             if app.generating {
                 Button("Stop") { app.stop() }
                     .buttonStyle(.bordered)
@@ -573,6 +676,15 @@ struct SettingsSheet: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
+                Section {
+                    Button("Compact conversation") {
+                        app.showSettings = false
+                        app.compactConversation()
+                    }
+                    Text("Compacts the current conversation into a bullet summary using the loaded model.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
                 Section("Stop sequences") {
                     ForEach(app.stopSequences, id: \.self) { sequence in
                         HStack {
@@ -590,6 +702,12 @@ struct SettingsSheet: View {
                             newStopSequence = ""
                         }
                     }
+                }
+                Section {
+                    Toggle("Code mode — request unified diffs", isOn: $app.codeMode)
+                    Text("Appends the safe-code instructions to the system prompt. Outputs are proposals; apply them manually.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
                 Section("Quick prompts") {
                     ForEach(app.quickPrompts, id: \.self) { prompt in
@@ -629,6 +747,7 @@ struct SettingsSheet: View {
                         app.settings.saveSampling(app.sampling)
                         app.settings.saveSystemPrompt(app.systemPrompt)
                         app.settings.savePersistentFacts(app.persistentFacts)
+                        app.settings.saveCodeMode(app.codeMode)
                         app.settings.saveTheme(app.theme)
                         app.showSettings = false
                     }

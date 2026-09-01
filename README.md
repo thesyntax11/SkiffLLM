@@ -318,9 +318,12 @@ Compose + a llama.cpp JNI bridge). Both run supported GGUF models entirely on
 the phone, stream tokens into a dark/light/system theme, and show a live
 context-usage progress bar plus real measured token count, time, and tokens
 per second. The apps remember the last loaded model, and can download
-recommended GGUF models directly from Hugging Face over HTTPS and record a
-SHA-256 checksum sidecar. The only network use is those explicit downloads;
-prompts and history never leave the device.
+recommended GGUF models directly from Hugging Face over HTTPS with size/GGUF
+validation and a SHA-256 checksum sidecar. They share the desktop sampling
+profiles, stop sequences, safe code mode, multi-conversation management,
+persistent facts, quick prompts, conversation compaction, Markdown export,
+text-file attachment, and share-sheet intake. The only network use is those
+explicit downloads; prompts and history never leave the device.
 
 ### Android
 
