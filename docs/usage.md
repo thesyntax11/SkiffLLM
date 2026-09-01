@@ -66,6 +66,7 @@ skifflm --model model.gguf --warmup
 
 `--chat-template` overrides the model's built-in prompt format name.
 `--warmup` runs a one-token generation on startup to reduce first-answer latency.
+Inside the shell you can also warm the model again with `/warmup`.
 
 ## Interactive Line Editing
 
