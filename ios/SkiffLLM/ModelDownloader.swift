@@ -6,6 +6,9 @@ final class ModelDownloader: NSObject, ObservableObject, URLSessionDownloadDeleg
     @Published var downloading = Set<String>()
     @Published var progress: [String: Double] = [:]
     @Published var errors: [String: String] = [:]
+    @Published var lastDownloaded: URL?
+
+    var onDownloadCompleted: ((URL) -> Void)?
 
     private var session: URLSession!
     private let modelsDir: URL
@@ -92,6 +95,8 @@ final class ModelDownloader: NSObject, ObservableObject, URLSessionDownloadDeleg
                 self.errors[id] = nil
                 self.downloading.remove(id)
                 self.tasks[id] = nil
+                self.lastDownloaded = dest
+                self.onDownloadCompleted?(dest)
             }
         } catch {
             DispatchQueue.main.async {

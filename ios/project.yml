@@ -14,11 +14,15 @@ targets:
     platform: iOS
     sources:
       - path: SkiffLLM
+        excludes:
+          - "Info.plist"
+          - "*.entitlements"
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.skifflm.app
         PRODUCT_NAME: SkiffLLM
         INFOPLIST_FILE: SkiffLLM/Info.plist
+        CODE_SIGN_ENTITLEMENTS: SkiffLLM/SkiffLLM.entitlements
         TARGETED_DEVICE_FAMILY: "1"
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: ""
@@ -36,3 +40,25 @@ targets:
         link: true
       - framework: Accelerate.framework
         link: true
+      - target: SkiffLLMShare
+        embed: true
+  SkiffLLMShare:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: SkiffLLMShare
+        excludes:
+          - "Info.plist"
+          - "*.entitlements"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.skifflm.app.share
+        PRODUCT_NAME: SkiffLLMShare
+        INFOPLIST_FILE: SkiffLLMShare/Info.plist
+        CODE_SIGN_ENTITLEMENTS: SkiffLLMShare/SkiffLLMShare.entitlements
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: ""
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+        SWIFT_VERSION: "5.0"

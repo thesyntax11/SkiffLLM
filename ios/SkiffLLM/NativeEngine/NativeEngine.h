@@ -16,6 +16,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (int)contextCapacity;
 - (NSString *)activeBackends;
+- (NSString *)modelDescription;
+
+- (BOOL)warmup:(NSError **)error NS_SWIFT_NOTHROW;
 
 - (BOOL)loadModelAtPath:(NSString *)path
             contextSize:(int)contextSize
@@ -29,6 +32,7 @@ NS_ASSUME_NONNULL_BEGIN
                     topP:(float)topP
                     topK:(int)topK
                     minP:(float)minP
+                 typicalP:(float)typicalP
            repeatPenalty:(float)repeatPenalty
            repeatLastN:(int)repeatLastN
               maxTokens:(int)maxTokens

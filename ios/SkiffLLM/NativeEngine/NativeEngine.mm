@@ -112,6 +112,14 @@ NSString *utf8_to_ns(const std::string &value) {
     return utf8_to_ns(out.empty() ? "CPU" : out);
 }
 
+- (NSString *)modelDescription {
+    if (!_model) return @"";
+    char buffer[4096] = {0};
+    int32_t written = llama_model_desc(_model, buffer, sizeof(buffer));
+    if (written <= 0) return @"";
+    return [NSString stringWithUTF8String:buffer];
+}
+
 - (BOOL)loadModelAtPath:(NSString *)path
             contextSize:(int)contextSize
                threads:(int)threads
@@ -178,6 +186,7 @@ NSString *utf8_to_ns(const std::string &value) {
                                 topP:(float)topP
                                 topK:(int)topK
                                 minP:(float)minP
+                             typicalP:(float)typicalP
                        repeatPenalty:(float)repeatPenalty
                        repeatLastN:(int)repeatLastN
                             seed:(uint32_t)seed
@@ -208,6 +217,9 @@ NSString *utf8_to_ns(const std::string &value) {
     }
     if (minP > 0.0f && minP <= 1.0f) {
         llama_sampler_chain_add(_sampler, llama_sampler_init_min_p(minP, 1));
+    }
+    if (typicalP > 0.0f && typicalP <= 1.0f) {
+        llama_sampler_chain_add(_sampler, llama_sampler_init_typical(typicalP, 1));
     }
     if (repeatPenalty > 0.0f && repeatPenalty != 1.0f) {
         llama_sampler_chain_add(_sampler,
@@ -266,6 +278,34 @@ NSString *utf8_to_ns(const std::string &value) {
                                      userInfo:@{NSLocalizedDescriptionKey: @"llama_decode failed"}];
         }
         return NO;
+    }
+    return YES;
+}
+
+- (BOOL)warmup:(NSError **)error {
+    if (!_model || !_vocab || !_ctx) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"SkiffLLM" code:11
+                                     userInfo:@{NSLocalizedDescriptionKey: @"No model loaded"}];
+        }
+        return NO;
+    }
+    NSError *local = nil;
+    std::vector<llama_token> tokens = [self encode:@"Hello" error:&local];
+    if (local) tokens.clear();
+    if (tokens.empty()) {
+        if (error) {
+            *error = local ?: [NSError errorWithDomain:@"SkiffLLM" code:12
+                                              userInfo:@{NSLocalizedDescriptionKey: @"Warm-up prompt failed"}];
+        }
+        return NO;
+    }
+    if (![self decode:tokens error:&local]) {
+        if (error) *error = local;
+        return NO;
+    }
+    if (llama_memory_t mem = llama_get_memory(_ctx)) {
+        llama_memory_clear(mem, true);
     }
     return YES;
 }
@@ -345,6 +385,7 @@ NSString *utf8_to_ns(const std::string &value) {
                     topP:(float)topP
                     topK:(int)topK
                     minP:(float)minP
+                 typicalP:(float)typicalP
            repeatPenalty:(float)repeatPenalty
            repeatLastN:(int)repeatLastN
               maxTokens:(int)maxTokens
@@ -402,6 +443,7 @@ NSString *utf8_to_ns(const std::string &value) {
                                          topP:topP
                                          topK:topK
                                          minP:minP
+                                      typicalP:typicalP
                                 repeatPenalty:repeatPenalty
                                 repeatLastN:repeatLastN
                                      seed:seed

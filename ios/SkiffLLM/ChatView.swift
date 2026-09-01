@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 
 final class AppState: ObservableObject {
     let engine = NativeEngine()
@@ -15,12 +16,17 @@ final class AppState: ObservableObject {
     @Published var stats: GenerationStats?
     @Published var errorMessage: String?
     @Published var modelName: String?
+    @Published var modelInfo: String?
     @Published var currentConversation = "default"
     @Published var conversationList: [String] = []
     @Published var theme: Theme = .system
     @Published var loadParams: LoadParams = LoadParams()
     @Published var sampling: SamplingParams = SamplingParams()
     @Published var systemPrompt: String = ""
+    @Published var persistentFacts: String = ""
+    @Published var quickPrompts: [String] = []
+    @Published var stopSequences: [String] = []
+    @Published var sharedText: String?
     @Published var localModels: [URL] = []
     @Published var showSettings = false
     @Published var showModels = false
@@ -31,6 +37,9 @@ final class AppState: ObservableObject {
         loadParams = settings.loadLoadParams(defaultThreads: threads)
         sampling = settings.loadSampling()
         systemPrompt = settings.loadSystemPrompt()
+        persistentFacts = settings.loadPersistentFacts()
+        quickPrompts = settings.loadQuickPrompts()
+        stopSequences = settings.loadStopSequences()
         theme = settings.loadTheme()
         currentConversation = conversations.currentName()
         let snap = conversations.load()
@@ -38,6 +47,10 @@ final class AppState: ObservableObject {
         systemPrompt = snap.systemPrompt
         refreshModels()
         refreshConversations()
+        sharedText = SharedTextStore.shared.peek()
+        downloader.onDownloadCompleted = { [weak self] url in
+            DispatchQueue.main.async { self?.useModel(url) }
+        }
         autoLoadLastModel()
     }
 
@@ -46,7 +59,9 @@ final class AppState: ObservableObject {
     }
 
     func effectiveSystemPrompt() -> String {
-        systemPrompt.isEmpty ? "You are SkiffLLM, a helpful local assistant." : systemPrompt
+        let base = systemPrompt.isEmpty ? "You are SkiffLLM, a helpful local assistant." : systemPrompt
+        let facts = persistentFacts.trimmingCharacters(in: .whitespacesAndNewlines)
+        return facts.isEmpty ? base : "\(base)\n\nPersistent facts:\n\(facts)"
     }
 
     func refreshModels() {
@@ -58,6 +73,34 @@ final class AppState: ObservableObject {
         currentConversation = conversations.currentName()
     }
 
+    func refreshSharedText() {
+        if let value = SharedTextStore.shared.take() {
+            sharedText = value
+        }
+    }
+
+    func useSharedText() {
+        if let value = sharedText {
+            input = value
+        }
+        sharedText = nil
+        SharedTextStore.shared.clear()
+    }
+
+    func dismissSharedText() {
+        sharedText = nil
+        SharedTextStore.shared.clear()
+    }
+
+    func exportMarkdown() -> String {
+        conversationMarkdown(systemPrompt: effectiveSystemPrompt(), messages: messages)
+    }
+
+    func applyProfile(_ profile: SamplingProfile) {
+        sampling = profile.apply(to: sampling)
+        settings.saveSampling(sampling)
+    }
+
     private func autoLoadLastModel() {
         guard let path = settings.loadLastModelPath(),
               FileManager.default.fileExists(atPath: path) else { return }
@@ -67,6 +110,7 @@ final class AppState: ObservableObject {
     func useModel(_ url: URL) {
         guard !generating, !loadingModel else { return }
         modelName = nil
+        modelInfo = nil
         errorMessage = nil
         loadingModel = true
         let params = loadParams
@@ -79,10 +123,17 @@ final class AppState: ObservableObject {
                                                  gpuLayers: Int32(params.gpuLayers),
                                                  chatTemplate: params.chatTemplate,
                                                  error: &error)
+            var description: String?
+            if ok {
+                description = self.engine.modelDescription()
+                var warmError: NSError?
+                _ = self.engine.warmup(error: &warmError)
+            }
             DispatchQueue.main.async {
                 self.loadingModel = false
                 if ok {
                     self.modelName = url.lastPathComponent
+                    self.modelInfo = description
                     self.settings.saveLastModelPath(url.path)
                 } else {
                     self.errorMessage = error?.localizedDescription ?? "Failed to load model."
@@ -108,16 +159,16 @@ final class AppState: ObservableObject {
         }
         payload.append(contentsOf: messages.map { ["role": $0.role, "content": $0.content] })
         let msgs: [[String: String]] = payload
-        let stopSequences: [String] = []
         engine.generateMessages(msgs,
                                 temperature: sampling.temperature,
                                 topP: sampling.topP,
                                 topK: Int32(sampling.topK),
                                 minP: sampling.minP,
+                                typicalP: sampling.typicalP,
                                 repeatPenalty: sampling.repeatPenalty,
                                 repeatLastN: Int32(sampling.repeatLastN),
                                 maxTokens: Int32(sampling.maxTokens),
-                                seed: 0xFFFFFFFF,
+                                seed: sampling.seed,
                                 stopSequences: stopSequences,
                                 tokenCallback: { [weak self] part in
                                     DispatchQueue.main.async { self?.draft += part ?? "" }
@@ -130,7 +181,7 @@ final class AppState: ObservableObject {
                                         if !self.messages.isEmpty { self.messages.removeLast() }
                                     } else {
                                         self.messages.append(ChatMessage(role: "assistant", content: self.draft))
-                                        self.conversations.save(systemPrompt: self.effectiveSystemPrompt(), messages: self.messages)
+                                        self.conversations.save(systemPrompt: self.systemPrompt, messages: self.messages)
                                     }
                                     if let result {
                                         self.stats = GenerationStats(
@@ -156,7 +207,7 @@ final class AppState: ObservableObject {
         draft = ""
         input = ""
         stats = nil
-        conversations.save(systemPrompt: effectiveSystemPrompt(), messages: [])
+        conversations.save(systemPrompt: systemPrompt, messages: [])
     }
 
     func newConversation(_ name: String) {
@@ -195,11 +246,14 @@ final class AppState: ObservableObject {
 
 struct ChatView: View {
     @StateObject private var app = AppState()
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var showFileImporter = false
 
     var body: some View {
         VStack(spacing: 0) {
             topBar
             Divider()
+            modelStatus
             messageList
             if let stats = app.stats, !app.generating {
                 contextBar(stats)
@@ -210,17 +264,63 @@ struct ChatView: View {
                     .foregroundColor(.red)
                     .padding(.horizontal, 12)
             }
+            sharedTextBar
+            quickPromptsRow
             composer
         }
         .preferredColorScheme(app.theme == .system ? nil
                               : app.theme == .dark ? .dark : .light)
-        .sheet(isPresented: $app.showSettings) { SettingsSheet(app: app) }
-        .sheet(isPresented: $app.showModels) { ModelsSheet(app: app) }
+        .sheet(isPresented: $app.showSettings) {
+            SettingsSheet(app: app)
+        }
+        .sheet(isPresented: $app.showModels) {
+            ModelsSheet(app: app, onImport: {
+                app.showModels = false
+                showFileImporter = true
+            })
+        }
         .sheet(isPresented: $app.showConversations) { ConversationsSheet(app: app) }
+        .fileImporter(isPresented: $showFileImporter,
+                      allowedContentTypes: [.data],
+                      allowsMultipleSelection: false) { result in
+            if case .success(let urls) = result, let url = urls.first {
+                importModel(url)
+            }
+        }
+        .onAppear { app.refreshSharedText() }
+        .onChange(of: scenePhase) { phase in
+            if phase == .active {
+                app.refreshSharedText()
+            }
+        }
+    }
+
+    private func importModel(_ url: URL) {
+        let accessed = url.startAccessingSecurityScopedResource()
+        DispatchQueue.global(qos: .userInitiated).async { [app] in
+            defer {
+                if accessed { url.stopAccessingSecurityScopedResource() }
+            }
+            let dest = app.downloader.modelURL(name: url.lastPathComponent)
+            do {
+                if !FileManager.default.fileExists(atPath: dest.path) {
+                    try FileManager.default.copyItem(at: url, to: dest)
+                }
+                DispatchQueue.main.async {
+                    app.refreshModels()
+                    app.errorMessage = nil
+                    app.useModel(dest)
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    app.errorMessage = "Unable to import model: \(error.localizedDescription)"
+                }
+            }
+        }
     }
 
     private var topBar: some View {
-        HStack {
+        HStack(spacing: 10) {
             Text("SkiffLLM")
                 .font(.headline)
                 .foregroundColor(.accentColor)
@@ -229,17 +329,52 @@ struct ChatView: View {
                 .foregroundColor(.secondary)
                 .lineLimit(1)
             Spacer()
-            Button("Chats") { app.showConversations = true }
-                .buttonStyle(.borderless)
-            Button("Models") { app.showModels = true }
-                .buttonStyle(.borderless)
-            Button("Settings") { app.showSettings = true }
-                .buttonStyle(.borderless)
-            Button("Clear") { app.clear() }
-                .buttonStyle(.borderless)
-    }
+            Button { app.showConversations = true } label: {
+                Image(systemName: "bubble.left.and.bubble.right")
+            }
+            Button { app.showModels = true } label: {
+                Image(systemName: "ellipsis.circle")
+            }
+            ShareLink(item: app.exportMarkdown()) {
+                Image(systemName: "square.and.arrow.up")
+            }
+            Button { app.showSettings = true } label: {
+                Image(systemName: "gearshape")
+            }
+            Button { app.clear() } label: {
+                Image(systemName: "trash")
+            }
+        }
+        .font(.body)
+        .buttonStyle(.borderless)
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+    }
+
+    private var modelStatus: some View {
+        HStack(spacing: 6) {
+            Text(app.modelName ?? "No model loaded")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+            if app.loadingModel {
+                ProgressView().controlSize(.small)
+            }
+            Spacer()
+            if let info = app.modelInfo {
+                Text(info)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            } else if !app.loadingModel {
+                Text(app.engine.activeBackends())
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 4)
     }
 
     private var messageList: some View {
@@ -287,6 +422,51 @@ struct ChatView: View {
         .padding(.top, 4)
     }
 
+    private var sharedTextBar: some View {
+        Group {
+            if let shared = app.sharedText {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Shared from another app")
+                        .font(.caption)
+                        .foregroundColor(.accentColor)
+                    Text(shared.replacingOccurrences(of: "\n", with: " ").prefix(160))
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+                    HStack {
+                        Button("Use") { app.useSharedText() }
+                        Spacer()
+                        Button("Dismiss") { app.dismissSharedText() }
+                    }
+                    .font(.caption)
+                }
+                .padding(8)
+                .background(Color(.secondarySystemBackground))
+                .cornerRadius(12)
+                .padding(.horizontal, 12)
+                .padding(.top, 4)
+            }
+        }
+    }
+
+    private var quickPromptsRow: some View {
+        Group {
+            if !app.quickPrompts.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(app.quickPrompts, id: \.self) { prompt in
+                            Button(prompt) { app.input = prompt }
+                                .font(.caption)
+                                .buttonStyle(.bordered)
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.top, 4)
+                }
+            }
+        }
+    }
+
     private var composer: some View {
         HStack(alignment: .bottom, spacing: 8) {
             TextEditor(text: $app.input)
@@ -331,6 +511,8 @@ struct MessageBubble: View {
 
 struct SettingsSheet: View {
     @ObservedObject var app: AppState
+    @State private var newQuickPrompt = ""
+    @State private var newStopSequence = ""
 
     var body: some View {
         NavigationView {
@@ -339,8 +521,16 @@ struct SettingsSheet: View {
                     Stepper("Context: \(app.loadParams.contextSize)", value: $app.loadParams.contextSize, in: 512...32768, step: 256)
                     Stepper("Threads: \(app.loadParams.threads)", value: $app.loadParams.threads, in: 1...16)
                     Stepper("GPU layers: \(app.loadParams.gpuLayers)", value: $app.loadParams.gpuLayers, in: -1...64)
-                    TextField("Chat template", text: $app.loadParams.chatTemplate)
+                    TextField("Chat template (next load)", text: $app.loadParams.chatTemplate)
                         .autocorrectionDisabled()
+                }
+                Section("Profile presets") {
+                    ForEach(SamplingProfile.allCases, id: \.self) { profile in
+                        Button(profile.label) { app.applyProfile(profile) }
+                    }
+                    Text("Applies the values shown below immediately. Fine-tune after choosing a preset.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
                 Section("Sampling") {
                     Slider(value: $app.sampling.temperature, in: 0...2, step: 0.05) {
@@ -353,21 +543,83 @@ struct SettingsSheet: View {
                     Slider(value: $app.sampling.minP, in: 0...1, step: 0.01) {
                         Text("Min-p: \(String(format: "%.2f", app.sampling.minP))")
                     }
+                    Slider(value: $app.sampling.typicalP, in: 0...1, step: 0.01) {
+                        Text("Typical-p: \(String(format: "%.2f", app.sampling.typicalP))")
+                    }
                     Slider(value: $app.sampling.repeatPenalty, in: 1...2, step: 0.01) {
                         Text("Repeat: \(String(format: "%.2f", app.sampling.repeatPenalty))")
                     }
                     Stepper("Max tokens: \(app.sampling.maxTokens)", value: $app.sampling.maxTokens, in: 16...4096, step: 16)
+                    TextField("Seed (blank = random)", text: Binding(
+                        get: { app.sampling.seed == 0xFFFFFFFF ? "" : String(app.sampling.seed) },
+                        set: { value in
+                            if let number = UInt32(value) {
+                                app.sampling.seed = number
+                            } else {
+                                app.sampling.seed = 0xFFFFFFFF
+                            }
+                        }
+                    ))
+                    .keyboardType(.numberPad)
                 }
                 Section("System prompt") {
                     TextEditor(text: $app.systemPrompt)
                         .frame(minHeight: 80)
                 }
-                Picker("Theme", selection: $app.theme) {
-                    ForEach(Theme.allCases, id: \.self) { theme in
-                        Text(theme.label).tag(theme)
+                Section("Persistent facts") {
+                    TextEditor(text: $app.persistentFacts)
+                        .frame(minHeight: 80)
+                    Text("Keep facts like “the user prefers concise answers” here. They stay on this device and are injected every turn.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Section("Stop sequences") {
+                    ForEach(app.stopSequences, id: \.self) { sequence in
+                        HStack {
+                            Text(sequence).font(.caption)
+                            Spacer()
+                            Button("Remove") { app.settings.removeStopSequence(sequence); app.stopSequences = app.settings.loadStopSequences() }
+                                .font(.caption)
+                        }
+                    }
+                    HStack {
+                        TextField("New stop sequence", text: $newStopSequence)
+                        Button("Add") {
+                            app.settings.addStopSequence(newStopSequence)
+                            app.stopSequences = app.settings.loadStopSequences()
+                            newStopSequence = ""
+                        }
                     }
                 }
-                .pickerStyle(.segmented)
+                Section("Quick prompts") {
+                    ForEach(app.quickPrompts, id: \.self) { prompt in
+                        HStack {
+                            Text(prompt).font(.caption)
+                            Spacer()
+                            Button("Remove") { app.settings.removeQuickPrompt(prompt); app.quickPrompts = app.settings.loadQuickPrompts() }
+                                .font(.caption)
+                        }
+                    }
+                    HStack {
+                        TextField("New quick prompt", text: $newQuickPrompt)
+                        Button("Add") {
+                            app.settings.addQuickPrompt(newQuickPrompt)
+                            app.quickPrompts = app.settings.loadQuickPrompts()
+                            newQuickPrompt = ""
+                        }
+                    }
+                }
+                Section("Theme") {
+                    Picker("Theme", selection: $app.theme) {
+                        ForEach(Theme.allCases, id: \.self) { theme in
+                            Text(theme.label).tag(theme)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+                Section {
+                    NavigationLink("About SkiffLLM") { AboutSheet() }
+                }
             }
             .navigationTitle("Settings")
             .toolbar {
@@ -376,6 +628,7 @@ struct SettingsSheet: View {
                         app.settings.saveLoadParams(app.loadParams)
                         app.settings.saveSampling(app.sampling)
                         app.settings.saveSystemPrompt(app.systemPrompt)
+                        app.settings.savePersistentFacts(app.persistentFacts)
                         app.settings.saveTheme(app.theme)
                         app.showSettings = false
                     }
@@ -387,6 +640,7 @@ struct SettingsSheet: View {
 
 struct ModelsSheet: View {
     @ObservedObject var app: AppState
+    var onImport: () -> Void
 
     var body: some View {
         NavigationView {
@@ -414,6 +668,16 @@ struct ModelsSheet: View {
                         }
                     }
                 }
+                Section("Import") {
+                    Button {
+                        onImport()
+                    } label: {
+                        Label("Import a GGUF from Files", systemImage: "folder")
+                    }
+                    Text("A local GGUF is copied into the app’s model folder and verified before use.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
                 Section("Recommended") {
                     ForEach(ModelCatalog.models) { entry in
                         let isDownloaded = app.localModels.contains { $0.lastPathComponent == entry.file }
@@ -428,6 +692,11 @@ struct ModelsSheet: View {
                                 if isDownloading, let pct = app.downloader.progress[entry.id] {
                                     ProgressView(value: pct)
                                         .frame(maxWidth: 160)
+                                }
+                                if let downloadError = app.downloader.errors[entry.id] {
+                                    Text(downloadError)
+                                        .font(.caption2)
+                                        .foregroundColor(.red)
                                 }
                             }
                             Spacer()
@@ -499,5 +768,39 @@ struct ConversationsSheet: View {
                 }
             }
         }
+    }
+}
+
+struct AboutSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        Form {
+                Section {
+                    Text("SkiffLLM")
+                        .font(.title)
+                        .foregroundColor(.accentColor)
+                    Text("Version 1.6.0 (iOS)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Section("Privacy") {
+                    Text("Inference, chat, import, and export stay on this device. The only network use is optional HTTPS model downloads from Hugging Face. No prompts, history, analytics, or crash reports are sent.")
+                        .font(.caption)
+                }
+                Section("Models") {
+                    Text("Use Models to download a recommended Q4_K_M GGUF or import your own GGUF from Files. Downloads verify the GGUF header, size, and SHA-256 sidecar.")
+                        .font(.caption)
+                }
+                Section("License") {
+                    Text("MIT")
+                }
+            }
+            .navigationTitle("About")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
     }
 }

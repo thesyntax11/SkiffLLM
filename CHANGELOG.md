@@ -24,8 +24,11 @@
 - Unified model catalog IDs across the desktop catalog, `model_fetch.py`, and
   the Android catalog.
 - Added an iOS SwiftUI client (`ios/`) with a llama.cpp Objective-C++ bridge,
-  token streaming, auto-trim, context bar, themes, multi-conversation, and
-  HTTPS model downloads with SHA-256 verification. Setup: `scripts/ios-setup.sh`.
+  token streaming, auto-trim, context bar, themes, multi-conversation,
+  persistent facts, quick prompts, sampling profiles and stop sequences,
+  model warm-up, typical-p/seed sampling, GGUF import from Files, a Share
+  Extension for incoming text, Markdown export, and HTTPS model downloads
+  with SHA-256 verification. Setup: `scripts/ios-setup.sh`.
 - Added `scripts/model_fetch.py` to fetch a recommended GGUF model once over
   HTTPS. The runtime itself still never downloads or registers models.
 - Moved model warmup into the engine so the desktop `--warmup` path and the

@@ -21,9 +21,68 @@ struct SamplingParams {
     var topP: Float = 0.95
     var topK: Int = 40
     var minP: Float = 0.0
+    var typicalP: Float = 0.0
     var repeatPenalty: Float = 1.10
     var repeatLastN: Int = 64
     var maxTokens: Int = 512
+    var seed: UInt32 = 0xFFFFFFFF
+}
+
+enum SamplingProfile: String, CaseIterable {
+    case balanced
+    case fast
+    case creative
+    case code
+    case precise
+
+    var label: String { rawValue.capitalized }
+
+    func apply(to value: SamplingParams) -> SamplingParams {
+        var out = value
+        switch self {
+        case .balanced:
+            out.temperature = 0.70
+            out.topP = 0.95
+            out.topK = 40
+            out.minP = 0.00
+            out.typicalP = 0.0
+            out.repeatPenalty = 1.10
+            out.maxTokens = 512
+        case .fast:
+            out.temperature = 0.60
+            out.topP = 0.90
+            out.topK = 30
+            out.minP = 0.00
+            out.typicalP = 0.0
+            out.repeatPenalty = 1.05
+            out.maxTokens = 256
+        case .creative:
+            out.temperature = 1.00
+            out.topP = 0.98
+            out.topK = 60
+            out.minP = 0.05
+            out.typicalP = 0.0
+            out.repeatPenalty = 1.20
+            out.maxTokens = 512
+        case .code:
+            out.temperature = 0.20
+            out.topP = 0.90
+            out.topK = 20
+            out.minP = 0.00
+            out.typicalP = 0.0
+            out.repeatPenalty = 1.20
+            out.maxTokens = 1024
+        case .precise:
+            out.temperature = 0.00
+            out.topP = 0.90
+            out.topK = 20
+            out.minP = 0.00
+            out.typicalP = 0.0
+            out.repeatPenalty = 1.00
+            out.maxTokens = 650
+        }
+        return out
+    }
 }
 
 struct LoadParams {
@@ -125,9 +184,11 @@ final class SettingsStore {
             topP: defaults.object(forKey: "top_p") as? Float ?? 0.95,
             topK: defaults.object(forKey: "top_k") as? Int ?? 40,
             minP: defaults.object(forKey: "min_p") as? Float ?? 0.0,
+            typicalP: defaults.object(forKey: "typical_p") as? Float ?? 0.0,
             repeatPenalty: defaults.object(forKey: "repeat_penalty") as? Float ?? 1.10,
             repeatLastN: defaults.object(forKey: "repeat_last_n") as? Int ?? 64,
-            maxTokens: defaults.object(forKey: "max_tokens") as? Int ?? 512
+            maxTokens: defaults.object(forKey: "max_tokens") as? Int ?? 512,
+            seed: UInt32(defaults.object(forKey: "seed") as? Int ?? Int(0xFFFFFFFF))
         )
     }
 
@@ -136,9 +197,11 @@ final class SettingsStore {
         defaults.set(value.topP, forKey: "top_p")
         defaults.set(value.topK, forKey: "top_k")
         defaults.set(value.minP, forKey: "min_p")
+        defaults.set(value.typicalP, forKey: "typical_p")
         defaults.set(value.repeatPenalty, forKey: "repeat_penalty")
         defaults.set(value.repeatLastN, forKey: "repeat_last_n")
         defaults.set(value.maxTokens, forKey: "max_tokens")
+        defaults.set(Int(value.seed), forKey: "seed")
     }
 
     func loadSystemPrompt() -> String {
@@ -147,6 +210,50 @@ final class SettingsStore {
 
     func saveSystemPrompt(_ value: String) {
         defaults.set(value, forKey: "system_prompt")
+    }
+
+    func loadPersistentFacts() -> String {
+        defaults.string(forKey: "persistent_facts") ?? ""
+    }
+
+    func savePersistentFacts(_ value: String) {
+        defaults.set(value, forKey: "persistent_facts")
+    }
+
+    func loadStopSequences() -> [String] {
+        (defaults.stringArray(forKey: "stop_sequences") ?? []).filter { !$0.isEmpty }
+    }
+
+    func addStopSequence(_ value: String) {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        var sequences = loadStopSequences()
+        if !sequences.contains(trimmed) {
+            sequences.append(trimmed)
+            defaults.set(sequences, forKey: "stop_sequences")
+        }
+    }
+
+    func removeStopSequence(_ value: String) {
+        defaults.set(loadStopSequences().filter { $0 != value }, forKey: "stop_sequences")
+    }
+
+    func loadQuickPrompts() -> [String] {
+        (defaults.stringArray(forKey: "quick_prompts") ?? []).filter { !$0.isEmpty }
+    }
+
+    func addQuickPrompt(_ value: String) {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        var prompts = loadQuickPrompts()
+        if !prompts.contains(trimmed) {
+            prompts.append(trimmed)
+            defaults.set(prompts.sorted(), forKey: "quick_prompts")
+        }
+    }
+
+    func removeQuickPrompt(_ value: String) {
+        defaults.set(loadQuickPrompts().filter { $0 != value }, forKey: "quick_prompts")
     }
 
     func loadTheme() -> Theme {
@@ -172,6 +279,44 @@ final class SettingsStore {
 struct ConversationSnapshot {
     let systemPrompt: String
     let messages: [ChatMessage]
+}
+
+enum SkiffLLMAppGroup {
+    static let identifier = "group.com.skifflm.app"
+}
+
+final class SharedTextStore {
+    static let shared = SharedTextStore()
+    private let defaults = UserDefaults(suiteName: SkiffLLMAppGroup.identifier)
+
+    func take() -> String? {
+        guard let value = defaults?.string(forKey: "shared_text")?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else { return nil }
+        defaults?.removeObject(forKey: "shared_text")
+        return value
+    }
+
+    func peek() -> String? {
+        guard let value = defaults?.string(forKey: "shared_text")?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else { return nil }
+        return value
+    }
+
+    func clear() {
+        defaults?.removeObject(forKey: "shared_text")
+    }
+}
+
+func conversationMarkdown(systemPrompt: String, messages: [ChatMessage]) -> String {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "yyyy-MM-dd HH:mm"
+    var out = "# SkiffLLM Conversation\n\n## System\n\n\(systemPrompt)\n\n"
+    out += "Exported: \(formatter.string(from: Date()))\n\n"
+    for message in messages {
+        let role = message.role == "user" ? "User" : (message.role == "assistant" ? "Assistant" : message.role)
+        out += "## \(role)\n\n\(message.content)\n\n"
+    }
+    return out
 }
 
 final class ConversationStore {
