@@ -34,6 +34,17 @@ if command -v python3 >/dev/null 2>&1; then
     python3 scripts/api_client.py --help >/dev/null
 fi
 
+# Keep the project version consistent across CMake, the C++ fallback, the man
+# page, and the Android app.
+EXPECTED_VERSION="$(sed -n 's/project(SkiffLLM VERSION \([0-9][0-9.]*\).*/\1/p' CMakeLists.txt)"
+if [[ -z "${EXPECTED_VERSION}" ]]; then
+    echo "Unable to determine project version from CMakeLists.txt" >&2
+    exit 1
+fi
+grep -q "SKIFFLLM_VERSION \"${EXPECTED_VERSION}\"" src/main.cpp
+grep -q "SkiffLLM ${EXPECTED_VERSION}" docs/skifflm.1
+grep -q "versionName = \"${EXPECTED_VERSION}\"" android/app/build.gradle.kts
+
 if command -v clang-format >/dev/null 2>&1; then
     clang-format --dry-run --Werror \
         include/skifflm/*.hpp \
