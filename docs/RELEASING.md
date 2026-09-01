@@ -12,12 +12,15 @@ Keep `CHANGELOG.md` current for every release.
 ## Local release archive
 
 ```bash
+make release
 scripts/ci-local.sh
 scripts/release.sh
+scripts/release.sh --help                          # all options
+scripts/release.sh --output-dir artifacts --version 1.6.0
 ```
 
 The script creates `skifflm-VERSION.tar.gz` with the binary, licenses, docs,
-completions, example config, and helper scripts.
+completions, example config, logo, and helper scripts, plus `checksums.txt`.
 
 ## GitHub release
 
