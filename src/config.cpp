@@ -889,6 +889,22 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
             continue;
         }
 
+        // Flags consumed by the `skifflm openai` subcommand are accepted here
+        // so that `parse_args` does not reject them before dispatch.
+        if (key == "base-url" || key == "base" || key == "api-key" || key == "key" ||
+            key == "max-tokens") {
+            if (!has_value) {
+                const std::string value = option_value(i, argc, argv, "--" + key, error);
+                if (!error.empty()) {
+                    return false;
+                }
+            }
+            continue;
+        }
+        if (key == "stream" || key == "no-json") {
+            continue;
+        }
+
         error = "unknown option: " + arg;
         return false;
     }
@@ -1005,6 +1021,7 @@ std::string usage(const std::string& program) {
     out << "  run [prompt] [opts]        One-shot prompt (e.g. `skifflm run \"Merhaba\" --ctx 2048 --temp 0.3 --threads 4`)\n";
     out << "  model list|info|install|remove|verify\n";
     out << "  chat-template list|detect|info\n";
+    out << "  openai [prompt] [opts]     Send a prompt to a local OpenAI-compatible server\n";
     out << "  config path|show|init      Manage the config file\n";
     out << "  server health [--json]     Check a running local server\n";
     out << "\nInteractive commands: /help /info /history /settings /stats /compact /warmup /tokenize /file /clear-attach /clear /reset /system /model /profile /stop /temp /top-p /top-k /min-p /typical /n /ctx /export /save /exit\n";

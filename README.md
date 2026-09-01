@@ -502,6 +502,7 @@ Subcommands:
   run [prompt] [opts]        One-shot prompt (e.g. `skifflm run "Merhaba" --ctx 2048 --temp 0.3 --threads 4`)
   model list|info|install|remove|verify
   chat-template list|detect|info
+  openai [prompt] [opts]     Send a prompt to a local OpenAI-compatible server
   config path|show|init      Manage the config file
   server health [--json]     Check a running local server
 
@@ -536,6 +537,22 @@ python3 scripts/model_fetch.py --model <id> --verify
 
 Downloads and locally-recorded checksums are permanent except when the user
 deletes the `.gguf.sha256` sidecar. No checksum is ever fabricated.
+
+### `skifflm openai`
+
+Talk to any local OpenAI-compatible server (including SkiffLLM's own
+`--serve`) from the same binary:
+
+```bash
+skifflm --serve --host 127.0.0.1 --port 8080 --model model.gguf
+skifflm openai "Merhaba" --base-url http://127.0.0.1:8080
+skifflm openai "Merhaba" --base-url http://127.0.0.1:8080 --stream
+skifflm openai "Merhaba" --base-url http://127.0.0.1:8080 --no-json
+skifflm openai "Merhaba" --base-url http://127.0.0.1:8080 --temp 0.3 --max-tokens 128
+```
+
+`--json` (default) prints the raw OpenAI JSON, `--no-json` extracts only the
+assistant content, and `--stream` pipes SSE chunks through curl live.
 
 ## Interactive Commands
 

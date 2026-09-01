@@ -381,6 +381,235 @@ int handle_chat_template_command(Config& cfg,
     return 2;
 }
 
+std::string json_openai_escape(const std::string& value) {
+    std::string out;
+    out.reserve(value.size() + 16);
+    for (const char ch : value) {
+        switch (ch) {
+            case '\\': out += "\\\\"; break;
+            case '"':  out += "\\\""; break;
+            case '\n': out += "\\n"; break;
+            case '\r': out += "\\r"; break;
+            case '\t': out += "\\t"; break;
+            default:
+                if (static_cast<unsigned char>(ch) < 0x20) {
+                    char buffer[8];
+                    std::snprintf(buffer, sizeof(buffer), "\\u%04x", static_cast<unsigned int>(ch));
+                    out += buffer;
+                } else {
+                    out.push_back(ch);
+                }
+        }
+    }
+    return out;
+}
+
+std::string json_openai_unescape(const std::string& value) {
+    std::string out;
+    out.reserve(value.size());
+    for (std::size_t i = 0; i < value.size(); ++i) {
+        if (value[i] != '\\' || i + 1 >= value.size()) {
+            out.push_back(value[i]);
+            continue;
+        }
+        const char next = value[++i];
+        switch (next) {
+            case 'n': out.push_back('\n'); break;
+            case 'r': out.push_back('\r'); break;
+            case 't': out.push_back('\t'); break;
+            case '"': out.push_back('"'); break;
+            case '\\': out.push_back('\\'); break;
+            case '/': out.push_back('/'); break;
+            case 'u': {
+                if (i + 4 < value.size()) {
+                    unsigned int code = 0;
+                    for (int j = 1; j <= 4; ++j) {
+                        const char c = value[i + j];
+                        code <<= 4;
+                        if (c >= '0' && c <= '9') code |= static_cast<unsigned int>(c - '0');
+                        else if (c >= 'a' && c <= 'f') code |= static_cast<unsigned int>(c - 'a' + 10);
+                        else if (c >= 'A' && c <= 'F') code |= static_cast<unsigned int>(c - 'A' + 10);
+                    }
+                    i += 4;
+                    if (code < 0x80) {
+                        out.push_back(static_cast<char>(code));
+                    } else if (code < 0x800) {
+                        out.push_back(static_cast<char>(0xC0 | (code >> 6)));
+                        out.push_back(static_cast<char>(0x80 | (code & 0x3F)));
+                    } else {
+                        out.push_back(static_cast<char>(0xE0 | (code >> 12)));
+                        out.push_back(static_cast<char>(0x80 | ((code >> 6) & 0x3F)));
+                        out.push_back(static_cast<char>(0x80 | (code & 0x3F)));
+                    }
+                }
+                break;
+            }
+            default: out.push_back(next); break;
+        }
+    }
+    return out;
+}
+
+bool extract_openai_content(const std::string& json, std::string& content) {
+    std::size_t pos = json.find("\"content\"");
+    if (pos == std::string::npos) {
+        return false;
+    }
+    pos += std::strlen("\"content\"");
+    while (pos < json.size() && std::isspace(static_cast<unsigned char>(json[pos]))) {
+        ++pos;
+    }
+    if (pos >= json.size() || json[pos] != ':') {
+        return false;
+    }
+    ++pos;
+    while (pos < json.size() && std::isspace(static_cast<unsigned char>(json[pos]))) {
+        ++pos;
+    }
+    if (pos >= json.size() || json[pos] != '"') {
+        return false;
+    }
+    std::string raw;
+    ++pos;
+    while (pos < json.size()) {
+        const char ch = json[pos];
+        if (ch == '\\' && pos + 1 < json.size()) {
+            raw.push_back(ch);
+            raw.push_back(json[pos + 1]);
+            pos += 2;
+            continue;
+        }
+        if (ch == '"') {
+            break;
+        }
+        raw.push_back(ch);
+        ++pos;
+    }
+    content = json_openai_unescape(raw);
+    return true;
+}
+
+int handle_openai_command(Config& cfg,
+                          const std::vector<std::string>& args,
+                          std::string& error) {
+    (void)cfg;
+    std::string base_url = "http://127.0.0.1:8080";
+    std::string model = "skifflm-local";
+    std::string api_key;
+    std::string prompt;
+    bool stream = false;
+    bool json_output = true;
+    float temperature = 0.7f;
+    int max_tokens = 0;
+
+    for (std::size_t i = 0; i < args.size(); ++i) {
+        const std::string arg = args[i];
+        if (arg == "--base-url" || arg == "--base") {
+            base_url = args[++i];
+        } else if (arg.compare(0, 8, "--base=") == 0) {
+            base_url = arg.substr(8);
+        } else if (arg == "--model") {
+            model = args[++i];
+        } else if (arg.compare(0, 8, "--model=") == 0) {
+            model = arg.substr(8);
+        } else if (arg == "--api-key" || arg == "--key") {
+            api_key = args[++i];
+        } else if (arg.compare(0, 10, "--api-key=") == 0) {
+            api_key = arg.substr(10);
+        } else if (arg == "--prompt") {
+            prompt = args[++i];
+        } else if (arg.compare(0, 9, "--prompt=") == 0) {
+            prompt = arg.substr(9);
+        } else if (arg == "--stream") {
+            stream = true;
+        } else if (arg == "--no-json") {
+            json_output = false;
+        } else if (arg == "--json") {
+            json_output = true;
+        } else if (arg == "--temp" || arg == "--temperature") {
+            temperature = std::atof(args[++i].c_str());
+        } else if (arg.compare(0, 6, "--temp=") == 0) {
+            temperature = std::atof(arg.substr(6).c_str());
+        } else if (arg == "--max-tokens" || arg == "--n-predict") {
+            max_tokens = std::atoi(args[++i].c_str());
+        } else if (arg.compare(0, 13, "--max-tokens=") == 0) {
+            max_tokens = std::atoi(arg.substr(13).c_str());
+        } else if (!prompt.empty()) {
+            prompt += " " + arg;
+        } else {
+            prompt = arg;
+        }
+    }
+    if (prompt.empty()) {
+        error = "usage: skifflm openai [--base-url http://127.0.0.1:8080] [--model id] "
+                "[--stream] [--json] [--temp <t>] [--max-tokens <n>] \"prompt\"";
+        return 2;
+    }
+
+    std::ostringstream payload;
+    payload << "{\"model\":\"" << json_openai_escape(model)
+            << "\",\"messages\":[{\"role\":\"user\",\"content\":\"" << json_openai_escape(prompt)
+            << "\"}],\"stream\":" << (stream ? "true" : "false")
+            << ",\"temperature\":" << temperature;
+    if (max_tokens > 0) {
+        payload << ",\"max_tokens\":" << max_tokens;
+    }
+    payload << "}\n";
+
+    const std::filesystem::path payload_path =
+        std::filesystem::temp_directory_path() / "skifflm-openai-payload.json";
+    {
+        std::ofstream out(payload_path, std::ios::trunc | std::ios::binary);
+        if (!out.is_open()) {
+            error = "cannot write payload file: " + payload_path.string();
+            return 1;
+        }
+        out << payload.str();
+        if (!out) {
+            error = "failed to write payload file";
+            return 1;
+        }
+    }
+
+    const std::string endpoint = base_url + "/v1/chat/completions";
+    std::string curl = "curl -sS";
+    if (stream) {
+        curl += " -N";
+    }
+    curl += " -X POST \"" + endpoint + "\""
+          + " -H \"Content-Type: application/json\""
+          + " -H \"Accept: text/event-stream\"";
+    if (!api_key.empty()) {
+        curl += " -H \"Authorization: Bearer " + api_key + "\"";
+    }
+    curl += " --data-binary @\"" + payload_path.string() + "\"";
+
+    if (stream) {
+        const int status = std::system(curl.c_str());
+        if (status != 0) {
+            error = "request to " + endpoint + " failed (non-zero curl exit)";
+            return 1;
+        }
+        return 0;
+    }
+
+    std::string response;
+    if (!run_command(curl, response, error)) {
+        return 1;
+    }
+    std::string content;
+    const bool found = extract_openai_content(response, content);
+    if (json_output || !found) {
+        std::cout << response;
+        if (!response.empty() && response.back() != '\n') {
+            std::cout << "\n";
+        }
+    } else {
+        std::cout << content << "\n";
+    }
+    return 0;
+}
+
 std::filesystem::path metrics_path_for(const Config& cfg) {
     if (!cfg.history_path.empty() && !cfg.history_path.parent_path().empty()) {
         return cfg.history_path.parent_path() / "metrics.txt";

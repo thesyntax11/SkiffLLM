@@ -27,7 +27,7 @@ object ModelCatalog {
 
     val models = listOf(
         ModelCatalogEntry(
-            id = "qwen2.5-0.5b-q4-k-m",
+            id = "qwen2.5-0.5b",
             name = "Qwen2.5 0.5B Instruct",
             description = "Best first model on older phones. Fast, small, follows chat well.",
             repo = "Qwen/Qwen2.5-0.5B-Instruct-GGUF",
@@ -37,7 +37,7 @@ object ModelCatalog {
             recommended = true
         ),
         ModelCatalogEntry(
-            id = "qwen3-0.6b-q4-k-m",
+            id = "qwen3-0.6b",
             name = "Qwen3 0.6B Instruct",
             description = "Small Qwen3 with optional thinking mode. Good quality for its size.",
             repo = "bartowski/Qwen_Qwen3-0.6B-GGUF",
@@ -47,7 +47,7 @@ object ModelCatalog {
             recommended = true
         ),
         ModelCatalogEntry(
-            id = "llama3.2-1b-q4-k-m",
+            id = "llama3.2-1b",
             name = "Llama 3.2 1B Instruct",
             description = "Balanced quality and speed for typical modern phones.",
             repo = "bartowski/Llama-3.2-1B-Instruct-GGUF",
@@ -57,7 +57,7 @@ object ModelCatalog {
             recommended = true
         ),
         ModelCatalogEntry(
-            id = "smollm2-1.7b-q4-k-m",
+            id = "smollm2-1.7b",
             name = "SmolLM2 1.7B Instruct",
             description = "Mid-size option with a solid quality-to-speed balance.",
             repo = "bartowski/SmolLM2-1.7B-Instruct-GGUF",
@@ -67,7 +67,7 @@ object ModelCatalog {
             recommended = false
         ),
         ModelCatalogEntry(
-            id = "phi3.5-mini-q4-k-m",
+            id = "phi3.5-mini",
             name = "Phi-3.5 Mini Instruct",
             description = "Better reasoning. Use only on an 8 GB+ phone.",
             repo = "bartowski/Phi-3.5-mini-instruct-GGUF",

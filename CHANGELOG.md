@@ -18,6 +18,11 @@
 - Random sampling seeds are resolved per generation when `--seed random`.
 - Added `release-cuda|vulkan|metal|opencl|blas` CMake presets and backward
   Android `-Pskifflm.backend=` GPU builds.
+- Added `skifflm openai "..."` as a zero-dependency OpenAI-compatible client
+  with `--stream`, `--no-json`, `--temp`, and `--max-tokens`.
+- Android: multi-conversation management (create/open/delete from `Chats`).
+- Unified model catalog IDs across the desktop catalog, `model_fetch.py`, and
+  the Android catalog.
 - Added `scripts/model_fetch.py` to fetch a recommended GGUF model once over
   HTTPS. The runtime itself still never downloads or registers models.
 - Moved model warmup into the engine so the desktop `--warmup` path and the

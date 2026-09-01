@@ -414,6 +414,25 @@ void test_config_and_stats_features() {
     std::filesystem::remove_all(dir);
 }
 
+void test_openai_passthrough_flags() {
+    skifflm::Config cfg = skifflm::default_config();
+    std::vector<std::string> storage = {
+        "skifflm",
+        "--base-url",
+        "http://127.0.0.1:8080",
+        "--model",
+        "local",
+        "--stream",
+        "--no-json",
+        "--max-tokens",
+        "64",
+    };
+    auto args = args_from(storage);
+    std::string error;
+    const bool ok = skifflm::parse_args(static_cast<int>(args.size()), args.data(), cfg, error);
+    check(ok, "openai passthrough flags should not be rejected by the generic parser");
+}
+
 void test_ui_and_backend_flags() {
     skifflm::Config cfg = skifflm::default_config();
     std::vector<std::string> storage = {
@@ -485,5 +504,6 @@ int main() {
     test_tools_features();
     test_config_and_stats_features();
     test_ui_and_backend_flags();
+    test_openai_passthrough_flags();
     return 0;
 }

@@ -74,6 +74,14 @@ skifflm chat-template list
 skifflm chat-template detect --model model.gguf
 ```
 
+## OpenAI client
+
+```bash
+skifflm openai "Merhaba" --base-url http://127.0.0.1:8080
+skifflm openai "Merhaba" --base-url http://127.0.0.1:8080 --stream
+skifflm openai "Merhaba" --base-url http://127.0.0.1:8080 --no-json
+```
+
 ## Hardware acceleration
 
 ```bash

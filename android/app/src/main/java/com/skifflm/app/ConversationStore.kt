@@ -7,9 +7,92 @@ import java.io.File
 
 class ConversationStore(private val appContext: Context) {
 
-    private val file = File(appContext.filesDir, "conversation.json")
+    private val dir = File(appContext.filesDir, "conversations")
+    private val currentFile = File(appContext.filesDir, "current_conversation.txt")
+    private val legacyFile = File(appContext.filesDir, "conversation.json")
+
+    private fun sanitize(name: String): String {
+        val cleaned = name.trim()
+            .replace(Regex("[^A-Za-z0-9._-]"), "_")
+        return cleaned.ifBlank { "default" }
+    }
+
+    private fun fileFor(name: String): File = File(dir, "${sanitize(name)}.json")
+
+    private fun ensureCurrent(): String {
+        val name = currentName()
+        currentFile.writeText(name)
+        dir.mkdirs()
+        return name
+    }
+
+    fun currentName(): String {
+        if (currentFile.exists()) {
+            val name = currentFile.readText().trim()
+            if (name.isNotBlank()) return name
+        }
+        return "default"
+    }
+
+    fun listConversations(): List<String> {
+        val existing = dir.listFiles()?.filter { it.isFile && it.extension == "json" }
+            ?.map { it.nameWithoutExtension } ?: emptyList()
+        val names = (existing + listOf("default")).distinct().sorted()
+        return names
+    }
+
+    fun create(name: String): String {
+        val finalName = sanitize(name)
+        dir.mkdirs()
+        if (!fileFor(finalName).exists()) {
+            fileFor(finalName).writeText(
+                JSONObject()
+                    .put("system_prompt", "You are SkiffLLM, a helpful local assistant.")
+                    .put("messages", JSONArray())
+                    .toString()
+            )
+        }
+        currentFile.writeText(finalName)
+        return finalName
+    }
+
+    fun switchTo(name: String): String {
+        val finalName = sanitize(name)
+        dir.mkdirs()
+        if (!fileFor(finalName).exists()) {
+            fileFor(finalName).writeText(
+                JSONObject()
+                    .put("system_prompt", "You are SkiffLLM, a helpful local assistant.")
+                    .put("messages", JSONArray())
+                    .toString()
+            )
+        }
+        currentFile.writeText(finalName)
+        return finalName
+    }
+
+    fun delete(name: String) {
+        fileFor(name).delete()
+        // Never leave the user without a conversation.
+        val current = currentName()
+        if (sanitize(name) == sanitize(current)) {
+            currentFile.writeText("default")
+            dir.mkdirs()
+            if (!fileFor("default").exists()) {
+                fileFor("default").writeText(
+                    JSONObject()
+                        .put("system_prompt", "You are SkiffLLM, a helpful local assistant.")
+                        .put("messages", JSONArray())
+                        .toString()
+                )
+            }
+        }
+    }
 
     fun load(): ConversationSnapshot {
+        migrateLegacy()
+        val name = ensureCurrent()
+        val file = fileFor(name)
         if (!file.exists()) {
             return ConversationSnapshot(
                 systemPrompt = "You are SkiffLLM, a helpful local assistant.",
@@ -41,24 +124,34 @@ class ConversationStore(private val appContext: Context) {
     }
 
     fun save(systemPrompt: String, messages: List<ChatMessage>) {
-        runCatching {
-            val raw = JSONArray()
-            messages.forEach { message ->
-                raw.put(JSONObject().apply {
-                    put("role", message.role)
-                    put("content", message.content)
-                })
-            }
-            val json = JSONObject().apply {
-                put("system_prompt", systemPrompt)
-                put("messages", raw)
-            }
-            file.writeText(json.toString())
+        migrateLegacy()
+        val name = ensureCurrent()
+        val raw = JSONArray()
+        messages.forEach { message ->
+            raw.put(JSONObject().apply {
+                put("role", message.role)
+                put("content", message.content)
+            })
         }
+        val json = JSONObject().apply {
+            put("system_prompt", systemPrompt)
+            put("messages", raw)
+        }
+        fileFor(name).writeText(json.toString())
     }
 
     fun clear() {
-        runCatching { file.delete() }
+        fileFor(currentName()).delete()
+    }
+
+    private fun migrateLegacy() {
+        if (legacyFile.exists() && !fileFor("default").exists()) {
+            runCatching {
+                dir.mkdirs()
+                legacyFile.copyTo(fileFor("default"), overwrite = true)
+                legacyFile.delete()
+            }
+        }
     }
 }
 

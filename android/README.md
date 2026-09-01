@@ -100,6 +100,13 @@ sheet lists SkiffLLM as a target; tapping it opens the app with a `Shared from
 another app` banner. Tap `Use` to fill the input, then ask your question as
 usual. The shared text stays on the device.
 
+## Conversations
+
+The top bar exposes a `Chats` button. There you can create,
+open, and delete local conversations. Each conversation is stored as a JSON
+file in app-private storage; switching loads that conversation immediately and
+the active name is shown next to the SkiffLLM title.
+
 ## Quick prompts
 
 Save a prompt you reuse in `Settings -> Quick prompts`. It appears as a tap-to-

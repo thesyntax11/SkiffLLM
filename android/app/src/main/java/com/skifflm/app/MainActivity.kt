@@ -161,6 +161,8 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
     val quickPrompts = remember { mutableStateListOf<String>().also { it.addAll(settingsStore.loadQuickPrompts()) } }
     val loadParams = remember { mutableStateOf(settingsStore.loadLoadParams(defaultThreads)) }
     val sampling = remember { mutableStateOf(settingsStore.loadSampling()) }
+    val conversationName = remember { mutableStateOf(conversationStore.currentName()) }
+    val conversationNames = remember { mutableStateListOf<String>().also { it.addAll(conversationStore.listConversations()) } }
     val sharedText = SharedIntent.text
 
     var input by remember { mutableStateOf("") }
@@ -172,6 +174,7 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
     var modelName by remember { mutableStateOf<String?>(null) }
     var showSettings by remember { mutableStateOf(false) }
     var showModels by remember { mutableStateOf(false) }
+    var showConversations by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
     var modelInfo by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
@@ -214,6 +217,8 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
 
     LaunchedEffect(Unit) {
         refreshLocalModels()
+        conversationNames.clear()
+        conversationNames.addAll(conversationStore.listConversations())
         val saved = conversationStore.load()
         systemPrompt.value = saved.systemPrompt
         messages.clear()
@@ -358,6 +363,8 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
                     statusText = statusText,
                     modelName = modelName,
                     modelInfo = modelInfo,
+                    conversationName = conversationName.value,
+                    onConversations = { showConversations = true },
                     onSettings = { showSettings = true },
                     onExport = { shareConversation() },
                     onClear = { clearConversation() }
@@ -545,6 +552,57 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
         )
     }
 
+    if (showConversations) {
+        ConversationsDialog(
+            conversations = conversationNames.toList(),
+            current = conversationName.value,
+            onOpen = { name ->
+                conversationStore.switchTo(name)
+                val snap = conversationStore.load()
+                systemPrompt.value = snap.systemPrompt
+                messages.clear()
+                messages.addAll(snap.messages)
+                conversationName.value = name
+                conversationNames.clear()
+                conversationNames.addAll(conversationStore.listConversations())
+                stats = null
+                draft = ""
+                input = ""
+                showConversations = false
+            },
+            onCreate = { name ->
+                val finalName = conversationStore.create(name)
+                val snap = conversationStore.load()
+                systemPrompt.value = snap.systemPrompt
+                messages.clear()
+                messages.addAll(snap.messages)
+                conversationName.value = finalName
+                conversationNames.clear()
+                conversationNames.addAll(conversationStore.listConversations())
+                stats = null
+                draft = ""
+                input = ""
+                showConversations = false
+            },
+            onDelete = { name ->
+                conversationStore.delete(name)
+                if (conversationName.value == name) {
+                    conversationName.value = conversationStore.currentName()
+                    val snap = conversationStore.load()
+                    systemPrompt.value = snap.systemPrompt
+                    messages.clear()
+                    messages.addAll(snap.messages)
+                    stats = null
+                    draft = ""
+                    input = ""
+                }
+                conversationNames.clear()
+                conversationNames.addAll(conversationStore.listConversations())
+            },
+            onDismiss = { showConversations = false }
+        )
+    }
+
     if (showAbout) {
         AboutDialog(onDismiss = { showAbout = false })
     }
@@ -582,6 +640,8 @@ private fun ChatTopBar(
     statusText: String,
     modelName: String?,
     modelInfo: String?,
+    conversationName: String,
+    onConversations: () -> Unit,
     onSettings: () -> Unit,
     onExport: () -> Unit,
     onClear: () -> Unit
@@ -599,9 +659,18 @@ private fun ChatTopBar(
                 Text(
                     "SkiffLLM",
                     style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    conversationName,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.secondary,
                     modifier = Modifier.weight(1f)
                 )
+                TextButton(onClick = { onConversations() }) {
+                    Text("Chats")
+                }
                 TextButton(onClick = { onExport() }) {
                     Text("Export")
                 }
@@ -886,6 +955,98 @@ private fun SettingsDialog(
                 }
                 Text(
                     "Use Models to download a recommended Q4_K_M GGUF from Hugging Face, or load your own file from the device. Downloads use HTTPS only and no telemetry is sent.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF8A94A6)
+                )
+            }
+        }
+    )
+}
+
+@Composable
+private fun ConversationsDialog(
+    conversations: List<String>,
+    current: String,
+    onOpen: (String) -> Unit,
+    onCreate: (String) -> Unit,
+    onDelete: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var newName by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = { onDismiss() },
+        confirmButton = {
+            TextButton(onClick = { onDismiss() }) {
+                Text("Done")
+            }
+        },
+        title = { Text("Conversations") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    "Current: $current",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.height(8.dp))
+                conversations.forEach { name ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            name,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(vertical = 4.dp)
+                        )
+                        if (name == current) {
+                            Text(
+                                "Active",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color(0xFF8A94A6)
+                            )
+                        } else {
+                            TextButton(onClick = { onOpen(name) }) {
+                                Text("Open")
+                            }
+                            TextButton(onClick = { onDelete(name) }) {
+                                Text("Delete")
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    OutlinedTextField(
+                        value = newName,
+                        onValueChange = { newName = it },
+                        label = { Text("New conversation") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    TextButton(onClick = {
+                        val name = newName.trim()
+                        if (name.isNotBlank()) {
+                            onCreate(name)
+                            newName = ""
+                        }
+                    }) {
+                        Text("Create")
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Conversations stay on this device. Clear removes the current messages.",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color(0xFF8A94A6)
                 )

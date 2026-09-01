@@ -1435,7 +1435,8 @@ int main(int argc, char** argv) {
     if (argc >= 2) {
         const std::string first(argv[1]);
         if (first == "run" || first == "model" || first == "git" || first == "session" ||
-            first == "chat-template" || first == "config" || first == "server") {
+            first == "chat-template" || first == "openai" || first == "config" ||
+            first == "server") {
             subcommand = first;
             argument_start = 2;
         }
@@ -1572,6 +1573,16 @@ int main(int argc, char** argv) {
     if (subcommand == "chat-template") {
         error.clear();
         const int status = skifflm::handle_chat_template_command(cfg, sub_args, error);
+        if (status >= 0) {
+            if (!error.empty()) {
+                std::cerr << error << std::endl;
+            }
+            return status;
+        }
+    }
+    if (subcommand == "openai") {
+        error.clear();
+        const int status = skifflm::handle_openai_command(cfg, sub_args, error);
         if (status >= 0) {
             if (!error.empty()) {
                 std::cerr << error << std::endl;
