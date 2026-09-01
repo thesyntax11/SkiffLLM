@@ -17,12 +17,24 @@
   Handle color output, streaming counters, readline input, help, and stats.
 
 - `include/skifflm/server.hpp` and `src/server.cpp`
-  Local HTTP endpoint with `/health`, `/v1/models`, and
-  `/v1/chat/completions`, including streamed responses.
+  Local HTTP endpoint with `/health`, `/version`, `/v1/models`, and
+  `/v1/chat/completions`, including streamed responses and CORS support.
 
 - `src/main.cpp`
   CLI entry point: dispatch diagnostics, export, one-shot, interactive,
   benchmark, and server modes.
+
+- `android/app/src/main/java/com/skifflm/app/`
+  Android UI and application logic: Compose chat, conversation persistence,
+  model catalog, downloader, and the JNI bridge.
+
+- `android/app/src/main/cpp/jni_bridge.cpp`
+  JNI surface for the desktop core's `LlmEngine`, exposed to Kotlin through
+  `SkiffNative`.
+
+- `scripts/model_fetch.py` and `scripts/api_client.py`
+  Optional user-run helpers for fetching a recommended GGUF and for exercising
+  the local API. They are not part of the runtime.
 
 Data flows:
 
@@ -34,10 +46,12 @@ Data flows:
 
 ## Safety and determinism
 
-- Runtime is local only. There are no outbound API calls.
+- Desktop runtime is local only. There are no outbound API calls.
+- Android uses network access only for the explicit model downloader.
 - Output paths and model paths are resolved locally.
 - History writes use a temporary file and rename.
 - Generation budgets account for the exact context window.
+- Downloads validate GGUF headers, expected sizes, and free storage.
 
 ## Adding a feature
 
