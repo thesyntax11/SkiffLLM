@@ -3,6 +3,7 @@ package com.skifflm.app
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.os.StatFs
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -31,6 +32,12 @@ class ModelDownloader(private val appContext: Context) {
             var connection: HttpURLConnection? = null
             var temp: File? = null
             try {
+                if (!hasEnoughSpace(entry.bytes)) {
+                    throw IOException(
+                        "Not enough free storage. Need ${entry.sizeText}, " +
+                            "but the device is low on space."
+                    )
+                }
                 val url = URL(ModelCatalog.downloadUrl(entry))
                 connection = (url.openConnection() as HttpURLConnection).apply {
                     instanceFollowRedirects = true
@@ -121,6 +128,16 @@ class ModelDownloader(private val appContext: Context) {
         active.clear()
         cancelled.clear()
         executor.shutdownNow()
+    }
+
+    private fun hasEnoughSpace(bytes: Long): Boolean {
+        if (bytes <= 0L) {
+            return true
+        }
+        return runCatching {
+            val stat = StatFs(modelDir.absolutePath)
+            stat.availableBytes > bytes + (64L * 1024L * 1024L)
+        }.getOrDefault(true)
     }
 }
 

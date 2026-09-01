@@ -106,8 +106,8 @@ RAM they need. Start with a Q4_K_M model in the 0.5B to 1.7B range.
 - Downloads run on a separate thread so chat and local model loading stay
   usable while a GGUF is downloading.
 - Download progress is shown per model and can be cancelled.
-- Downloaded files are validated with the GGUF header before they become
-  usable.
+- Download checks free storage before starting, validates the GGUF header,
+  and rejects incomplete files before they become usable.
 - The last successfully loaded model is remembered and reloaded on the next
   launch.
 - Conversations are saved locally and restored on the next launch.

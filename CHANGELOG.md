@@ -18,6 +18,7 @@
 - Added CMake presets, a convenience `Makefile`, and `scripts/check-format.sh`.
 - Bumped the desktop version to 1.6.0 and added `GET /version` plus model
   details in `GET /health`.
+- Added free-storage checks before Android model downloads.
 
 ### Android 1.6.0
 
