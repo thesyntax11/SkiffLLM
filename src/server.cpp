@@ -122,6 +122,8 @@ bool send_response(skifflm_socket_t socket_fd,
     headers << "HTTP/1.1 " << status << " " << status_reason(status) << "\r\n";
     headers << "Content-Type: " << content_type << "\r\n";
     headers << "Content-Length: " << body.size() << "\r\n";
+    headers << "Cache-Control: no-store\r\n";
+    headers << "X-Content-Type-Options: nosniff\r\n";
     headers << "Access-Control-Allow-Origin: *\r\n";
     headers << "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n";
     headers << "Access-Control-Allow-Headers: Content-Type\r\n";
@@ -134,7 +136,9 @@ bool send_stream_headers(skifflm_socket_t socket_fd, std::string& error) {
     std::ostringstream headers;
     headers << "HTTP/1.1 200 OK\r\n";
     headers << "Content-Type: text/event-stream\r\n";
-    headers << "Cache-Control: no-cache\r\n";
+    headers << "Cache-Control: no-store\r\n";
+    headers << "X-Accel-Buffering: no\r\n";
+    headers << "X-Content-Type-Options: nosniff\r\n";
     headers << "Access-Control-Allow-Origin: *\r\n";
     headers << "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n";
     headers << "Access-Control-Allow-Headers: Content-Type\r\n";

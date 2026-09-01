@@ -48,6 +48,9 @@ class EngineController(private val appContext: Context) {
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
     private val uiHandler = Handler(Looper.getMainLooper())
     private val prefs = appContext.getSharedPreferences("skifflm", Context.MODE_PRIVATE)
+    private val tokenLock = Any()
+    private val tokenBuffer = StringBuilder()
+    private var tokenFlushScheduled = false
     @Volatile
     private var handle: Long = 0L
     @Volatile
@@ -183,7 +186,26 @@ class EngineController(private val appContext: Context) {
         val contents = messages.map { it.content }.toTypedArray()
         val callback = object : SkiffNative.Callback {
             override fun onToken(text: String) {
-                uiHandler.post { onToken(text) }
+                // Batch tokens into small UI-frame-sized updates instead of
+                // posting once per generated token. This keeps the main thread
+                // responsive on low-end devices.
+                synchronized(tokenLock) {
+                    tokenBuffer.append(text)
+                    if (!tokenFlushScheduled) {
+                        tokenFlushScheduled = true
+                        uiHandler.post {
+                            val chunk = synchronized(tokenLock) {
+                                val value = tokenBuffer.toString()
+                                tokenBuffer.clear()
+                                tokenFlushScheduled = false
+                                value
+                            }
+                            if (chunk.isNotEmpty()) {
+                                onToken(chunk)
+                            }
+                        }
+                    }
+                }
             }
 
             override fun onDone(
@@ -217,6 +239,10 @@ class EngineController(private val appContext: Context) {
             if (target == 0L) {
                 uiHandler.post { onError("Load a GGUF model first") }
                 return@execute
+            }
+            synchronized(tokenLock) {
+                tokenBuffer.clear()
+                tokenFlushScheduled = false
             }
             SkiffNative.generate(
                 target,
