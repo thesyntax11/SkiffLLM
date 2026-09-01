@@ -391,6 +391,10 @@ void test_config_and_stats_features() {
     cfg.history_path = dir / "history.skif";
     cfg.model_path = "qwen2.5-0.5b.gguf";
     cfg.stop_sequences = {"END", "STOP"};
+    cfg.serve = true;
+    cfg.server_host = "0.0.0.0";
+    cfg.server_port = 9090;
+    cfg.api_key = "local-token";
     std::string error;
 
     check(skifflm::write_config_file(cfg.config_path, cfg, error), "config should be written");
@@ -413,12 +417,24 @@ void test_config_and_stats_features() {
         std::string line;
         bool saw_context_bar = false;
         bool saw_backend_info = false;
+        bool saw_serve = false;
+        bool saw_host = false;
+        bool saw_port = false;
+        bool saw_api_key = false;
         while (std::getline(input, line)) {
             saw_context_bar = saw_context_bar || line == "context-bar=yes";
             saw_backend_info = saw_backend_info || line == "backend-info=no";
+            saw_serve = saw_serve || line == "serve=yes";
+            saw_host = saw_host || line == "host=0.0.0.0";
+            saw_port = saw_port || line == "port=9090";
+            saw_api_key = saw_api_key || line == "api-key=local-token";
         }
         check(saw_context_bar, "written config should include context-bar");
         check(saw_backend_info, "written config should include backend-info");
+        check(saw_serve, "written config should include serve");
+        check(saw_host, "written config should include host");
+        check(saw_port, "written config should include port");
+        check(saw_api_key, "written config should include api-key");
     }
 
     skifflm::record_generation(cfg, 10, 50, 100.0, 500.0, 100.0);

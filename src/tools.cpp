@@ -239,6 +239,12 @@ bool write_config_file(const std::filesystem::path& path,
     out << "mmap=" << (cfg.use_mmap ? "yes" : "no") << "\n";
     out << "context-bar=" << (cfg.context_bar ? "yes" : "no") << "\n";
     out << "backend-info=" << (cfg.backend_info ? "yes" : "no") << "\n";
+    out << "serve=" << (cfg.serve ? "yes" : "no") << "\n";
+    out << "host=" << cfg.server_host << "\n";
+    out << "port=" << cfg.server_port << "\n";
+    if (!cfg.api_key.empty()) {
+        out << "api-key=" << cfg.api_key << "\n";
+    }
     for (const auto& stop : cfg.stop_sequences) {
         out << "stop=" << stop << "\n";
     }

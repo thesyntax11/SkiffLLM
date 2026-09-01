@@ -774,6 +774,7 @@ export=last-conversation.md
 serve=no
 host=127.0.0.1
 port=8080
+# api-key=local-token   # requires Authorization: Bearer on /v1/* when serve=yes
 benchmark=0
 
 ctx=4096
