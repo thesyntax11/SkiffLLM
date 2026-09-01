@@ -30,6 +30,8 @@ ctest --test-dir "${BUILD_DIR}" --output-on-failure
 if command -v python3 >/dev/null 2>&1; then
     python3 -m py_compile scripts/model_fetch.py scripts/api_client.py
     python3 scripts/model_fetch.py --list >/dev/null
+    python3 scripts/model_fetch.py --help >/dev/null
+    python3 scripts/api_client.py --help >/dev/null
 fi
 
 if command -v clang-format >/dev/null 2>&1; then
