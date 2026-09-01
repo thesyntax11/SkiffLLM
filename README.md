@@ -23,7 +23,7 @@ cat README.md | skifflm "summarize this"
 skifflm --project . "where is authentication handled?"
 ```
 
-Documentation: [Setup](docs/SETUP.md) &middot; [Usage](docs/usage.md) &middot; [Architecture](docs/ARCHITECTURE.md) &middot; [Releasing](docs/RELEASING.md) &middot; [Limitations](docs/LIMITATIONS.md) &middot; [FAQ](docs/FAQ.md) &middot; [Security](SECURITY.md) &middot; [Contributing](CONTRIBUTING.md) &middot; [Good First Issues](docs/GOOD_FIRST_ISSUES.md)
+Documentation: [Setup](docs/SETUP.md) &middot; [Usage](docs/usage.md) &middot; [Demo](docs/demo.md) &middot; [Architecture](docs/ARCHITECTURE.md) &middot; [Releasing](docs/RELEASING.md) &middot; [Limitations](docs/LIMITATIONS.md) &middot; [FAQ](docs/FAQ.md) &middot; [Security](SECURITY.md) &middot; [Contributing](CONTRIBUTING.md) &middot; [Good First Issues](docs/GOOD_FIRST_ISSUES.md)
 
 ## Use it anywhere
 
