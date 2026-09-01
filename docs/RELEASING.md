@@ -5,6 +5,7 @@ Releases follow semantic versioning. The version is set in:
 - `CMakeLists.txt`
 - `src/main.cpp`
 - `docs/skifflm.1`
+- `android/app/build.gradle.kts` (`versionCode` and `versionName`)
 
 Keep `CHANGELOG.md` current for every release.
 
@@ -38,5 +39,7 @@ archives and publishes them automatically.
 - Verify `--doctor`, `--model-info`, `--smoke`, and a real generation on a
   local model.
 - Verify `--export`, `--attach`, `--serve`, and `--benchmark` on a local model.
-- Update the changelog and docs.
+- For Android releases, run `cd android && ./gradlew assembleDebug` and confirm
+  the APK installs and loads a real GGUF model.
+- Update the changelog, app version, and docs.
 - Push the tag.
