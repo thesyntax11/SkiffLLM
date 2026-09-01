@@ -19,6 +19,7 @@
 - Bumped the desktop version to 1.6.0 and added `GET /version` plus model
   details in `GET /health`.
 - Added free-storage checks before Android model downloads.
+- Persist Android load, sampling, and system-prompt settings across restarts.
 
 ### Android 1.6.0
 

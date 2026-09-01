@@ -110,7 +110,8 @@ RAM they need. Start with a Q4_K_M model in the 0.5B to 1.7B range.
   and rejects incomplete files before they become usable.
 - The last successfully loaded model is remembered and reloaded on the next
   launch.
-- Conversations are saved locally and restored on the next launch.
+- Conversations, the system prompt, and sampling/load settings are saved
+  locally and restored on the next launch.
 - Thread count defaults to the device CPU count (capped at 8).
 - Stop signals a cancellation request to the native generator.
 - Conversation export creates a Markdown document and opens the Android share

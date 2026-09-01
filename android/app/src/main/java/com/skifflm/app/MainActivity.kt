@@ -88,17 +88,20 @@ private fun ChatScreen() {
     val controller = remember { EngineController(context.applicationContext) }
     val downloader = remember { ModelDownloader(context.applicationContext) }
     val conversationStore = remember { ConversationStore(context.applicationContext) }
+    val settingsStore = remember { SettingsStore(context.applicationContext) }
     val messages = remember { mutableStateListOf<ChatMessage>() }
     val localModels = remember { mutableStateListOf<File>() }
     val downloading = remember { mutableStateMapOf<String, Boolean>() }
     val downloadProgress = remember { mutableStateMapOf<String, Float>() }
     val downloadErrors = remember { mutableStateMapOf<String, String>() }
-    val systemPrompt = remember { mutableStateOf("You are SkiffLLM, a helpful local assistant.") }
     val defaultThreads = remember {
         Runtime.getRuntime().availableProcessors().coerceIn(2, 8)
     }
-    val loadParams = remember { mutableStateOf(LoadParams(threads = defaultThreads)) }
-    val sampling = remember { mutableStateOf(SamplingParams()) }
+    val systemPrompt = remember {
+        mutableStateOf(settingsStore.loadSystemPrompt("You are SkiffLLM, a helpful local assistant."))
+    }
+    val loadParams = remember { mutableStateOf(settingsStore.loadLoadParams(defaultThreads)) }
+    val sampling = remember { mutableStateOf(settingsStore.loadSampling()) }
 
     var input by remember { mutableStateOf("") }
     var draft by remember { mutableStateOf("") }
@@ -361,11 +364,20 @@ private fun ChatScreen() {
     if (showSettings) {
         SettingsDialog(
             loadParams = loadParams.value,
-            onLoadParams = { loadParams.value = it },
+            onLoadParams = {
+                loadParams.value = it
+                settingsStore.saveLoadParams(it)
+            },
             sampling = sampling.value,
-            onSampling = { sampling.value = it },
+            onSampling = {
+                sampling.value = it
+                settingsStore.saveSampling(it)
+            },
             systemPrompt = systemPrompt.value,
-            onSystemPrompt = { systemPrompt.value = it },
+            onSystemPrompt = {
+                systemPrompt.value = it
+                settingsStore.saveSystemPrompt(it)
+            },
             onOpenModels = {
                 showSettings = false
                 showModels = true
