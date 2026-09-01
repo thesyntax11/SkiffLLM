@@ -241,6 +241,10 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
         )
     }
 
+    fun persistConversationSettings() {
+        conversationStore.save(systemPrompt.value, messages.toList(), sampling.value, codeMode.value)
+    }
+
     fun warmModel() {
         if (generating || warmingUp || modelName == null) {
             return
@@ -311,6 +315,14 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
         systemPrompt.value = saved.systemPrompt
         messages.clear()
         messages.addAll(saved.messages)
+        saved.sampling?.let {
+            sampling.value = it
+            settingsStore.saveSampling(it)
+        }
+        saved.codeMode?.let {
+            codeMode.value = it
+            settingsStore.saveCodeMode(it)
+        }
         if (controller.hasStoredModel()) {
             statusText = "Loading saved model..."
             controller.loadStoredModel(
@@ -435,6 +447,7 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
             )
         }
         settingsStore.saveSampling(sampling.value)
+        persistConversationSettings()
     }
 
     fun compactConversation() {
@@ -473,7 +486,7 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
                 if (summary.isNotEmpty()) {
                     messages.add(ChatMessage("assistant", summary))
                 }
-                conversationStore.save(systemPrompt.value, messages.toList())
+                conversationStore.save(systemPrompt.value, messages.toList(), sampling.value, codeMode.value)
                 recordStats(result)
                 stats = result
                 generating = false
@@ -493,7 +506,7 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
             return
         }
         messages.add(ChatMessage("user", text))
-        conversationStore.save(systemPrompt.value, messages.toList())
+        conversationStore.save(systemPrompt.value, messages.toList(), sampling.value, codeMode.value)
         input = ""
         draft = ""
         stats = null
@@ -508,13 +521,13 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
                 stats = result
                 messages.add(ChatMessage("assistant", draft))
                 recordStats(result)
-                conversationStore.save(systemPrompt.value, messages.toList())
+                conversationStore.save(systemPrompt.value, messages.toList(), sampling.value, codeMode.value)
                 draft = ""
                 generating = false
             },
             onError = { message ->
                 errorText = message
-                conversationStore.save(systemPrompt.value, messages.toList())
+                conversationStore.save(systemPrompt.value, messages.toList(), sampling.value, codeMode.value)
                 generating = false
                 draft = ""
             }
@@ -532,7 +545,7 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
         while (messages.size > lastUser + 1) {
             messages.removeAt(messages.lastIndex)
         }
-        conversationStore.save(systemPrompt.value, messages.toList())
+        conversationStore.save(systemPrompt.value, messages.toList(), sampling.value, codeMode.value)
         draft = ""
         stats = null
         errorText = null
@@ -547,13 +560,13 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
                 stats = result
                 messages.add(ChatMessage("assistant", draft))
                 recordStats(result)
-                conversationStore.save(systemPrompt.value, messages.toList())
+                conversationStore.save(systemPrompt.value, messages.toList(), sampling.value, codeMode.value)
                 draft = ""
                 generating = false
             },
             onError = { message ->
                 errorText = message
-                conversationStore.save(systemPrompt.value, messages.toList())
+                conversationStore.save(systemPrompt.value, messages.toList(), sampling.value, codeMode.value)
                 generating = false
                 draft = ""
             }
@@ -567,7 +580,7 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
     fun clearConversation() {
         if (!generating) {
             messages.clear()
-            conversationStore.clear()
+            conversationStore.save(systemPrompt.value, emptyList(), sampling.value, codeMode.value)
             draft = ""
             stats = null
             input = ""
@@ -795,11 +808,13 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
             onSampling = {
                 sampling.value = it
                 settingsStore.saveSampling(it)
+                persistConversationSettings()
             },
             systemPrompt = systemPrompt.value,
             onSystemPrompt = {
                 systemPrompt.value = it
                 settingsStore.saveSystemPrompt(it)
+                persistConversationSettings()
             },
             persistentFacts = persistentFacts.value,
             onPersistentFacts = {
@@ -845,6 +860,7 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
             onCodeMode = { enabled ->
                 codeMode.value = enabled
                 settingsStore.saveCodeMode(enabled)
+                persistConversationSettings()
             },
             themeName = themeName,
             onThemeName = onThemeName,
@@ -870,6 +886,14 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
                 systemPrompt.value = snap.systemPrompt
                 messages.clear()
                 messages.addAll(snap.messages)
+                snap.sampling?.let {
+                    sampling.value = it
+                    settingsStore.saveSampling(it)
+                }
+                snap.codeMode?.let {
+                    codeMode.value = it
+                    settingsStore.saveCodeMode(it)
+                }
                 conversationName.value = name
                 conversationNames.clear()
                 conversationNames.addAll(conversationStore.listConversations())
@@ -893,6 +917,14 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
                 systemPrompt.value = snap.systemPrompt
                 messages.clear()
                 messages.addAll(snap.messages)
+                snap.sampling?.let {
+                    sampling.value = it
+                    settingsStore.saveSampling(it)
+                }
+                snap.codeMode?.let {
+                    codeMode.value = it
+                    settingsStore.saveCodeMode(it)
+                }
                 conversationName.value = finalName
                 conversationNames.clear()
                 conversationNames.addAll(conversationStore.listConversations())
@@ -910,6 +942,14 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
                     systemPrompt.value = snap.systemPrompt
                     messages.clear()
                     messages.addAll(snap.messages)
+                    snap.sampling?.let {
+                        sampling.value = it
+                        settingsStore.saveSampling(it)
+                    }
+                    snap.codeMode?.let {
+                        codeMode.value = it
+                        settingsStore.saveCodeMode(it)
+                    }
                     stats = null
                     draft = ""
                     input = ""

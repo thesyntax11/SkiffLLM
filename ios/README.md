@@ -45,7 +45,8 @@ Choose a device/simulator and Run. If you only want the simulator, edit
 - Real measured context-usage bar (`used/capacity tokens`, %) and
   token/time/tok-per-second stats after each response.
 - Dark / Light / System theme.
-- Multiple local conversations (create / open / rename / delete).
+- Multiple local conversations (create / open / rename / delete). Each
+  conversation remembers its own sampling settings and code-mode toggle.
 - Persistent facts injected into the system prompt every turn.
 - Custom quick-prompt chips above the composer.
 - Hugging Face model download with progress and CANCEL/DOWNLOAD, verified by

@@ -52,6 +52,14 @@ final class AppState: ObservableObject {
         let snap = conversations.load()
         messages = snap.messages
         systemPrompt = snap.systemPrompt
+        if let savedSampling = snap.sampling {
+            sampling = savedSampling
+            settings.saveSampling(savedSampling)
+        }
+        if let savedCodeMode = snap.codeMode {
+            codeMode = savedCodeMode
+            settings.saveCodeMode(savedCodeMode)
+        }
         refreshModels()
         refreshConversations()
         sharedText = SharedTextStore.shared.peek()
@@ -135,6 +143,10 @@ final class AppState: ObservableObject {
         sessionStats = SessionStats()
         stats = nil
         benchmarkResult = nil
+    }
+
+    func persistConversationSettings() {
+        conversations.save(systemPrompt: systemPrompt, messages: messages, sampling: sampling, codeMode: codeMode)
     }
 
     func warmUp() {
@@ -248,7 +260,7 @@ final class AppState: ObservableObject {
                                         self.messages.removeAll()
                                         self.messages.append(ChatMessage(role: "user", content: "[Compacted conversation]"))
                                         self.messages.append(ChatMessage(role: "assistant", content: summary))
-                                        self.conversations.save(systemPrompt: self.systemPrompt, messages: self.messages)
+                                        self.conversations.save(systemPrompt: self.systemPrompt, messages: self.messages, sampling: self.sampling, codeMode: self.codeMode)
                                     }
                                     if let result {
                                         self.recordStats(GenerationStats(promptTokens: Int(result.promptTokens),
@@ -351,7 +363,7 @@ final class AppState: ObservableObject {
                                         if !self.messages.isEmpty { self.messages.removeLast() }
                                     } else {
                                         self.messages.append(ChatMessage(role: "assistant", content: self.draft))
-                                        self.conversations.save(systemPrompt: self.systemPrompt, messages: self.messages)
+                                        self.conversations.save(systemPrompt: self.systemPrompt, messages: self.messages, sampling: self.sampling, codeMode: self.codeMode)
                                         if let result {
                                             self.recordStats(GenerationStats(promptTokens: Int(result.promptTokens),
                                                                             generatedTokens: Int(result.generatedTokens),
@@ -382,7 +394,7 @@ final class AppState: ObservableObject {
         while messages.count > lastUser + 1 {
             messages.removeLast()
         }
-        conversations.save(systemPrompt: systemPrompt, messages: messages)
+        conversations.save(systemPrompt: systemPrompt, messages: messages, sampling: sampling, codeMode: codeMode)
         draft = ""
         stats = nil
         errorMessage = nil
@@ -414,7 +426,7 @@ final class AppState: ObservableObject {
                                         self.errorMessage = error?.localizedDescription ?? "Generation failed."
                                     } else {
                                         self.messages.append(ChatMessage(role: "assistant", content: self.draft))
-                                        self.conversations.save(systemPrompt: self.systemPrompt, messages: self.messages)
+                                        self.conversations.save(systemPrompt: self.systemPrompt, messages: self.messages, sampling: self.sampling, codeMode: self.codeMode)
                                         if let result {
                                             self.recordStats(GenerationStats(promptTokens: Int(result.promptTokens),
                                                                             generatedTokens: Int(result.generatedTokens),
@@ -449,7 +461,7 @@ final class AppState: ObservableObject {
         draft = ""
         input = ""
         resetSessionStats()
-        conversations.save(systemPrompt: systemPrompt, messages: [])
+        conversations.save(systemPrompt: systemPrompt, messages: [], sampling: sampling, codeMode: codeMode)
     }
 
     func newConversation(_ name: String) {
@@ -459,6 +471,14 @@ final class AppState: ObservableObject {
         refreshConversations()
         messages = snap.messages
         systemPrompt = snap.systemPrompt
+        if let savedSampling = snap.sampling {
+            sampling = savedSampling
+            settings.saveSampling(savedSampling)
+        }
+        if let savedCodeMode = snap.codeMode {
+            codeMode = savedCodeMode
+            settings.saveCodeMode(savedCodeMode)
+        }
         draft = ""
         input = ""
         resetSessionStats()
@@ -470,6 +490,14 @@ final class AppState: ObservableObject {
         refreshConversations()
         messages = snap.messages
         systemPrompt = snap.systemPrompt
+        if let savedSampling = snap.sampling {
+            sampling = savedSampling
+            settings.saveSampling(savedSampling)
+        }
+        if let savedCodeMode = snap.codeMode {
+            codeMode = savedCodeMode
+            settings.saveCodeMode(savedCodeMode)
+        }
         draft = ""
         input = ""
         resetSessionStats()
@@ -482,6 +510,14 @@ final class AppState: ObservableObject {
         let snap = conversations.load()
         messages = snap.messages
         systemPrompt = snap.systemPrompt
+        if let savedSampling = snap.sampling {
+            sampling = savedSampling
+            settings.saveSampling(savedSampling)
+        }
+        if let savedCodeMode = snap.codeMode {
+            codeMode = savedCodeMode
+            settings.saveCodeMode(savedCodeMode)
+        }
         resetSessionStats()
     }
 
@@ -979,6 +1015,7 @@ struct SettingsSheet: View {
                         app.settings.savePersistentFacts(app.persistentFacts)
                         app.settings.saveCodeMode(app.codeMode)
                         app.settings.saveTheme(app.theme)
+                        app.persistConversationSettings()
                         app.showSettings = false
                     }
                 }

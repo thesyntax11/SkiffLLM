@@ -295,6 +295,18 @@ final class SettingsStore {
 struct ConversationSnapshot {
     let systemPrompt: String
     let messages: [ChatMessage]
+    let sampling: SamplingParams?
+    let codeMode: Bool?
+
+    init(systemPrompt: String,
+         messages: [ChatMessage],
+         sampling: SamplingParams? = nil,
+         codeMode: Bool? = nil) {
+        self.systemPrompt = systemPrompt
+        self.messages = messages
+        self.sampling = sampling
+        self.codeMode = codeMode
+    }
 }
 
 enum SkiffLLMAppGroup {
@@ -456,15 +468,48 @@ final class ConversationStore {
                   !role.isEmpty, !content.isEmpty else { return nil }
             return ChatMessage(role: role, content: content)
         }
-        return ConversationSnapshot(systemPrompt: system, messages: messages)
+        let sampling: SamplingParams? = (json["sampling"] as? [String: Any]).flatMap { obj in
+            SamplingParams(
+                temperature: (obj["temperature"] as? NSNumber)?.floatValue ?? 0.7,
+                topP: (obj["top_p"] as? NSNumber)?.floatValue ?? 0.95,
+                topK: (obj["top_k"] as? NSNumber)?.intValue ?? 40,
+                minP: (obj["min_p"] as? NSNumber)?.floatValue ?? 0.0,
+                typicalP: (obj["typical_p"] as? NSNumber)?.floatValue ?? 0.0,
+                repeatPenalty: (obj["repeat_penalty"] as? NSNumber)?.floatValue ?? 1.10,
+                repeatLastN: (obj["repeat_last_n"] as? NSNumber)?.intValue ?? 64,
+                maxTokens: (obj["max_tokens"] as? NSNumber)?.intValue ?? 512,
+                seed: UInt32((obj["seed"] as? NSNumber)?.intValue ?? Int(0xFFFFFFFF))
+            )
+        }
+        let codeMode = (json["code_mode"] as? NSNumber)?.boolValue
+        return ConversationSnapshot(systemPrompt: system, messages: messages, sampling: sampling, codeMode: codeMode)
     }
 
-    func save(systemPrompt: String, messages: [ChatMessage]) {
+    func save(systemPrompt: String,
+              messages: [ChatMessage],
+              sampling: SamplingParams? = nil,
+              codeMode: Bool? = nil) {
         _ = create(currentName())
-        let payload: [String: Any] = [
+        var payload: [String: Any] = [
             "system_prompt": systemPrompt,
             "messages": messages.map { ["role": $0.role, "content": $0.content] },
         ]
+        if let sampling {
+            payload["sampling"] = [
+                "temperature": sampling.temperature,
+                "top_p": sampling.topP,
+                "top_k": sampling.topK,
+                "min_p": sampling.minP,
+                "typical_p": sampling.typicalP,
+                "repeat_penalty": sampling.repeatPenalty,
+                "repeat_last_n": sampling.repeatLastN,
+                "max_tokens": sampling.maxTokens,
+                "seed": Int(sampling.seed),
+            ]
+        }
+        if let codeMode {
+            payload["code_mode"] = codeMode
+        }
         if let data = try? JSONSerialization.data(withJSONObject: payload) {
             try? data.write(to: fileFor(currentName()), options: .atomic)
         }

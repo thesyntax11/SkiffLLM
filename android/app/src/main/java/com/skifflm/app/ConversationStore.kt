@@ -137,7 +137,12 @@ class ConversationStore(private val appContext: Context) {
                     }
                 }
             }
-            ConversationSnapshot(system, messages)
+            ConversationSnapshot(
+                system,
+                messages,
+                sampling = samplingFromJson(json),
+                codeMode = if (json.has("code_mode")) json.optBoolean("code_mode") else null
+            )
         }.getOrElse {
             ConversationSnapshot(
                 systemPrompt = "You are SkiffLLM, a helpful local assistant.",
@@ -146,7 +151,30 @@ class ConversationStore(private val appContext: Context) {
         }
     }
 
-    fun save(systemPrompt: String, messages: List<ChatMessage>) {
+    private fun samplingFromJson(json: JSONObject): SamplingParams? {
+        if (!json.has("sampling")) {
+            return null
+        }
+        val obj = json.optJSONObject("sampling") ?: return null
+        return SamplingParams(
+            temperature = obj.optDouble("temperature", 0.7).toFloat(),
+            topP = obj.optDouble("top_p", 0.95).toFloat(),
+            topK = obj.optInt("top_k", 40),
+            minP = obj.optDouble("min_p", 0.0).toFloat(),
+            typicalP = obj.optDouble("typical_p", 0.0).toFloat(),
+            repeatPenalty = obj.optDouble("repeat_penalty", 1.10).toFloat(),
+            repeatLastN = obj.optInt("repeat_last_n", 64),
+            maxTokens = obj.optInt("max_tokens", 512),
+            seed = obj.optLong("seed", 0xFFFFFFFFL)
+        )
+    }
+
+    fun save(
+        systemPrompt: String,
+        messages: List<ChatMessage>,
+        sampling: SamplingParams? = null,
+        codeMode: Boolean? = null
+    ) {
         migrateLegacy()
         val name = ensureCurrent()
         val raw = JSONArray()
@@ -159,6 +187,22 @@ class ConversationStore(private val appContext: Context) {
         val json = JSONObject().apply {
             put("system_prompt", systemPrompt)
             put("messages", raw)
+            if (sampling != null) {
+                put("sampling", JSONObject().apply {
+                    put("temperature", sampling.temperature)
+                    put("top_p", sampling.topP)
+                    put("top_k", sampling.topK)
+                    put("min_p", sampling.minP)
+                    put("typical_p", sampling.typicalP)
+                    put("repeat_penalty", sampling.repeatPenalty)
+                    put("repeat_last_n", sampling.repeatLastN)
+                    put("max_tokens", sampling.maxTokens)
+                    put("seed", sampling.seed)
+                })
+            }
+            if (codeMode != null) {
+                put("code_mode", codeMode)
+            }
         }
         fileFor(name).writeText(json.toString())
     }
@@ -180,5 +224,7 @@ class ConversationStore(private val appContext: Context) {
 
 data class ConversationSnapshot(
     val systemPrompt: String,
-    val messages: List<ChatMessage>
+    val messages: List<ChatMessage>,
+    val sampling: SamplingParams? = null,
+    val codeMode: Boolean? = null
 )

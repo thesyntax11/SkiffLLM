@@ -113,6 +113,10 @@
 - Added `skifflm session rename <old> <new>` on desktop and conversation rename
   on Android and iOS, so all three clients can keep named conversations tidy
   instead of only creating and deleting them.
+- Android and iOS conversations now store their own sampling settings and
+  code-mode flag inside the local conversation JSON, so switching conversations
+  restores that conversation's exact setup instead of relying on global
+  defaults.
 - iOS and Android READMEs document the shared settings surface; the Android
   app exposes stop sequences, profiles, and compaction from its Settings
   dialog.
