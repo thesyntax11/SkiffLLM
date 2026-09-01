@@ -133,6 +133,21 @@ to propose concrete, reviewable edits as unified diffs and never to claim that
 a file was changed. It mirrors the desktop `--code` mode; applying the proposal
 remains a manual, human step.
 
+## Warm-up and benchmark
+
+`Settings -> Warm up model` re-runs a short decode pass on the loaded model to
+reduce first-answer latency after a long session. `Settings -> Run 3-round
+benchmark` performs three real generations and reports measured generated
+tokens, average round time, and average tokens per second, exactly like the
+desktop `--benchmark` flow. No numbers are fabricated.
+
+## Session statistics
+
+Every completed generation updates a local session counter shown under the
+context bar: messages, prompt/generated tokens, total generation time, and
+average tokens per second. This mirrors the desktop `/stats` command and is
+reset when you clear or switch conversations.
+
 ## Stop sequences
 
 `Settings -> Stop sequences` lets you add one or more strings that end the
@@ -176,6 +191,7 @@ answers"*. They are injected on every turn and never leave the phone.
 - Stop sequences
 - Conversation compaction
 - Stop generation
+- Copy last answer
 - Clear conversation
 - Export conversation
 - Attach text/JSON/XML file

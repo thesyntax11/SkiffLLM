@@ -44,6 +44,14 @@ data class GenerationStats(
     val stopped: Boolean
 )
 
+data class SessionStats(
+    val messageCount: Int = 0,
+    val promptTokens: Long = 0L,
+    val generatedTokens: Long = 0L,
+    val generationMs: Double = 0.0,
+    val avgTokensPerSecond: Double = 0.0
+)
+
 class EngineController(private val appContext: Context) {
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
     private val uiHandler = Handler(Looper.getMainLooper())
@@ -261,6 +269,17 @@ class EngineController(private val appContext: Context) {
                 stopSequences.toTypedArray(),
                 callback
             )
+        }
+    }
+
+    fun warmup(onResult: (Boolean) -> Unit) {
+        if (handle == 0L) {
+            uiHandler.post { onResult(false) }
+            return
+        }
+        executor.execute {
+            val ok = runCatching { SkiffNative.warmup(handle) }.getOrDefault(false)
+            uiHandler.post { onResult(ok) }
         }
     }
 

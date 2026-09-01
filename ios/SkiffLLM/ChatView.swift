@@ -14,8 +14,11 @@ final class AppState: ObservableObject {
     @Published var draft = ""
     @Published var input = ""
     @Published var generating = false
+    @Published var warmingUp = false
     @Published var loadingModel = false
+    @Published var benchmarkResult: String?
     @Published var stats: GenerationStats?
+    @Published var sessionStats = SessionStats()
     @Published var errorMessage: String?
     @Published var modelName: String?
     @Published var modelInfo: String?
@@ -105,9 +108,104 @@ final class AppState: ObservableObject {
         conversationMarkdown(systemPrompt: effectiveSystemPrompt(), messages: messages)
     }
 
+    func copyLastAnswer() {
+        let text = messages.last(where: { $0.role == "assistant" })?.content ?? draft
+        guard !text.isEmpty else { return }
+        UIPasteboard.general.string = text
+    }
+
     func applyProfile(_ profile: SamplingProfile) {
         sampling = profile.apply(to: sampling)
         settings.saveSampling(sampling)
+    }
+
+    private func recordStats(_ result: GenerationStats, messageCount: Int) {
+        let prompt = sessionStats.promptTokens + result.promptTokens
+        let generated = sessionStats.generatedTokens + result.generatedTokens
+        let elapsed = sessionStats.generationMs + result.generationMs
+        let average = elapsed > 0 ? Double(generated) / (elapsed / 1000.0) : sessionStats.avgTokensPerSecond
+        sessionStats = SessionStats(messageCount: messageCount,
+                                    promptTokens: prompt,
+                                    generatedTokens: generated,
+                                    generationMs: elapsed,
+                                    avgTokensPerSecond: average)
+    }
+
+    private func resetSessionStats() {
+        sessionStats = SessionStats()
+        stats = nil
+        benchmarkResult = nil
+    }
+
+    func warmUp() {
+        guard !generating, !warmingUp, !loadingModel, modelName != nil else { return }
+        warmingUp = true
+        errorMessage = nil
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self else { return }
+            var error: NSError?
+            let ok = self.engine.warmup(error: &error)
+            DispatchQueue.main.async {
+                self.warmingUp = false
+                if ok {
+                    self.errorMessage = nil
+                } else {
+                    self.errorMessage = error?.localizedDescription ?? "Warm-up failed."
+                }
+            }
+        }
+    }
+
+    func runBenchmark() {
+        guard !generating, !warmingUp, !loadingModel, modelName != nil else { return }
+        benchmarkResult = nil
+        stats = nil
+        errorMessage = nil
+        generating = true
+        var results: [GenerationStats] = []
+        let payload: [[String: String]] = [
+            ["role": "user", "content": "Write one short sentence explaining what a local LLM is."],
+        ]
+
+        func nextRound() {
+            engine.generateMessages(payload,
+                                    temperature: 0.0,
+                                    topP: sampling.topP,
+                                    topK: Int32(sampling.topK),
+                                    minP: sampling.minP,
+                                    typicalP: sampling.typicalP,
+                                    repeatPenalty: sampling.repeatPenalty,
+                                    repeatLastN: Int32(sampling.repeatLastN),
+                                    maxTokens: 128,
+                                    seed: sampling.seed,
+                                    stopSequences: [],
+                                    tokenCallback: { _ in },
+                                    completion: { [weak self] result, error in
+                guard let self else { return }
+                if let result {
+                    results.append(GenerationStats(promptTokens: Int(result.promptTokens),
+                                                   generatedTokens: Int(result.generatedTokens),
+                                                   promptMs: result.promptMs,
+                                                   generationMs: result.generationMs,
+                                                   tokensPerSecond: result.tokensPerSecond,
+                                                   stopped: result.stopped))
+                    if results.count < 3 {
+                        nextRound()
+                    } else {
+                        let averageTps = results.map { $0.tokensPerSecond }.reduce(0, +) / Double(results.count)
+                        let averageMs = results.map { $0.generationMs }.reduce(0, +) / Double(results.count)
+                        let totalTokens = results.map { $0.generatedTokens }.reduce(0, +)
+                        self.generating = false
+                        self.benchmarkResult = String(format: "Benchmark (3 rounds): %d tokens, avg %.1f s per round, avg %.1f tok/s",
+                                                      totalTokens, averageMs / 1000.0, averageTps)
+                    }
+                } else {
+                    self.generating = false
+                    self.benchmarkResult = "Benchmark failed: \(error?.localizedDescription ?? "Unknown error")"
+                }
+            })
+        }
+        nextRound()
     }
 
     func compactConversation() {
@@ -153,6 +251,13 @@ final class AppState: ObservableObject {
                                         self.conversations.save(systemPrompt: self.systemPrompt, messages: self.messages)
                                     }
                                     if let result {
+                                        self.recordStats(GenerationStats(promptTokens: Int(result.promptTokens),
+                                                                        generatedTokens: Int(result.generatedTokens),
+                                                                        promptMs: result.promptMs,
+                                                                        generationMs: result.generationMs,
+                                                                        tokensPerSecond: result.tokensPerSecond,
+                                                                        stopped: result.stopped),
+                                                         messageCount: self.messages.count)
                                         self.stats = GenerationStats(
                                             promptTokens: Int(result.promptTokens),
                                             generatedTokens: Int(result.generatedTokens),
@@ -247,6 +352,15 @@ final class AppState: ObservableObject {
                                     } else {
                                         self.messages.append(ChatMessage(role: "assistant", content: self.draft))
                                         self.conversations.save(systemPrompt: self.systemPrompt, messages: self.messages)
+                                        if let result {
+                                            self.recordStats(GenerationStats(promptTokens: Int(result.promptTokens),
+                                                                            generatedTokens: Int(result.generatedTokens),
+                                                                            promptMs: result.promptMs,
+                                                                            generationMs: result.generationMs,
+                                                                            tokensPerSecond: result.tokensPerSecond,
+                                                                            stopped: result.stopped),
+                                                             messageCount: self.messages.count)
+                                        }
                                     }
                                     if let result {
                                         self.stats = GenerationStats(
@@ -271,7 +385,7 @@ final class AppState: ObservableObject {
         messages.removeAll()
         draft = ""
         input = ""
-        stats = nil
+        resetSessionStats()
         conversations.save(systemPrompt: systemPrompt, messages: [])
     }
 
@@ -284,7 +398,7 @@ final class AppState: ObservableObject {
         systemPrompt = snap.systemPrompt
         draft = ""
         input = ""
-        stats = nil
+        resetSessionStats()
     }
 
     func openConversation(_ name: String) {
@@ -295,7 +409,7 @@ final class AppState: ObservableObject {
         systemPrompt = snap.systemPrompt
         draft = ""
         input = ""
-        stats = nil
+        resetSessionStats()
     }
 
     func deleteConversation(_ name: String) {
@@ -305,7 +419,7 @@ final class AppState: ObservableObject {
         let snap = conversations.load()
         messages = snap.messages
         systemPrompt = snap.systemPrompt
-        stats = nil
+        resetSessionStats()
     }
 }
 
@@ -323,6 +437,28 @@ struct ChatView: View {
             messageList
             if let stats = app.stats, !app.generating {
                 contextBar(stats)
+            }
+            if app.sessionStats.generatedTokens > 0 || app.sessionStats.messageCount > 0 {
+                Text("Session: \(app.sessionStats.messageCount) messages · "
+                     + "\(app.sessionStats.promptTokens) prompt tokens · "
+                     + "\(app.sessionStats.generatedTokens) generated · "
+                     + String(format: "avg %.1f tok/s", app.sessionStats.avgTokensPerSecond))
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal, 12)
+                    .padding(.top, 2)
+            }
+            if let benchmark = app.benchmarkResult {
+                HStack(spacing: 8) {
+                    Text(benchmark)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Button("Dismiss") { app.benchmarkResult = nil }
+                        .font(.caption2)
+                }
+                .padding(.horizontal, 12)
+                .padding(.top, 4)
             }
             if let error = app.errorMessage {
                 Text(error)
@@ -429,6 +565,9 @@ struct ChatView: View {
             Button { app.showConversations = true } label: {
                 Image(systemName: "bubble.left.and.bubble.right")
             }
+            Button { app.copyLastAnswer() } label: {
+                Image(systemName: "doc.on.doc")
+            }
             Button { app.showModels = true } label: {
                 Image(systemName: "ellipsis.circle")
             }
@@ -454,7 +593,7 @@ struct ChatView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .lineLimit(1)
-            if app.loadingModel {
+            if app.loadingModel || app.warmingUp {
                 ProgressView().controlSize(.small)
             }
             Spacer()
@@ -464,7 +603,7 @@ struct ChatView: View {
                     .foregroundColor(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
-            } else if !app.loadingModel {
+            } else if !app.loadingModel, !app.warmingUp {
                 Text(app.engine.activeBackends())
                     .font(.caption2)
                     .foregroundColor(.secondary)
@@ -584,7 +723,7 @@ struct ChatView: View {
             } else {
                 Button("Send") { app.send() }
                     .buttonStyle(.borderedProminent)
-                    .disabled(app.modelName == nil || app.input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(app.modelName == nil || app.warmingUp || app.input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
         .padding(12)
@@ -681,7 +820,15 @@ struct SettingsSheet: View {
                         app.showSettings = false
                         app.compactConversation()
                     }
-                    Text("Compacts the current conversation into a bullet summary using the loaded model.")
+                    Button("Warm up model") {
+                        app.showSettings = false
+                        app.warmUp()
+                    }
+                    Button("Run 3-round benchmark") {
+                        app.showSettings = false
+                        app.runBenchmark()
+                    }
+                    Text("Warm-up reduces first-answer latency; benchmark reports measured tokens, time, and tok/s.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }

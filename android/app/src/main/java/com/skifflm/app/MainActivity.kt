@@ -56,6 +56,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import android.widget.Toast
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -180,6 +181,9 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
     var showConversations by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
     var modelInfo by remember { mutableStateOf<String?>(null) }
+    var sessionStats by remember { mutableStateOf(SessionStats()) }
+    var warmingUp by remember { mutableStateOf(false) }
+    var benchmarkResult by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
 
     fun effectiveSystemPrompt(): String {
@@ -217,6 +221,79 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
     fun handleModelError(message: String) {
         statusText = "Model load failed"
         errorText = message
+    }
+
+    fun recordStats(result: GenerationStats) {
+        val prompt = sessionStats.promptTokens + result.promptTokens
+        val generated = sessionStats.generatedTokens + result.generatedTokens
+        val elapsed = sessionStats.generationMs + result.generationMs
+        val average = if (elapsed > 0.0) {
+            (generated.toDouble() / (elapsed / 1000.0))
+        } else {
+            sessionStats.avgTokensPerSecond
+        }
+        sessionStats = SessionStats(
+            messageCount = messages.size,
+            promptTokens = prompt,
+            generatedTokens = generated,
+            generationMs = elapsed,
+            avgTokensPerSecond = average
+        )
+    }
+
+    fun warmModel() {
+        if (generating || warmingUp || modelName == null) {
+            return
+        }
+        warmingUp = true
+        errorText = null
+        controller.warmup { ok ->
+            warmingUp = false
+            if (ok) {
+                statusText = "Model warmed"
+            } else {
+                errorText = "Warm-up failed"
+            }
+        }
+    }
+
+    fun runBenchmark() {
+        if (generating || warmingUp || modelName == null) {
+            return
+        }
+        val runs = mutableListOf<GenerationStats>()
+        benchmarkResult = null
+        stats = null
+        errorText = null
+        generating = true
+
+        fun nextRound() {
+            val prompt = "Write one short sentence explaining what a local LLM is."
+            controller.generate(
+                listOf(ChatMessage("user", prompt)),
+                sampling.value.copy(temperature = 0.0f, maxTokens = 128),
+                emptyList(),
+                onToken = {},
+                onDone = { result ->
+                    runs.add(result)
+                    if (runs.size < 3) {
+                        nextRound()
+                    } else {
+                        val averageTps = runs.map { it.tokensPerSecond }.average()
+                        val averageMs = runs.map { it.generationMs }.average()
+                        val totalTokens = runs.sumOf { it.generatedTokens }
+                        benchmarkResult = "Benchmark (3 rounds): $totalTokens tokens, " +
+                            "avg %.1f s per round, avg %.1f tok/s".format(averageMs / 1000.0, averageTps)
+                        generating = false
+                    }
+                },
+                onError = { message ->
+                    benchmarkResult = "Benchmark failed: $message"
+                    generating = false
+                }
+            )
+        }
+        nextRound()
     }
 
     DisposableEffect(Unit) {
@@ -397,6 +474,7 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
                     messages.add(ChatMessage("assistant", summary))
                 }
                 conversationStore.save(systemPrompt.value, messages.toList())
+                recordStats(result)
                 stats = result
                 generating = false
                 draft = ""
@@ -429,6 +507,7 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
             onDone = { result ->
                 stats = result
                 messages.add(ChatMessage("assistant", draft))
+                recordStats(result)
                 conversationStore.save(systemPrompt.value, messages.toList())
                 draft = ""
                 generating = false
@@ -453,6 +532,7 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
             draft = ""
             stats = null
             input = ""
+            sessionStats = SessionStats()
         }
     }
 
@@ -465,6 +545,15 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
         context.startActivity(Intent.createChooser(intent, "Export conversation"))
     }
 
+    fun copyLastAnswer() {
+        val text = messages.lastOrNull { it.role == "assistant" }?.content
+            ?: draft.takeIf { it.isNotBlank() }
+            ?: return
+        val clipboard = context.getSystemService(android.content.ClipboardManager::class.java)
+        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("SkiffLLM answer", text))
+        android.widget.Toast.makeText(context, "Answer copied", Toast.LENGTH_SHORT).show()
+    }
+
         Scaffold(
             topBar = {
                 ChatTopBar(
@@ -474,6 +563,7 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
                     conversationName = conversationName.value,
                     onConversations = { showConversations = true },
                     onSettings = { showSettings = true },
+                    onCopy = { copyLastAnswer() },
                     onExport = { shareConversation() },
                     onClear = { clearConversation() }
                 )
@@ -486,7 +576,7 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
                 .padding(padding)
                 .padding(12.dp)
         ) {
-            if (generating) {
+            if (generating || warmingUp) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
             }
@@ -528,6 +618,38 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
                     style = MaterialTheme.typography.bodySmall,
                     color = Color(0xFF8A94A6)
                 )
+            }
+            if (sessionStats.generatedTokens > 0L || sessionStats.messageCount > 0) {
+                Text(
+                    "Session: ${sessionStats.messageCount} messages · " +
+                        "${sessionStats.promptTokens} prompt tokens · " +
+                        "${sessionStats.generatedTokens} generated · " +
+                        "avg ${"%.1f".format(sessionStats.avgTokensPerSecond)} tok/s",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF8A94A6)
+                )
+            }
+            benchmarkResult?.let { result ->
+                Surface(
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Text(
+                            "Benchmark",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(result, style = MaterialTheme.typography.bodySmall)
+                        Row {
+                            TextButton(onClick = { benchmarkResult = null }) {
+                                Text("Dismiss")
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
             }
             sharedText?.let { shared ->
                 Surface(
@@ -609,7 +731,7 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
                         Text("Stop")
                     }
                 } else {
-                    Button(onClick = { send() }) {
+                    Button(onClick = { send() }, enabled = !warmingUp) {
                         Text("Send")
                     }
                 }
@@ -666,6 +788,14 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
                 showSettings = false
                 compactConversation()
             },
+            onWarmup = {
+                showSettings = false
+                warmModel()
+            },
+            onBenchmark = {
+                showSettings = false
+                runBenchmark()
+            },
             codeMode = codeMode.value,
             onCodeMode = { enabled ->
                 codeMode.value = enabled
@@ -701,6 +831,7 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
                 stats = null
                 draft = ""
                 input = ""
+                sessionStats = SessionStats()
                 showConversations = false
             },
             onCreate = { name ->
@@ -715,6 +846,7 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
                 stats = null
                 draft = ""
                 input = ""
+                sessionStats = SessionStats()
                 showConversations = false
             },
             onDelete = { name ->
@@ -728,6 +860,7 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
                     stats = null
                     draft = ""
                     input = ""
+                    sessionStats = SessionStats()
                 }
                 conversationNames.clear()
                 conversationNames.addAll(conversationStore.listConversations())
@@ -776,6 +909,7 @@ private fun ChatTopBar(
     conversationName: String,
     onConversations: () -> Unit,
     onSettings: () -> Unit,
+    onCopy: () -> Unit,
     onExport: () -> Unit,
     onClear: () -> Unit
 ) {
@@ -803,6 +937,9 @@ private fun ChatTopBar(
                 )
                 TextButton(onClick = { onConversations() }) {
                     Text("Chats")
+                }
+                TextButton(onClick = { onCopy() }) {
+                    Text("Copy")
                 }
                 TextButton(onClick = { onExport() }) {
                     Text("Export")
@@ -875,6 +1012,8 @@ private fun SettingsDialog(
     onRemoveStopSequence: (String) -> Unit,
     onApplyProfile: (String) -> Unit,
     onCompact: () -> Unit,
+    onWarmup: () -> Unit,
+    onBenchmark: () -> Unit,
     codeMode: Boolean,
     onCodeMode: (Boolean) -> Unit,
     themeName: String,
@@ -1143,6 +1282,24 @@ private fun SettingsDialog(
                 }
                 Text(
                     "Compacts the current conversation into a bullet summary using the loaded model.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF8A94A6)
+                )
+                Spacer(Modifier.height(8.dp))
+                Button(onClick = onWarmup) {
+                    Text("Warm up model")
+                }
+                Text(
+                    "Runs one short decode pass to reduce first-answer latency.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF8A94A6)
+                )
+                Spacer(Modifier.height(6.dp))
+                Button(onClick = onBenchmark) {
+                    Text("Run 3-round benchmark")
+                }
+                Text(
+                    "Runs three real generations and reports measured tokens, time, and tok/s.",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color(0xFF8A94A6)
                 )

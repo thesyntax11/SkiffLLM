@@ -94,6 +94,15 @@
   GGUF header, and write/delete a `.gguf.sha256` sidecar, so both mobile
   clients (and `skifflm model verify`) use the same local integrity convention
   as the desktop CLI.
+- Android and iOS add a re-run warm-up action (`Warm up model`), a 3-round
+  measured benchmark (`Run 3-round benchmark`) matching the desktop
+  `--benchmark` flow, and a live session counter replacing the desktop
+  `/stats` behavior on devices. All numbers come from real inference.
+- The Android JNI bridge now exposes warm-up as a public engine action, so the
+  same native warm-up pass used at load time can be triggered on demand.
+- Android and iOS add a one-tap copy action for the most recent assistant
+  answer (Android also shows a toast), matching the desktop clipboard-friendly
+  one-shot workflow.
 - iOS and Android READMEs document the shared settings surface; the Android
   app exposes stop sequences, profiles, and compaction from its Settings
   dialog.

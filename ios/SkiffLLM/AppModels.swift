@@ -16,6 +16,14 @@ struct GenerationStats {
     let stopped: Bool
 }
 
+struct SessionStats {
+    var messageCount = 0
+    var promptTokens: Int = 0
+    var generatedTokens: Int = 0
+    var generationMs: Double = 0
+    var avgTokensPerSecond: Double = 0
+}
+
 struct SamplingParams {
     var temperature: Float = 0.7
     var topP: Float = 0.95

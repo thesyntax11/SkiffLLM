@@ -322,8 +322,9 @@ recommended GGUF models directly from Hugging Face over HTTPS with size/GGUF
 validation and a SHA-256 checksum sidecar. They share the desktop sampling
 profiles, stop sequences, safe code mode, multi-conversation management,
 persistent facts, quick prompts, conversation compaction, Markdown export,
-text-file attachment, and share-sheet intake. The only network use is those
-explicit downloads; prompts and history never leave the device.
+text-file attachment, warm-up, real 3-round benchmarking, live session
+statistics, and share-sheet intake. The only network use is those explicit
+downloads; prompts and history never leave the device.
 
 ### Android
 

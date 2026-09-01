@@ -56,7 +56,8 @@ Choose a device/simulator and Run. If you only want the simulator, edit
 - Attach a text, JSON, or XML file with the paperclip button. The file is read
   locally as UTF-8 (capped at 64 KB), with a notice when it is truncated, and
   inserted into the composer for the next message.
-- Export the current conversation as Markdown through the iOS share sheet.
+- Export the current conversation as Markdown through the iOS share sheet, or
+  copy the last assistant answer to the clipboard with the copy button.
 - Model warm-up after loading to reduce first-answer latency.
 - Model description + active backend shown in the header.
 - Sampling controls match the desktop/Android clients: profiles
@@ -70,6 +71,12 @@ Choose a device/simulator and Run. If you only want the simulator, edit
 - Safe `Code mode` (`Settings`) mirrors the desktop `--code` mode: the model is
   told to propose concrete, reviewable unified diffs and never to claim a file
   was changed. Applying the proposal stays a manual step.
+- `Settings -> Warm up model` re-runs a short decode pass on the loaded model;
+  `Settings -> Run 3-round benchmark` reports measured tokens, average round
+  time, and tokens per second (real measurements, mirroring desktop
+  `--benchmark`, never fabricated).
+- A live session counter under the context bar tracks messages, prompt and
+  generated tokens, and average tokens per second, mirroring desktop `/stats`.
 - Keep the same short catalog IDs as the desktop CLI.
 
 ## Models
