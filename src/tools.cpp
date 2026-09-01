@@ -1488,6 +1488,34 @@ int handle_session_command(Config& cfg,
         return 0;
     }
 
+    if (action == "rename" || action == "mv") {
+        if (args.size() < 3) {
+            error = "usage: skifflm session rename <old> <new>";
+            return 2;
+        }
+        const std::filesystem::path src = session_file_for(cfg, args[1]);
+        const std::filesystem::path dst = session_file_for(cfg, args[2]);
+        std::error_code ec;
+        if (!std::filesystem::exists(src, ec)) {
+            error = "session does not exist: " + args[1];
+            return 1;
+        }
+        if (std::filesystem::exists(dst, ec)) {
+            error = "a session already exists with the name: " + args[2];
+            return 1;
+        }
+        std::filesystem::rename(src, dst, ec);
+        if (ec) {
+            error = "could not rename session: " + ec.message();
+            return 1;
+        }
+        if (cfg.session_name == args[1]) {
+            cfg.session_name = args[2];
+        }
+        std::cout << "Renamed session " << args[1] << " to " << args[2] << "\n";
+        return 0;
+    }
+
     if (action == "use" || action == "switch") {
         if (args.size() < 2) {
             error = "usage: skifflm session use <name>";
@@ -1501,7 +1529,7 @@ int handle_session_command(Config& cfg,
     }
 
     error = "unknown session action: " + action +
-            " (use list, show, remove or use)";
+            " (use list, show, rename, remove or use)";
     return 2;
 }
 

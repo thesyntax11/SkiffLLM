@@ -376,6 +376,69 @@ final class AppState: ObservableObject {
                                 })
     }
 
+    func regenerate() {
+        guard !generating, !warmingUp, !loadingModel, modelName != nil,
+              let lastUser = messages.lastIndex(where: { $0.role == "user" }) else { return }
+        while messages.count > lastUser + 1 {
+            messages.removeLast()
+        }
+        conversations.save(systemPrompt: systemPrompt, messages: messages)
+        draft = ""
+        stats = nil
+        errorMessage = nil
+        generating = true
+        var payload: [[String: String]] = []
+        let system = effectiveSystemPrompt()
+        if !system.isEmpty {
+            payload.append(["role": "system", "content": system])
+        }
+        payload.append(contentsOf: messages.map { ["role": $0.role, "content": $0.content] })
+        engine.generateMessages(payload,
+                                temperature: sampling.temperature,
+                                topP: sampling.topP,
+                                topK: Int32(sampling.topK),
+                                minP: sampling.minP,
+                                typicalP: sampling.typicalP,
+                                repeatPenalty: sampling.repeatPenalty,
+                                repeatLastN: Int32(sampling.repeatLastN),
+                                maxTokens: Int32(sampling.maxTokens),
+                                seed: sampling.seed,
+                                stopSequences: stopSequences,
+                                tokenCallback: { [weak self] part in
+                                    DispatchQueue.main.async { self?.draft += part ?? "" }
+                                },
+                                completion: { [weak self] result, error in
+                                    guard let self else { return }
+                                    self.generating = false
+                                    if error != nil || self.draft.isEmpty {
+                                        self.errorMessage = error?.localizedDescription ?? "Generation failed."
+                                    } else {
+                                        self.messages.append(ChatMessage(role: "assistant", content: self.draft))
+                                        self.conversations.save(systemPrompt: self.systemPrompt, messages: self.messages)
+                                        if let result {
+                                            self.recordStats(GenerationStats(promptTokens: Int(result.promptTokens),
+                                                                            generatedTokens: Int(result.generatedTokens),
+                                                                            promptMs: result.promptMs,
+                                                                            generationMs: result.generationMs,
+                                                                            tokensPerSecond: result.tokensPerSecond,
+                                                                            stopped: result.stopped),
+                                                             messageCount: self.messages.count)
+                                        }
+                                    }
+                                    if let result {
+                                        self.stats = GenerationStats(
+                                            promptTokens: Int(result.promptTokens),
+                                            generatedTokens: Int(result.generatedTokens),
+                                            promptMs: result.promptMs,
+                                            generationMs: result.generationMs,
+                                            tokensPerSecond: result.tokensPerSecond,
+                                            stopped: result.stopped
+                                        )
+                                    }
+                                    self.draft = ""
+                                })
+    }
+
     func stop() {
         engine.stop()
     }
@@ -420,6 +483,14 @@ final class AppState: ObservableObject {
         messages = snap.messages
         systemPrompt = snap.systemPrompt
         resetSessionStats()
+    }
+
+    func renameConversation(_ oldName: String, to newName: String) {
+        let finalName = conversations.rename(oldName, to: newName)
+        refreshConversations()
+        if currentConversation == oldName {
+            currentConversation = finalName
+        }
     }
 }
 
@@ -717,6 +788,12 @@ struct ChatView: View {
                 .background(Color(.secondarySystemBackground))
                 .cornerRadius(12)
 
+            Button { app.regenerate() } label: {
+                Image(systemName: "arrow.clockwise")
+            }
+            .buttonStyle(.bordered)
+            .disabled(app.generating || app.warmingUp || !app.messages.contains { $0.role == "user" })
+
             Button { showTextImporter = true } label: {
                 Image(systemName: "paperclip")
             }
@@ -1002,6 +1079,8 @@ struct ModelsSheet: View {
 struct ConversationsSheet: View {
     @ObservedObject var app: AppState
     @State private var newName = ""
+    @State private var renameTarget: String?
+    @State private var renameInput = ""
 
     var body: some View {
         NavigationView {
@@ -1016,6 +1095,27 @@ struct ConversationsSheet: View {
                             } else {
                                 Button("Open") { app.openConversation(name); app.showConversations = false }
                                 Button("Delete") { app.deleteConversation(name) }
+                            }
+                            Button("Rename") {
+                                renameTarget = name
+                                renameInput = name
+                            }
+                        }
+                        if renameTarget == name {
+                            HStack {
+                                TextField("New name", text: $renameInput)
+                                Button("Apply") {
+                                    let target = renameInput.trimmingCharacters(in: .whitespacesAndNewlines)
+                                    if !target.isEmpty {
+                                        app.renameConversation(name, to: target)
+                                        renameTarget = nil
+                                        renameInput = ""
+                                    }
+                                }
+                                Button("Cancel") {
+                                    renameTarget = nil
+                                    renameInput = ""
+                                }
                             }
                         }
                     }

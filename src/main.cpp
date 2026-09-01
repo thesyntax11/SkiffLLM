@@ -707,6 +707,67 @@ bool compact_session(const skifflm::Config& cfg,
     return true;
 }
 
+bool regenerate_session(const skifflm::Config& cfg,
+                        skifflm::LlmEngine& engine,
+                        skifflm::Session& session,
+                        skifflm::Terminal& terminal,
+                        const skifflm::GenerationOptions& options) {
+    auto& messages = session.messages();
+    int last_user = -1;
+    for (int i = static_cast<int>(messages.size()) - 1; i >= 0; --i) {
+        if (messages[static_cast<size_t>(i)].role == "user") {
+            last_user = i;
+            break;
+        }
+    }
+    if (last_user < 0) {
+        terminal.info("No user message to regenerate.");
+        return true;
+    }
+    while (static_cast<int>(messages.size()) > last_user + 1) {
+        messages.pop_back();
+    }
+
+    std::vector<skifflm::ChatMessage> ask = session.conversation();
+    skifflm::GenerationResult result;
+    LiveStreamer streamer(terminal);
+    streamer.reset();
+    skifflm::GenerationOptions regen_options = options;
+    regen_options.token_callback = [&streamer](const std::string& part) {
+        streamer.write(part);
+    };
+    terminal.write("Regenerating response...\n", skifflm::Color::Cyan);
+
+    std::string error;
+    const bool ok = engine.generate(ask,
+                                    regen_options,
+                                    result,
+                                    []() {
+                                        return g_interrupted != 0;
+                                    },
+                                    error);
+    streamer.finish();
+    if (!ok) {
+        terminal.error(error);
+        return false;
+    }
+    if (!result.text.empty() && result.text.back() != '\n') {
+        terminal.write_raw("\n");
+    }
+    messages.push_back({"assistant", result.text});
+    if (cfg.save_history) {
+        std::string save_error;
+        if (!session.save(save_error)) {
+            terminal.error(save_error);
+        }
+    }
+    terminal.print_stats(result, "Generated");
+    skifflm::record_generation(cfg, result.prompt_tokens, result.generated_tokens,
+                               result.prompt_ms, result.generation_ms,
+                               result.tokens_per_second);
+    return true;
+}
+
 int run_interactive(skifflm::Config& cfg,
                     std::unique_ptr<skifflm::LlmEngine>& engine,
                     skifflm::Session& session,
@@ -755,6 +816,10 @@ int run_interactive(skifflm::Config& cfg,
             }
             if (command == "/info") {
                 print_session_info(*engine, session, terminal, cfg);
+                continue;
+            }
+            if (command == "/regenerate" || command == "/retry") {
+                regenerate_session(cfg, *engine, session, terminal, options);
                 continue;
             }
             if (command == "/warmup") {

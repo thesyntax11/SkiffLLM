@@ -45,7 +45,7 @@ Choose a device/simulator and Run. If you only want the simulator, edit
 - Real measured context-usage bar (`used/capacity tokens`, %) and
   token/time/tok-per-second stats after each response.
 - Dark / Light / System theme.
-- Multiple local conversations (create / open / delete).
+- Multiple local conversations (create / open / rename / delete).
 - Persistent facts injected into the system prompt every turn.
 - Custom quick-prompt chips above the composer.
 - Hugging Face model download with progress and CANCEL/DOWNLOAD, verified by
@@ -78,6 +78,8 @@ Choose a device/simulator and Run. If you only want the simulator, edit
   `--benchmark`, never fabricated).
 - A live session counter under the context bar tracks messages, prompt and
   generated tokens, and average tokens per second, mirroring desktop `/stats`.
+- Regenerate the last answer with the current sampling settings (desktop
+  `/regenerate` / `/retry` equivalent).
 - Keep the same short catalog IDs as the desktop CLI.
 
 ## Models

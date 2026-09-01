@@ -106,6 +106,13 @@
 - Importing a GGUF from the device now verifies the GGUF header before
   loading on both Android and iOS, matching the desktop `model verify` rule and
   rejecting arbitrary or truncated files.
+- Added `/regenerate` (alias `/retry`) to the desktop interactive shell and a
+  Regenerate action to Android and iOS. All three clients remove the previous
+  assistant response and re-run the last user message with the current
+  sampling settings.
+- Added `skifflm session rename <old> <new>` on desktop and conversation rename
+  on Android and iOS, so all three clients can keep named conversations tidy
+  instead of only creating and deleting them.
 - iOS and Android READMEs document the shared settings surface; the Android
   app exposes stop sequences, profiles, and compaction from its Settings
   dialog.

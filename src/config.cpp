@@ -1024,7 +1024,7 @@ std::string usage(const std::string& program) {
     out << "  openai [prompt] [opts]     Send a prompt to a local OpenAI-compatible server\n";
     out << "  config path|show|init      Manage the config file\n";
     out << "  server health [--json]     Check a running local server\n";
-    out << "\nInteractive commands: /help /info /history /settings /stats /compact /warmup /tokenize /file /clear-attach /clear /reset /system /model /profile /stop /temp /top-p /top-k /min-p /typical /n /ctx /export /save /exit\n";
+    out << "\nInteractive commands: /help /info /history /settings /stats /compact /regenerate /warmup /tokenize /file /clear-attach /clear /reset /system /model /profile /stop /temp /top-p /top-k /min-p /typical /n /ctx /export /save /exit\n";
     return out.str();
 }
 

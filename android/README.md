@@ -105,9 +105,9 @@ usual. The shared text stays on the device.
 ## Conversations
 
 The top bar exposes a `Chats` button. There you can create,
-open, and delete local conversations. Each conversation is stored as a JSON
-file in app-private storage; switching loads that conversation immediately and
-the active name is shown next to the SkiffLLM title.
+open, rename, and delete local conversations. Each conversation is stored as
+a JSON file in app-private storage; switching loads that conversation
+immediately and the active name is shown next to the SkiffLLM title.
 
 ## Attach a text file
 
@@ -193,6 +193,7 @@ answers"*. They are injected on every turn and never leave the phone.
 - Conversation compaction
 - Stop generation
 - Copy last answer
+- Regenerate the last answer
 - Clear conversation
 - Export conversation
 - Attach text/JSON/XML file

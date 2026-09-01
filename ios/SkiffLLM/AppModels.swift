@@ -417,6 +417,26 @@ final class ConversationStore {
         }
     }
 
+    @discardableResult
+    func rename(_ oldName: String, to newName: String) -> String {
+        let old = sanitize(oldName)
+        let new = sanitize(newName)
+        guard old != new else { return old }
+        let oldURL = fileFor(old)
+        let newURL = fileFor(new)
+        guard FileManager.default.fileExists(atPath: oldURL.path) else { return old }
+        guard !FileManager.default.fileExists(atPath: newURL.path) else { return old }
+        do {
+            try FileManager.default.moveItem(at: oldURL, to: newURL)
+            if currentName() == old {
+                try? new.write(to: currentFile, atomically: true, encoding: .utf8)
+            }
+            return new
+        } catch {
+            return old
+        }
+    }
+
     func load() -> ConversationSnapshot {
         let name = currentName()
         let file = fileFor(name)

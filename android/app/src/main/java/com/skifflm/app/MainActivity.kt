@@ -521,6 +521,45 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
         )
     }
 
+    fun regenerate() {
+        if (generating || warmingUp || modelName == null) {
+            return
+        }
+        val lastUser = messages.indexOfLast { it.role == "user" }
+        if (lastUser < 0) {
+            return
+        }
+        while (messages.size > lastUser + 1) {
+            messages.removeAt(messages.lastIndex)
+        }
+        conversationStore.save(systemPrompt.value, messages.toList())
+        draft = ""
+        stats = null
+        errorText = null
+        generating = true
+        val full = listOf(ChatMessage("system", effectiveSystemPrompt())) + messages.toList()
+        controller.generate(
+            full,
+            sampling.value,
+            stopSequences.toList(),
+            onToken = { part -> draft += part },
+            onDone = { result ->
+                stats = result
+                messages.add(ChatMessage("assistant", draft))
+                recordStats(result)
+                conversationStore.save(systemPrompt.value, messages.toList())
+                draft = ""
+                generating = false
+            },
+            onError = { message ->
+                errorText = message
+                conversationStore.save(systemPrompt.value, messages.toList())
+                generating = false
+                draft = ""
+            }
+        )
+    }
+
     fun stop() {
         controller.stop()
     }
@@ -722,6 +761,12 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
                     keyboardActions = KeyboardActions(onSend = { send() })
                 )
                 Spacer(Modifier.width(8.dp))
+                if (!generating && messages.any { it.role == "user" }) {
+                    OutlinedButton(onClick = { regenerate() }, enabled = !warmingUp) {
+                        Text("Regen")
+                    }
+                    Spacer(Modifier.width(6.dp))
+                }
                 OutlinedButton(onClick = { textPicker.launch(arrayOf("text/*", "application/json", "application/xml")) }) {
                     Text("Attach")
                 }
@@ -833,6 +878,14 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
                 input = ""
                 sessionStats = SessionStats()
                 showConversations = false
+            },
+            onRename = { oldName, newName ->
+                val finalName = conversationStore.rename(oldName, newName)
+                if (conversationName.value == oldName) {
+                    conversationName.value = finalName
+                }
+                conversationNames.clear()
+                conversationNames.addAll(conversationStore.listConversations())
             },
             onCreate = { name ->
                 val finalName = conversationStore.create(name)
@@ -1370,10 +1423,13 @@ private fun ConversationsDialog(
     current: String,
     onOpen: (String) -> Unit,
     onCreate: (String) -> Unit,
+    onRename: (String, String) -> Unit,
     onDelete: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
     var newName by remember { mutableStateOf("") }
+    var renameTarget by remember { mutableStateOf<String?>(null) }
+    var renameInput by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = { onDismiss() },
         confirmButton = {
@@ -1406,6 +1462,12 @@ private fun ConversationsDialog(
                                 .weight(1f)
                                 .padding(vertical = 4.dp)
                         )
+                        TextButton(onClick = {
+                            renameTarget = name
+                            renameInput = name
+                        }) {
+                            Text("Rename")
+                        }
                         if (name == current) {
                             Text(
                                 "Active",
@@ -1418,6 +1480,36 @@ private fun ConversationsDialog(
                             }
                             TextButton(onClick = { onDelete(name) }) {
                                 Text("Delete")
+                            }
+                        }
+                    }
+                    if (renameTarget == name) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            OutlinedTextField(
+                                value = renameInput,
+                                onValueChange = { renameInput = it },
+                                label = { Text("New name") },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(onClick = {
+                                val target = renameInput.trim()
+                                if (target.isNotEmpty()) {
+                                    onRename(name, target)
+                                    renameTarget = null
+                                    renameInput = ""
+                                }
+                            }) {
+                                Text("Apply")
+                            }
+                            TextButton(onClick = {
+                                renameTarget = null
+                                renameInput = ""
+                            }) {
+                                Text("Cancel")
                             }
                         }
                     }

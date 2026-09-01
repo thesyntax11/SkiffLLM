@@ -30,6 +30,7 @@ dependencies.
 ```bash
 skifflm session list
 skifflm session show coding
+skifflm session rename coding writing
 skifflm session remove old-draft
 
 skifflm --remember "the user prefers concise answers"
@@ -37,8 +38,9 @@ skifflm --forget concise
 ```
 
 Interactive shell commands: `/remember <fact>`, `/forget <text>`,
-`/memories`, `/clear-memories`, and `/compact` (compress a long conversation
-into a bullet summary while preserving facts).
+`/memories`, `/clear-memories`, `/compact` (compress a long conversation
+into a bullet summary while preserving facts), and `/regenerate` or `/retry`
+(re-run the last user message with the current sampling settings).
 
 ## Summarize shortcut
 

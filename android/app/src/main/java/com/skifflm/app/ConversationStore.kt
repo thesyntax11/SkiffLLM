@@ -71,6 +71,29 @@ class ConversationStore(private val appContext: Context) {
         return finalName
     }
 
+    fun rename(oldName: String, newName: String): String {
+        val oldFinal = sanitize(oldName)
+        val newFinal = sanitize(newName)
+        if (oldFinal == newFinal) {
+            return oldFinal
+        }
+        val oldFile = fileFor(oldFinal)
+        val newFile = fileFor(newFinal)
+        if (!oldFile.exists()) {
+            return oldFinal
+        }
+        if (newFile.exists()) {
+            return oldFinal
+        }
+        if (oldFile.renameTo(newFile)) {
+            if (sanitize(currentName()) == oldFinal) {
+                currentFile.writeText(newFinal)
+            }
+            return newFinal
+        }
+        return oldFinal
+    }
+
     fun delete(name: String) {
         fileFor(name).delete()
         // Never leave the user without a conversation.

@@ -174,6 +174,7 @@ skifflm --session writing --model qwen2.5-1.5b.gguf
 skifflm session list
 skifflm session show coding
 skifflm session use coding --model qwen2.5-1.5b.gguf
+skifflm session rename coding writing
 skifflm session remove old-draft
 ```
 
@@ -517,7 +518,7 @@ Subcommands:
   config path|show|init      Manage the config file
   server health [--json]     Check a running local server
 
-Interactive commands: /help /info /warmup /history /settings /stats /compact /tokenize /file /clear-attach /clear /reset /system /model /profile /stop /temp /top-p /top-k /min-p /typical /n /ctx /export /save /exit
+Interactive commands: /help /info /warmup /history /settings /stats /compact /regenerate /tokenize /file /clear-attach /clear /reset /system /model /profile /stop /temp /top-p /top-k /min-p /typical /n /ctx /export /save /exit
 ```
 
 ### One-shot `run`
@@ -574,6 +575,7 @@ assistant content, and `--stream` pipes SSE chunks through curl live.
 /history              Show the current conversation
 /stats                Show local usage metrics
 /compact              Compress the conversation when it is long
+/regenerate           Re-run the last user message (/retry)
 /export <path>        Export the conversation as Markdown
 /settings             Show the current sampling settings
 /tokenize <text>      Show the token count for the text

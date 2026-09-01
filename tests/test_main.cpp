@@ -318,6 +318,28 @@ void test_tools_features() {
               "session file lives beside history");
     }
 
+    // Session rename moves the session file and updates the active name.
+    {
+        skifflm::Config session_cfg = skifflm::default_config();
+        const auto dir = std::filesystem::temp_directory_path() / "skifflm-rename-test";
+        std::filesystem::create_directories(dir);
+        session_cfg.history_path = dir / "default.skif";
+        const auto old_file = skifflm::session_file_for(session_cfg, "writing");
+        const auto new_file = skifflm::session_file_for(session_cfg, "reading");
+        {
+            std::ofstream out(old_file);
+            out << "test\n";
+        }
+        std::string err;
+        std::vector<std::string> args = {"rename", "writing", "reading"};
+        const int status = skifflm::handle_session_command(session_cfg, args, err);
+        check(status == 0, "session rename should succeed");
+        check(err.empty(), "session rename should not set an error");
+        check(std::filesystem::exists(new_file), "renamed session file should exist");
+        check(!std::filesystem::exists(old_file), "old session file should be removed");
+        std::filesystem::remove_all(dir);
+    }
+
     // Safe code mode is a flag, not a file-mutating feature.
     {
         skifflm::Config code_cfg = skifflm::default_config();
