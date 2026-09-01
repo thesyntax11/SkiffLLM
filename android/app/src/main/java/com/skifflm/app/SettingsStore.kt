@@ -55,6 +55,33 @@ class SettingsStore(private val appContext: Context) {
     fun loadSystemPrompt(default: String): String =
         prefs.getString(KEY_SYSTEM_PROMPT, default) ?: default
 
+    fun savePersistentFacts(value: String) {
+        prefs.edit().putString(KEY_PERSISTENT_FACTS, value).apply()
+    }
+
+    fun loadPersistentFacts(default: String): String =
+        prefs.getString(KEY_PERSISTENT_FACTS, default) ?: default
+
+    fun loadQuickPrompts(): List<String> =
+        prefs.getStringSet(KEY_QUICK_PROMPTS, emptySet())
+            ?.mapNotNull { it.takeIf(String::isNotBlank) }
+            ?.sorted()
+            ?: emptyList()
+
+    fun addQuickPrompt(value: String) {
+        val trimmed = value.trim().takeIf { it.isNotEmpty() } ?: return
+        val updated = loadQuickPrompts().toMutableList()
+        if (!updated.contains(trimmed)) {
+            updated.add(trimmed)
+        }
+        prefs.edit().putStringSet(KEY_QUICK_PROMPTS, updated.toSet()).apply()
+    }
+
+    fun removeQuickPrompt(value: String) {
+        val updated = loadQuickPrompts().filter { it != value }.toSet()
+        prefs.edit().putStringSet(KEY_QUICK_PROMPTS, updated).apply()
+    }
+
     private companion object {
         const val KEY_CONTEXT = "context_size"
         const val KEY_THREADS = "threads"
@@ -70,5 +97,7 @@ class SettingsStore(private val appContext: Context) {
         const val KEY_MAX_TOKENS = "max_tokens"
         const val KEY_SEED = "seed"
         const val KEY_SYSTEM_PROMPT = "system_prompt"
+        const val KEY_PERSISTENT_FACTS = "persistent_facts"
+        const val KEY_QUICK_PROMPTS = "quick_prompts"
     }
 }

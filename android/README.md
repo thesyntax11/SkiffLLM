@@ -76,6 +76,23 @@ real inference.
 See [models.md](models.md) for the recommended small, quantized models and the
 RAM they need. Start with a Q4_K_M model in the 0.5B to 1.7B range.
 
+## Share into SkiffLLM
+
+Any app that shares text can send it straight into SkiffLLM. Android's share
+sheet lists SkiffLLM as a target; tapping it opens the app with a `Shared from
+another app` banner. Tap `Use` to fill the input, then ask your question as
+usual. The shared text stays on the device.
+
+## Quick prompts
+
+Save a prompt you reuse in `Settings -> Quick prompts`. It appears as a tap-to-
+insert chip above the composer and is stored locally.
+
+## Persistent facts
+
+`Settings -> Persistent facts` keeps facts like *"user prefers concise
+answers"*. They are injected on every turn and never leave the phone.
+
 ## Settings
 
 - Model catalog with one-tap Hugging Face downloads, progress, cancel, use,
@@ -93,6 +110,8 @@ RAM they need. Start with a Q4_K_M model in the 0.5B to 1.7B range.
 - Repeat last N
 - Max generated tokens
 - System prompt
+- Persistent facts
+- Quick prompts
 - Stop generation
 - Clear conversation
 - Export conversation

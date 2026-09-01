@@ -31,6 +31,11 @@
 - Added `skifflm session list/show/use/remove`, persistent local memory
   (`--remember`, `--forget`, `/remember`, `/forget`, `/memories`,
   `/clear-memories`), and a `--summarize <file>` shortcut.
+- Made the local server concurrent: fast endpoints answer while a chat
+  generation is running; generation is serialized behind a mutex so a single
+  llama.cpp context stays safe.
+- Added `/compact` for compressing long conversations.
+- Android: share intent intake, quick prompt chips, and persistent facts.
 - Added safe `--code` mode that proposes unified diffs without editing files,
   and made `scripts/release.sh` emit `checksums.txt` plus an optional Android
   APK.

@@ -632,6 +632,77 @@ bool ask_model(skifflm::LlmEngine& engine,
     return true;
 }
 
+bool compact_session(skifflm::LlmEngine& engine,
+                     skifflm::Session& session,
+                     skifflm::Terminal& terminal,
+                     const skifflm::GenerationOptions& options) {
+    const auto conversation = session.conversation();
+    if (conversation.size() < 2) {
+        terminal.info("Nothing to compact yet.");
+        return true;
+    }
+
+    std::ostringstream transcript;
+    for (const auto& message : conversation) {
+        if (message.role == "system") {
+            continue;
+        }
+        transcript << message.role << ": " << message.content << "\n\n";
+    }
+
+    std::vector<skifflm::ChatMessage> ask;
+    ask.push_back({"system",
+                   "You are a memory compression assistant. Preserve facts, "
+                   "decisions, the user's preferences, file paths, and unfinished "
+                   "work. Keep it compact and complete."});
+    ask.push_back({"user",
+                   "Compress this conversation into a compact bullet summary.\n\n"
+                   "<conversation>\n" + transcript.str() + "</conversation>\n"});
+
+    skifflm::GenerationOptions compact_options = options;
+    compact_options.temperature = 0.2f;
+    compact_options.n_predict = std::max(compact_options.n_predict, 512);
+    compact_options.stop_sequences.clear();
+
+    skifflm::GenerationResult result;
+    LiveStreamer streamer(terminal);
+    streamer.reset();
+    compact_options.token_callback = [&streamer](const std::string& part) {
+        streamer.write(part);
+    };
+    terminal.write("Compacting conversation...\n", skifflm::Color::Cyan);
+
+    std::string error;
+    const bool ok = engine.generate(ask,
+                                    compact_options,
+                                    result,
+                                    []() {
+                                        return g_interrupted != 0;
+                                    },
+                                    error);
+    streamer.finish();
+    if (!ok) {
+        terminal.error(error);
+        return false;
+    }
+    if (result.text.empty()) {
+        terminal.error("Compaction produced no output.");
+        return false;
+    }
+
+    session.messages().clear();
+    session.messages().push_back({"user", "[Compacted conversation]"});
+    session.messages().push_back({"assistant", result.text});
+    std::string save_error;
+    if (!session.save(save_error)) {
+        terminal.error(save_error);
+        return false;
+    }
+    terminal.success("Conversation compacted and saved.");
+    terminal.print_stats(result, "Compacted");
+    return true;
+}
+
 int run_interactive(skifflm::Config& cfg,
                     std::unique_ptr<skifflm::LlmEngine>& engine,
                     skifflm::Session& session,
@@ -688,6 +759,10 @@ int run_interactive(skifflm::Config& cfg,
             }
             if (command == "/history") {
                 terminal.print_history(session.conversation());
+                continue;
+            }
+            if (command == "/compact") {
+                compact_session(*engine, session, terminal, options);
                 continue;
             }
             if (command == "/settings") {

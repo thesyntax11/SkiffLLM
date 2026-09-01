@@ -37,7 +37,8 @@ skifflm --forget concise
 ```
 
 Interactive shell commands: `/remember <fact>`, `/forget <text>`,
-`/memories`, `/clear-memories`.
+`/memories`, `/clear-memories`, and `/compact` (compress a long conversation
+into a bullet summary while preserving facts).
 
 ## Summarize shortcut
 

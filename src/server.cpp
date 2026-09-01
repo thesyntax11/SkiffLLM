@@ -1,6 +1,7 @@
 #include "skifflm/server.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <cerrno>
 #include <chrono>
 #include <cmath>
@@ -9,8 +10,10 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -951,6 +954,7 @@ void handle_request(skifflm_socket_t socket_fd,
                     const GenerationOptions& options,
                     const HttpRequest& request,
                     const std::function<bool()>& interrupted,
+                    std::mutex& generation_mutex,
                     const std::string& request_id) {
     std::string error;
     if (request.method == "OPTIONS") {
@@ -992,6 +996,10 @@ void handle_request(skifflm_socket_t socket_fd,
         return;
     }
     if (request.method == "POST" && request.target == "/v1/chat/completions") {
+        // The llama.cpp context is not thread-safe, so generation is
+        // serialized behind a mutex while the accept loop and the fast
+        // endpoints (health/models/version) keep serving other clients.
+        std::lock_guard<std::mutex> lock(generation_mutex);
         handle_chat_completions(socket_fd, config, engine, options,
                                 request, interrupted, request_id);
         return;
@@ -1023,7 +1031,14 @@ int run_server(Config& config,
 
     terminal.success("Serving local API on http://" + config.server_host + ":" +
                      std::to_string(config.server_port) +
-                     " (Ctrl+C to stop)");
+                     " (Ctrl+C to stop; generation is serialized per model)");
+
+    std::mutex generation_mutex;
+    struct ClientWorker {
+        std::thread thread;
+        std::shared_ptr<std::atomic<bool>> done;
+    };
+    std::vector<ClientWorker> workers;
 
     while (!interrupted()) {
         fd_set read_set;
@@ -1086,15 +1101,44 @@ int run_server(Config& config,
         }
 
         set_socket_timeout(client, 30, error);
-        HttpRequest request;
-        if (!read_http_request(client, request, error)) {
-            send_response(client, 400, "application/json",
-                          "{\"error\":\"bad request\"}\n", error);
-        } else {
-            handle_request(client, config, engine, options, request,
-                           interrupted, make_request_id());
+        auto done = std::make_shared<std::atomic<bool>>(false);
+        workers.push_back(ClientWorker{
+            std::thread([client, &config, &engine, &options,
+                         &interrupted, &generation_mutex, done]() {
+                std::string thread_error;
+                HttpRequest request;
+                if (!read_http_request(client, request, thread_error)) {
+                    send_response(client, 400, "application/json",
+                                  "{\"error\":\"bad request\"}\n", thread_error);
+                } else {
+                    handle_request(client, config, engine, options, request,
+                                   interrupted, generation_mutex, make_request_id());
+                }
+                close_socket(client);
+                done->store(true, std::memory_order_release);
+            }),
+            done
+        });
+
+        // Reap only threads that already finished so the accept loop never
+        // blocks on a long generation; it keeps serving health/models/etc.
+        for (auto it = workers.begin(); it != workers.end();) {
+            if (it->done->load(std::memory_order_acquire) && it->thread.joinable()) {
+                it->thread.join();
+                it = workers.erase(it);
+            } else {
+                ++it;
+            }
         }
-        close_socket(client);
+        if (workers.size() > 64) {
+            terminal.warning("Too many concurrent clients; generation queue is busy.");
+        }
+    }
+
+    for (auto& worker : workers) {
+        if (worker.thread.joinable()) {
+            worker.thread.join();
+        }
     }
 
     close_socket(listener);

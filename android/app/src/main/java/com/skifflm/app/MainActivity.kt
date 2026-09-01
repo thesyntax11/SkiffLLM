@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -60,11 +61,18 @@ import java.util.Locale
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        SharedIntent.offer(intent)
         setContent {
             SkiffTheme {
                 ChatScreen()
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        SharedIntent.offer(intent)
     }
 }
 
@@ -102,8 +110,13 @@ private fun ChatScreen() {
     val systemPrompt = remember {
         mutableStateOf(settingsStore.loadSystemPrompt("You are SkiffLLM, a helpful local assistant."))
     }
+    val persistentFacts = remember {
+        mutableStateOf(settingsStore.loadPersistentFacts(""))
+    }
+    val quickPrompts = remember { mutableStateListOf<String>().also { it.addAll(settingsStore.loadQuickPrompts()) } }
     val loadParams = remember { mutableStateOf(settingsStore.loadLoadParams(defaultThreads)) }
     val sampling = remember { mutableStateOf(settingsStore.loadSampling()) }
+    val sharedText = SharedIntent.text
 
     var input by remember { mutableStateOf("") }
     var draft by remember { mutableStateOf("") }
@@ -117,6 +130,16 @@ private fun ChatScreen() {
     var showAbout by remember { mutableStateOf(false) }
     var modelInfo by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
+
+    fun effectiveSystemPrompt(): String {
+        val base = systemPrompt.value
+        val facts = persistentFacts.value.trim()
+        return if (facts.isNotEmpty()) {
+            "$base\n\nPersistent facts:\n$facts"
+        } else {
+            base
+        }
+    }
 
     fun refreshLocalModels() {
         val files = controller.listDownloadedModels()
@@ -240,7 +263,7 @@ private fun ChatScreen() {
         draft = ""
         stats = null
         generating = true
-        val full = listOf(ChatMessage("system", systemPrompt.value)) + messages.toList()
+        val full = listOf(ChatMessage("system", effectiveSystemPrompt())) + messages.toList()
         controller.generate(
             full,
             sampling.value,
@@ -276,7 +299,7 @@ private fun ChatScreen() {
     }
 
     fun shareConversation() {
-        val markdown = buildMarkdown(systemPrompt.value, messages.toList())
+        val markdown = buildMarkdown(effectiveSystemPrompt(), messages.toList())
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_TEXT, markdown)
@@ -336,6 +359,59 @@ private fun ChatScreen() {
                     color = Color(0xFF8A94A6)
                 )
             }
+            sharedText?.let { shared ->
+                Surface(
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Text(
+                            "Shared from another app",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            shared.replace("\n", " ").take(160),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF8A94A6),
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Row {
+                            TextButton(onClick = {
+                                input = shared
+                                SharedIntent.clear()
+                            }) {
+                                Text("Use")
+                            }
+                            TextButton(onClick = { SharedIntent.clear() }) {
+                                Text("Dismiss")
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+            if (quickPrompts.isNotEmpty()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                ) {
+                    quickPrompts.forEach { prompt ->
+                        OutlinedButton(
+                            onClick = { input = prompt },
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Text(prompt, maxLines = 1)
+                        }
+                        Spacer(Modifier.width(6.dp))
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+            }
             Spacer(Modifier.height(8.dp))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -383,6 +459,22 @@ private fun ChatScreen() {
             onSystemPrompt = {
                 systemPrompt.value = it
                 settingsStore.saveSystemPrompt(it)
+            },
+            persistentFacts = persistentFacts.value,
+            onPersistentFacts = {
+                persistentFacts.value = it
+                settingsStore.savePersistentFacts(it)
+            },
+            quickPrompts = quickPrompts.toList(),
+            onAddQuickPrompt = { value ->
+                settingsStore.addQuickPrompt(value)
+                quickPrompts.clear()
+                quickPrompts.addAll(settingsStore.loadQuickPrompts())
+            },
+            onRemoveQuickPrompt = { value ->
+                settingsStore.removeQuickPrompt(value)
+                quickPrompts.clear()
+                quickPrompts.addAll(settingsStore.loadQuickPrompts())
             },
             onOpenModels = {
                 showSettings = false
@@ -514,10 +606,16 @@ private fun SettingsDialog(
     onSampling: (SamplingParams) -> Unit,
     systemPrompt: String,
     onSystemPrompt: (String) -> Unit,
+    persistentFacts: String,
+    onPersistentFacts: (String) -> Unit,
+    quickPrompts: List<String>,
+    onAddQuickPrompt: (String) -> Unit,
+    onRemoveQuickPrompt: (String) -> Unit,
     onOpenModels: () -> Unit,
     onAbout: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    var quickPromptInput by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = { onDismiss() },
         confirmButton = {
@@ -637,6 +735,70 @@ private fun SettingsDialog(
                     label = { Text("System prompt") },
                     modifier = Modifier.fillMaxWidth()
                 )
+                OutlinedTextField(
+                    value = persistentFacts,
+                    onValueChange = { onPersistentFacts(it) },
+                    label = { Text("Persistent facts (always injected)") },
+                    minLines = 2,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    "Keep facts like \"user prefers concise answers\" here. They stay on this device and are applied every turn.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF8A94A6)
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Quick prompts",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                if (quickPrompts.isEmpty()) {
+                    Text(
+                        "No quick prompts yet. Add one below.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color(0xFF8A94A6)
+                    )
+                } else {
+                    quickPrompts.forEach { prompt ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                prompt,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(vertical = 2.dp)
+                            )
+                            TextButton(onClick = { onRemoveQuickPrompt(prompt) }) {
+                                Text("Remove")
+                            }
+                        }
+                    }
+                }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    OutlinedTextField(
+                        value = quickPromptInput,
+                        onValueChange = { quickPromptInput = it },
+                        label = { Text("New quick prompt") },
+                        singleLine = true,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    TextButton(onClick = {
+                        onAddQuickPrompt(quickPromptInput)
+                        quickPromptInput = ""
+                    }) {
+                        Text("Add")
+                    }
+                }
                 Spacer(Modifier.height(8.dp))
                 TextButton(onClick = { onAbout() }) {
                     Text("About SkiffLLM")

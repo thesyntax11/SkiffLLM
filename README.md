@@ -139,6 +139,16 @@ skifflm --project src/ "what does the server do?"
 The block reports total files, source/test/config counts, a file index, and up
 to a fixed-size slice of source files. It never walks build caches or `.git`.
 
+### Compacting long conversations
+
+When a session grows too long, `/compact` asks the model to compress the
+conversation into a bullet summary while preserving facts and unfinished work,
+then replaces the history with that summary.
+
+```bash
+/compact
+```
+
 ### Safe code mode
 
 ```bash
@@ -246,6 +256,12 @@ resp = client.chat.completions.create(
 for chunk in resp:
     print(chunk.choices[0].delta.content or "", end="")
 ```
+
+The server is concurrent: fast endpoints (`/health`, `/v1/models`,
+`/version`) answer while a long `/v1/chat/completions` is generating.
+Generation for one model is serialized because llama.cpp contexts are not
+thread-safe, so simultaneous chat requests queue instead of corrupting state.
+Bind to `127.0.0.1` unless you accept an auth-less network listener.
 
 ## Privacy proof
 
