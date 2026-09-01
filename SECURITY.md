@@ -1,31 +1,31 @@
-# Security Policy
+# Security
 
-SkiffLLM is designed to run fully offline. Generated content should be treated
-like output from any local language model.
+SkiffLLM is an offline-first local LLM assistant. The core design goal is that
+your prompts, conversations, files, and generated text never leave your
+machine.
 
-## Supported Versions
+## Threat model
 
-The current `main` branch is the only actively supported version.
+- Trusted local user: the CLI and the Android app run with your local
+  privileges.
+- Untrusted model files: a GGUF file is arbitrary model data. Only load models
+  from sources you trust. Both the Android app and `scripts/model_fetch.py`
+  verify the GGUF header and download size, but that is not an authenticity
+  guarantee.
+- Local server: `--serve` exposes an HTTP API on the bind address. It has no
+  authentication. Keep it on `127.0.0.1` unless you fully trust the network.
+  If you bind to `0.0.0.0`, you are responsible for protecting that interface.
 
-## Reporting a Vulnerability
+## Network behavior
 
-Please do not open a public issue for a security problem. Instead, contact the
-maintainers privately through the repository security advisory workflow on
-GitHub.
+- The desktop runtime does not make network requests.
+- `scripts/model_fetch.py` is an explicit, user-run helper that downloads a
+  recommended GGUF over HTTPS from Hugging Face.
+- The Android app requests `INTERNET` permission only to download models over
+  HTTPS from Hugging Face. It does not send prompts, history, analytics, or
+  crash reports.
 
-When reporting, please include:
+## Reporting issues
 
-- The version or commit you tested.
-- The operating system and hardware configuration.
-- A minimal reproducible example.
-- The impact you observed.
-- A suggested fix, if available.
-
-## Security Model
-
-- Runtime inference is fully offline.
-- No telemetry or analytics is included.
-- No API keys are stored or transmitted.
-- Session files are local.
-- The build may download llama.cpp only when CMake FetchContent is used.
-- Users should place their own GGUF models in a trusted local directory.
+Do not open a public issue for a security problem. Contact the maintainer
+through the GitHub repository's security advisory flow instead.

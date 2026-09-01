@@ -1,76 +1,63 @@
 # Contributing
 
-First of all, thank you for helping to make SkiffLLM better.
+Thanks for helping improve SkiffLLM. This project is small and intentionally
+simple, so clean, honest contributions are the most valuable.
 
-This repository is intentionally small and easy to review. Please keep it that way.
+## Development setup
 
-## Ground Rules
-
-- Open an issue before making a large or design-level change.
-- Keep the public interface and documentation in English.
-- Do not add telemetry, analytics, network calls at runtime, or cloud dependencies.
-- Do not add comment litter to the public source.
-- Add tests for any behavior that can be tested without a model file.
-- Keep the project buildable with a standard C++17 compiler.
-
-## Development Setup
+### Desktop
 
 ```bash
-git clone https://github.com/thesyntax11/SkiffLLM.git
-cd SkiffLLM
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --config Release -j
+cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
 
-If you have an existing llama.cpp checkout, use it to avoid downloading:
+Use `scripts/ci-local.sh` for the full local CI check:
 
 ```bash
-cmake -S . -B build \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DSKIFFLLM_LLAMA_SOURCE_DIR=/path/to/llama.cpp \
-  -DSKIFFLLM_FETCH_LLAMA=OFF
+bash scripts/ci-local.sh
 ```
 
-## Branch Strategy
+### Android
 
-For each contribution, create a dedicated branch from `main`:
+Open `android/` in Android Studio 2024.1+ and sync the Gradle project, or build
+from the CLI:
 
 ```bash
-git checkout -b feature/something
-git push origin feature/something
+cd android
+./gradlew assembleDebug
 ```
 
-Then open a pull request into `main`.
+The native build downloads the pinned llama.cpp revision unless you pass
+`-Pskifflm.llamaSourceDir=/path/to/llama.cpp`.
 
-## Pull Request Checklist
+## What is expected
 
-- One logical change per pull request.
-- Build succeeds.
-- `ctest` passes.
-- CLI help and README are updated when needed.
-- CHANGELOG has a short entry.
-- No unrelated files are touched.
+- Keep the honest-measurement rule. Never invent benchmarks, token counts, or
+  speed numbers.
+- Do not add runtime telemetry, analytics, crash reporting, or cloud APIs to
+  the desktop runtime.
+- The Android `INTERNET` permission is only justified by model downloads.
+- Keep the runtime offline. Scripts may fetch models, but the application
+  should not.
+- Run `python3 -m py_compile scripts/*.py` after changing Python helpers.
+- Format C++ with `clang-format` if available.
+- Add changelog entries under `CHANGELOG.md` for user-visible changes.
+
+## Commit style
+
+Use focused commits with imperative subjects:
+
+- `feat(desktop): ...`
+- `fix(android): ...`
+- `docs: ...`
+- `ci: ...`
+- `chore: ...`
 
 ## Testing
 
-Unit tests should not require a model. They validate configuration parsing,
-argument parsing, profiles, and session persistence.
-
-Model-dependent behavior is checked manually with a small GGUF model. When
-adding engine-related behavior, describe how to reproduce with a known model.
-
-## Code Style
-
-- C++17.
-- 4-space indentation.
-- 100-column limit.
-- `snake_case` for functions and variables.
-- `PascalCase` for types.
-- No `using namespace std;` in headers.
-- Prefer `std::string_view` where it avoids copies in hot paths.
-
-## License
-
-By contributing, you agree that your contributions are licensed under the MIT
-License.
+- CTest unit tests run without a model and are required to pass.
+- `scripts/model_fetch.py --list` and `scripts/api_client.py --help` must work.
+- Feature changes should avoid requiring a real GGUF model in the default test
+  suite unless there is an explicit `SKIFFLLM_TEST_MODEL` opt-in.

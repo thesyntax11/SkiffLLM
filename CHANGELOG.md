@@ -12,6 +12,7 @@
 - Added CORS preflight (`OPTIONS`) and CORS headers to the local server.
 - Upgraded `scripts/api_client.py` with `--stream`, `--temperature`,
   `--max-tokens`, and a clean CLI.
+- Added `CONTRIBUTING.md`, `SECURITY.md`, and an `.editorconfig`.
 
 ### Android 1.6.0
 

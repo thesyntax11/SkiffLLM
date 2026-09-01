@@ -16,7 +16,7 @@ SkiffLLM is a fast, privacy-first terminal assistant that runs large language mo
 entirely on your machine. It is built in modern C++17 and uses llama.cpp for inference,
 so it works with any GGUF model, on the CPU or your GPU, with no internet connection.
 
-Documentation: [Setup](docs/SETUP.md) &middot; [Usage](docs/usage.md) &middot; [Architecture](docs/ARCHITECTURE.md) &middot; [Releasing](docs/RELEASING.md) &middot; [Limitations](docs/LIMITATIONS.md)
+Documentation: [Setup](docs/SETUP.md) &middot; [Usage](docs/usage.md) &middot; [Architecture](docs/ARCHITECTURE.md) &middot; [Releasing](docs/RELEASING.md) &middot; [Limitations](docs/LIMITATIONS.md) &middot; [Security](SECURITY.md) &middot; [Contributing](CONTRIBUTING.md)
 
 ## Why SkiffLLM
 
