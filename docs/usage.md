@@ -1,5 +1,52 @@
 # Usage Guide
 
+## Unix pipeline mode
+
+SkiffLLM auto-detects a piped stdin, so the model becomes part of a shell
+workflow:
+
+```bash
+git diff | skifflm "review these changes"
+cat error.log | skifflm "find the root cause"
+cat README.md | skifflm "summarize this"
+skifflm --project . "where is authentication handled?"
+```
+
+With no instruction argument, the piped text itself is the prompt. With an
+instruction argument, the piped text becomes `<context>`.
+
+## Project context
+
+```bash
+skifflm --project . "where is authentication handled?"
+```
+
+`--project <dir>` builds a bounded file index plus a slice of source/config
+content before generation. It skips `.git`, build dirs, caches, and vendored
+dependencies.
+
+## Model manager
+
+```bash
+skifflm model list
+skifflm model info qwen2.5-0.5b
+skifflm model install qwen2.5-0.5b
+skifflm model remove qwen2.5-0.5b --force
+```
+
+Inference stays offline. `model install` runs the explicit `model_fetch.py`
+helper over HTTPS.
+
+## Git integration
+
+```bash
+skifflm git review --cached
+skifflm git explain
+skifflm git commit --cached
+skifflm git log
+skifflm git status
+```
+
 ## Interactive Mode
 
 ```bash

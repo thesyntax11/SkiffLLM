@@ -105,6 +105,32 @@ bool starts_with(const std::string& text, const std::string& prefix) {
            text.compare(0, prefix.size(), prefix) == 0;
 }
 
+bool ends_with_ci(const std::string& text, const std::string& suffix) {
+    if (text.size() < suffix.size()) {
+        return false;
+    }
+    const size_t offset = text.size() - suffix.size();
+    for (size_t i = 0; i < suffix.size(); ++i) {
+        const char a = static_cast<char>(std::tolower(static_cast<unsigned char>(text[offset + i])));
+        const char b = static_cast<char>(std::tolower(static_cast<unsigned char>(suffix[i])));
+        if (a != b) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool looks_like_model_path(const std::string& value) {
+    if (ends_with_ci(value, ".gguf")) {
+        return true;
+    }
+    if (value.find('/') == std::string::npos &&
+        value.find('\\') == std::string::npos) {
+        return false;
+    }
+    return std::filesystem::exists(expand_path(value));
+}
+
 std::string sanitize_session(const std::string& name) {
     std::string result;
     result.reserve(name.size());
@@ -487,6 +513,9 @@ bool apply_key_value(Config& cfg,
         }
     } else if (key == "prompt-file") {
         cfg.prompt_file = expand_path(value);
+    } else if (key == "project") {
+        cfg.project_path = expand_path(value);
+        cfg.interactive = false;
     } else if (key == "color") {
         if (!set_flag(cfg.color, true, false, value, key)) {
             return false;
@@ -601,6 +630,10 @@ bool apply_key_value(Config& cfg,
         }
     } else if (key == "doctor") {
         if (!set_flag(cfg.doctor, true, false, value, key)) {
+            return false;
+        }
+    } else if (key == "network") {
+        if (!set_flag(cfg.doctor_network, true, false, value, key)) {
             return false;
         }
     } else if (key == "model-info") {
@@ -742,12 +775,20 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
             continue;
         }
         if (!starts_with(arg, "--")) {
-            if (cfg.model_path.empty()) {
+            // Tolerant, Unix-style argument handling:
+            //   skifflm model.gguf              -> model path
+            //   skifflm "explain this code"     -> one-shot prompt
+            if (cfg.model_path.empty() && looks_like_model_path(arg)) {
                 cfg.model_path = expand_path(arg);
                 continue;
             }
-            error = "unexpected positional argument: " + arg;
-            return false;
+            if (!cfg.one_shot.empty()) {
+                cfg.one_shot += " " + arg;
+            } else {
+                cfg.one_shot = arg;
+            }
+            cfg.interactive = false;
+            continue;
         }
 
         const std::string name = lower(arg.substr(2));
@@ -765,8 +806,8 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
             key == "no-auto-trim" || key == "json" || key == "list-models" ||
             key == "flash-attn" || key == "no-flash-attn" || key == "numa" ||
             key == "kv-offload" || key == "no-kv-offload" ||
-            key == "doctor" || key == "model-info" || key == "smoke" ||
-            key == "warmup" || key == "serve") {
+            key == "doctor" || key == "network" || key == "model-info" ||
+            key == "smoke" || key == "warmup" || key == "serve") {
             if (has_value) {
                 error = "option --" + key + " does not take a value";
                 return false;
@@ -782,7 +823,7 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
             key == "session" || key == "profile" || key == "stop" ||
             key == "output" || key == "export" || key == "attach" ||
             key == "file" || key == "chat-template" || key == "prompt" ||
-            key == "prompt-file" || key == "tokenize" ||
+            key == "prompt-file" || key == "project" || key == "tokenize" ||
             key == "host" || key == "port" || key == "benchmark") {
             const std::string value = option_value(i, argc, argv, "--" + key, error);
             if (!error.empty()) {
@@ -859,7 +900,8 @@ std::string usage(const std::string& program) {
     out << "  --model-info              Print model metadata and exit\n";
     out << "  --smoke                   Run a quick generation smoke test\n";
     out << "  --warmup                  Warm the model before the first answer\n";
-    out << "  --doctor                  Print system diagnostics\n";
+    out << "  --doctor                  Print system and privacy diagnostics\n";
+    out << "  --network                 With --doctor, show network/privacy facts\n";
     out << "  --tokenize <text>         Tokenize text and print token counts\n";
     out << "  --profile <name>           balanced, fast, creative, code or precise\n";
     out << "  --session <name>           Use a named conversation\n";
@@ -911,6 +953,7 @@ std::string usage(const std::string& program) {
     out << "  --prompt <text>            Single prompt mode\n";
     out << "  --prompt-file <path>       Read the single prompt from a file\n";
     out << "  --stdin                    Read the single prompt from stdin\n";
+    out << "  --project <dir>            Add a bounded project context block\n";
     out << "  --json                     Machine-readable JSON output\n";
     out << "  --output <path>            Write the text answer to a file\n";
     out << "  --non-interactive          Disable the interactive shell\n";

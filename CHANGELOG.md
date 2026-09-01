@@ -20,6 +20,14 @@
   details in `GET /health`.
 - Expanded the project layout and offline-guarantee documentation.
 - Updated limitations for optional model downloads and Android.
+- Added Unix-pipeline ergonomics: piped stdin becomes context next to a
+  positional instruction, or the prompt itself when no instruction is given.
+- Added `--project <dir>` project intelligence with a bounded file index and
+  source/config slice.
+- Added `skifflm model list/info/install/remove`, `skifflm git
+  diff/review/explain/commit/log/status`, and `skifflm --doctor --network`.
+- Added `scripts/install.sh`, `docs/GOOD_FIRST_ISSUES.md`, and removed the
+  duplicate lowercase `docs/architecture.md`.
 - Added free-storage checks before Android model downloads.
 - Persist Android load, sampling, and system-prompt settings across restarts.
 

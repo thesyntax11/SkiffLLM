@@ -4,7 +4,23 @@ _skifflm_complete() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    local options="--help --version --show-config --list-models --model-info --doctor --smoke --tokenize --warmup --serve --host --port --benchmark --model --model-dir --config --history --session --profile --system --stop --attach --file --export --chat-template --output --prompt --prompt-file --stdin --json --non-interactive --ctx --batch --ubatch --reserve-ctx --n-keep --threads --gpu-layers --mmap --no-mmap --mlock --flash-attn --no-flash-attn --numa --kv-offload --no-kv-offload --temp --top-p --top-k --min-p --typical --repeat-penalty --repeat-last-n --n-predict --seed --reset-history --no-save --auto-trim --no-auto-trim --color --no-color --no-banner --verbose --debug"
+    local subcommands="model git"
+    local model_actions="list info install remove"
+    local git_actions="diff review explain commit log status"
+    local options="--help --version --show-config --list-models --model-info --doctor --network --smoke --tokenize --warmup --serve --host --port --benchmark --model --model-dir --config --history --session --profile --system --stop --attach --file --export --chat-template --output --prompt --prompt-file --project --stdin --json --non-interactive --ctx --batch --ubatch --reserve-ctx --n-keep --threads --gpu-layers --mmap --no-mmap --mlock --flash-attn --no-flash-attn --numa --kv-offload --no-kv-offload --temp --top-p --top-k --min-p --typical --repeat-penalty --repeat-last-n --n-predict --seed --reset-history --no-save --auto-trim --no-auto-trim --color --no-color --no-banner --verbose --debug"
+
+    if [[ "${COMP_CWORD}" -eq 1 ]]; then
+        COMPREPLY=( $(compgen -W "${subcommands} ${options}" -- "${cur}") )
+        return 0
+    fi
+    if [[ "${COMP_WORDS[1]}" == "model" && "${COMP_CWORD}" -eq 2 ]]; then
+        COMPREPLY=( $(compgen -W "${model_actions}" -- "${cur}") )
+        return 0
+    fi
+    if [[ "${COMP_WORDS[1]}" == "git" && "${COMP_CWORD}" -eq 2 ]]; then
+        COMPREPLY=( $(compgen -W "${git_actions}" -- "${cur}") )
+        return 0
+    fi
 
     if [[ "${cur}" == -* ]]; then
         COMPREPLY=( $(compgen -W "${options}" -- "${cur}") )
@@ -12,7 +28,7 @@ _skifflm_complete() {
     fi
 
     case "${prev}" in
-        --model|--model-dir|--config|--history|--output|--prompt-file|--attach|--file|--export)
+        --model|--model-dir|--config|--history|--output|--prompt-file|--attach|--file|--export|--project)
             COMPREPLY=( $(compgen -f -- "${cur}") )
             return 0
             ;;

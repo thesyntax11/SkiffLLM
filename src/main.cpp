@@ -3,6 +3,7 @@
 #include "skifflm/server.hpp"
 #include "skifflm/session.hpp"
 #include "skifflm/terminal.hpp"
+#include "skifflm/tools.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -309,7 +310,12 @@ int run_doctor(const skifflm::Config& cfg, const std::string& version) {
         std::cout << "  \"config_path\":" << json_escape(cfg.config_path.string()) << ",\n";
         std::cout << "  \"history_path\":" << json_escape(cfg.history_path.string()) << ",\n";
         std::cout << "  \"model_path\":" << json_escape(cfg.model_path.string()) << ",\n";
-        std::cout << "  \"model_present\":" << (model_exists ? "true" : "false") << "\n";
+        std::cout << "  \"model_present\":" << (model_exists ? "true" : "false") << ",\n";
+        std::cout << "  \"outbound_network_calls\":\"none\",\n";
+        std::cout << "  \"telemetry\":\"disabled\",\n";
+        std::cout << "  \"cloud_api\":\"none\",\n";
+        std::cout << "  \"history_storage\":\"local\",\n";
+        std::cout << "  \"privacy_status\":\"OFFLINE\"\n";
         std::cout << "}\n";
         return 0;
     }
@@ -328,6 +334,13 @@ int run_doctor(const skifflm::Config& cfg, const std::string& version) {
                                                    ? std::string("(auto-discovery)")
                                                    : cfg.model_path.string())
               << (model_exists ? " (present)" : "") << "\n";
+    if (cfg.doctor_network) {
+        std::cout << "  Outbound network:    none (no runtime client socket)\n";
+        std::cout << "  Telemetry:           disabled\n";
+        std::cout << "  Cloud APIs:          none\n";
+        std::cout << "  History storage:     local\n";
+        std::cout << "  Privacy status:      ✓ OFFLINE\n";
+    }
     return 0;
 }
 
@@ -1270,8 +1283,25 @@ int main(int argc, char** argv) {
     skifflm::Config cfg = skifflm::default_config();
     skifflm::apply_environment(cfg);
 
+    // Detect the Unix-style subcommands before argument parsing so that
+    // `skifflm model ...` and `skifflm git ...` never collide with model path
+    // or prompt positional arguments.
+    std::string subcommand;
+    std::vector<std::string> sub_args;
+    int argument_start = 1;
+    if (argc >= 2) {
+        const std::string first(argv[1]);
+        if (first == "model" || first == "git") {
+            subcommand = first;
+            argument_start = 2;
+        }
+    }
+    for (int i = argument_start; i < argc; ++i) {
+        sub_args.push_back(argv[i]);
+    }
+
     std::string config_path = cfg.config_path.string();
-    for (int i = 1; i < argc; ++i) {
+    for (int i = argument_start; i < argc; ++i) {
         const std::string arg = argv[i];
         if (arg.compare(0, 9, "--config=") == 0) {
             config_path = arg.substr(9);
@@ -1286,12 +1316,30 @@ int main(int argc, char** argv) {
         cfg.config_path = skifflm::expand_path(config_path);
     }
 
+    std::error_code ec;
+    if (!subcommand.empty()) {
+        std::filesystem::create_directories(cfg.model_dir, ec);
+    }
+
     std::string error;
     if (!skifflm::parse_config_file(cfg.config_path, cfg, error)) {
         std::cerr << error << std::endl;
         return 1;
     }
-    if (!skifflm::parse_args(argc, argv, cfg, error)) {
+
+    // Rebuild an argv view without the subcommand word so the standard parser
+    // can handle the rest of the flags.
+    std::vector<std::string> arg_storage;
+    std::vector<char*> arg_ptrs;
+    arg_storage.emplace_back(argv[0]);
+    for (const auto& value : sub_args) {
+        arg_storage.push_back(value);
+    }
+    arg_ptrs.reserve(arg_storage.size());
+    for (auto& value : arg_storage) {
+        arg_ptrs.push_back(value.data());
+    }
+    if (!skifflm::parse_args(static_cast<int>(arg_ptrs.size()), arg_ptrs.data(), cfg, error)) {
         std::cerr << error << std::endl;
         return 2;
     }
@@ -1311,6 +1359,55 @@ int main(int argc, char** argv) {
     if (cfg.show_config) {
         skifflm::print_config(cfg);
         return 0;
+    }
+
+    // Fully-local subcommands first (model list/info/install/remove, git status).
+    if (subcommand == "model") {
+        error.clear();
+        const int status = skifflm::handle_model_command(cfg, sub_args, error);
+        if (status >= 0) {
+            if (!error.empty()) {
+                std::cerr << error << std::endl;
+            }
+            return status;
+        }
+    }
+    if (subcommand == "git") {
+        error.clear();
+        const int status = skifflm::handle_git_command(cfg, sub_args, error);
+        if (status >= 0) {
+            if (!error.empty()) {
+                std::cerr << error << std::endl;
+            }
+            return status;
+        }
+    }
+
+    // Unix pipeline ergonomics:
+    //   cat file | skifflm "summarize this"
+    //   git diff | skifflm review
+    if (!skifflm::is_stdin_tty()) {
+        const std::string piped = skifflm::read_stdin_all();
+        if (!piped.empty()) {
+            if (!cfg.one_shot.empty()) {
+                cfg.one_shot += "\n\n<context>\n" + piped + "\n</context>\n";
+            } else if (cfg.prompt_file.empty() && !cfg.read_stdin) {
+                cfg.one_shot = piped;
+                cfg.read_stdin = true;
+            }
+            cfg.interactive = false;
+        }
+    }
+
+    // --project <dir> adds a bounded project context before the prompt.
+    if (!cfg.project_path.empty() && !cfg.one_shot.empty()) {
+        std::string project_error;
+        const std::string block = skifflm::build_project_block(cfg.project_path, project_error);
+        if (block.empty()) {
+            std::cerr << project_error << std::endl;
+            return 1;
+        }
+        cfg.one_shot = block + "\n" + cfg.one_shot;
     }
 
     llama_backend_init();

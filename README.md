@@ -1,8 +1,8 @@
-# SkiffLLM
+## SkiffLLM
 
 <p align="center">
-  <strong>An offline-first local LLM terminal assistant built on llama.cpp.</strong><br/>
-  No cloud. No API keys. No accounts. No telemetry. No recurring costs.
+  <strong>A fast, private, offline AI engine for your terminal.</strong><br/>
+  Pipe anything into a local LLM. No cloud. No API keys. No telemetry.
 </p>
 
 <p align="center">
@@ -12,40 +12,71 @@
   <img src="https://img.shields.io/badge/runtime-offline-green" alt="Offline"/>
 </p>
 
-SkiffLLM is a fast, privacy-first terminal assistant that runs large language models
-entirely on your machine. It is built in modern C++17 and uses llama.cpp for inference,
-so it works with any GGUF model, on the CPU or your GPU, with no internet connection.
+SkiffLLM is a single, local AI runtime that feels like a Unix tool. It runs any
+GGUF model through llama.cpp on your CPU or GPU, keeps every token on your
+machine, and drops straight into your shell workflow.
 
-Documentation: [Setup](docs/SETUP.md) &middot; [Usage](docs/usage.md) &middot; [Architecture](docs/ARCHITECTURE.md) &middot; [Releasing](docs/RELEASING.md) &middot; [Limitations](docs/LIMITATIONS.md) &middot; [FAQ](docs/FAQ.md) &middot; [Security](SECURITY.md) &middot; [Contributing](CONTRIBUTING.md)
+```bash
+git diff | skifflm "review these changes"
+cat error.log | skifflm "find the root cause"
+cat README.md | skifflm "summarize this"
+skifflm --project . "where is authentication handled?"
+```
+
+Documentation: [Setup](docs/SETUP.md) &middot; [Usage](docs/usage.md) &middot; [Architecture](docs/ARCHITECTURE.md) &middot; [Releasing](docs/RELEASING.md) &middot; [Limitations](docs/LIMITATIONS.md) &middot; [FAQ](docs/FAQ.md) &middot; [Security](SECURITY.md) &middot; [Contributing](CONTRIBUTING.md) &middot; [Good First Issues](docs/GOOD_FIRST_ISSUES.md)
+
+## Use it anywhere
+
+The killer workflow is the pipe. Feed SkiffLLM a document, a diff, or a log,
+then tell it what to do. No file names, no clipboard, no cloud.
+
+```bash
+# Review a change set before you push
+git diff | skifflm "review these changes"
+
+# Find the real cause in a messy log
+journalctl -e | skifflm "find suspicious errors and a likely root cause"
+
+# Summarize a file you just read
+cat README.md | skifflm "summarize this"
+
+# Point it at an entire repository
+skifflm --project . "where is authentication implemented?"
+
+# Machine-readable output for your own scripts
+git diff | skifflm --json "classify this diff"
+```
 
 ## Why SkiffLLM
 
-- **Truly offline.** Prompts and answers never leave your computer.
-- **Zero cost.** No tokens, no subscriptions, no API costs.
-- **Fast.** Direct llama.cpp integration with CPU, CUDA, Metal, and other backends.
-- **Private by design.** No telemetry, no crash reporters, no cloud endpoints.
-- **Scriptable.** JSON output, stdin pipelines, prompt files, and output files.
-- **Persistent.** Conversation state survives restarts.
-- **Cross-platform.** Linux, macOS, and Windows through CMake.
-- **Extensible.** Small, readable core library with a clean public header surface.
+| | SkiffLLM | Cloud assistants | Ollama |
+| --- | --- | --- | --- |
+| Cloud required | ❌ | ✅ | ❌ |
+| API key | ❌ | ✅ | ❌ |
+| Account / signup | ❌ | ✅ | ❌ |
+| Telemetry | ❌ | varies | ❌ |
+| Runs a daemon | ❌ | ✅ | ✅ |
+| Direct GGUF file | ✅ | ❌ | partial |
+| CPU-only machines | ✅ | ❌ | ✅ |
+| GPU offload | ✅ | n/a | ✅ |
+| Unix pipelines | ✅ | ❌ | ❌ |
+| Project/code context | ✅ | ❌ | ❌ |
+| Local OpenAI-compatible API | ✅ | n/a | ✅ |
+| Native Android client | ✅ | ❌ | ✅ |
 
-## How SkiffLLM differs
+SkiffLLM is the lightweight tool you keep at the end of a pipe: no daemon, no
+registry, no account. You bring the GGUF file, it brings the inference.
 
-- **llama.cpp** is the inference engine and toolkit. SkiffLLM is a focused
-  assistant experience on top of it: named sessions, file context, export,
-  profiles, streaming UX, benchmarks, and a small local API.
-- **Ollama** is a model manager and runtime with a registry. SkiffLLM is a
-  single binary that operates directly on a GGUF file you already own. Its
-  runtime does not download, pull, or register models, and it does not run a
-  daemon. An optional `scripts/model_fetch.py` helper can fetch a recommended
-  GGUF for you once; inference itself stays fully offline.
-- **A cloud API** sends prompts to a remote service. SkiffLLM keeps every token
-  on the machine at runtime.
+## Highlights
 
 ## Highlights
 
 | Capability | Description |
 | --- | --- |
+| Unix pipelines | `cat file | skifflm "summarize"`, `git diff | skifflm review` |
+| Project context | `--project <dir>` adds a real file index + source slice |
+| Model manager | `skifflm model list / info / install / remove` |
+| Git integration | `skifflm git review / explain / commit / log / status` |
 | Interactive shell | Streaming token output, history, and live token counters |
 | File context | `--attach`, `/file`, and `@file` expansion in any prompt |
 | Conversation export | `--export` and `/export` save sessions as Markdown |
@@ -71,6 +102,140 @@ Documentation: [Setup](docs/SETUP.md) &middot; [Usage](docs/usage.md) &middot; [
 | Smoke test | `--smoke` for a quick end-to-end generation check |
 | Shell completions | bash, zsh, and fish completion files |
 | Local checks | `scripts/ci-local.sh` runs build, tests, and entry points |
+
+## Unix pipeline
+
+SkiffLLM reads stdin automatically, so it composes with everything else in the
+shell.
+
+```bash
+# Context on stdin, instruction as the argument
+git diff | skifflm "review these changes"
+cat server.log | skifflm "find errors and suggest a fix"
+
+# Instruction from stdin, structured output
+printf "summarize this error log" | skifflm --json
+
+# Feed a file as context without a shell pipe
+skifflm "explain this code" < main.cpp
+
+# Attach named files too
+skifflm --attach notes.txt --attach README.md "summarize these"
+```
+
+`--json` returns `text`, `model`, `prompt_tokens`, `generated_tokens`,
+`prompt_ms`, `generation_ms`, `tokens_per_second`, and `stopped` on stdout.
+
+## Project intelligence
+
+Point SkiffLLM at a repository and it builds a bounded, real file index plus a
+slice of source/config content before answering.
+
+```bash
+skifflm --project . "where is authentication handled?"
+skifflm --project src/ "what does the server do?"
+```
+
+The block reports total files, source/test/config counts, a file index, and up
+to a fixed-size slice of source files. It never walks build caches or `.git`.
+
+## Model manager
+
+SkiffLLM stays offline at runtime. Model retrieval is an explicit, separate
+command.
+
+```bash
+skifflm model list
+skifflm model info qwen2.5-0.5b
+skifflm model install qwen2.5-0.5b
+skifflm model remove qwen2.5-0.5b --force
+```
+
+`model install` delegates to `scripts/model_fetch.py`, which downloads exactly
+one GGUF over HTTPS from Hugging Face, verifies the GGUF header and expected
+size, and places it in your model directory. Inference itself never opens a
+connection.
+
+## Git integration
+
+Local, offline code review and explanation for the diff in front of you.
+
+```bash
+git diff | skifflm git review
+skifflm git review --cached
+skifflm git explain
+skifflm git commit --cached
+skifflm git log
+skifflm git status
+```
+
+`git review` returns a prioritized `HIGH`/`MEDIUM`/`LOW` finding list. `git
+commit --cached` proposes a conventional commit message from your staged diff;
+it does not run `git commit` for you.
+
+## Drop-in OpenAI endpoint
+
+The local server is compatible with the OpenAI client you already have.
+
+```bash
+skifflm --model qwen2.5-1.5b.gguf --serve --host 127.0.0.1 --port 8080
+```
+
+```python
+from openai import OpenAI
+
+client = OpenAI(base_url="http://127.0.0.1:8080/v1", api_key="sk-local")
+resp = client.chat.completions.create(
+    model="qwen2.5-1.5b",
+    messages=[{"role": "user", "content": "Explain this diff."}],
+    stream=True,
+)
+for chunk in resp:
+    print(chunk.choices[0].delta.content or "", end="")
+```
+
+## Privacy proof
+
+```bash
+skifflm --doctor --network
+```
+
+prints the runtime facts: no outbound network calls, no telemetry, no cloud
+APIs, local history storage, and a `✓ OFFLINE` status. There is no analytics,
+crash reporting, or usage tracking in the desktop runtime or the Android app.
+
+## Benchmark honesty
+
+```bash
+skifflm --model model.gguf --benchmark 3
+```
+
+Every number is measured on your machine with your model and hardware. SkiffLLM
+never invents benchmark results, and `CONTRIBUTING.md` asks contributors to
+keep it that way.
+
+## One-command install
+
+Builds and prebuilt archives are both supported.
+
+```bash
+# From a source checkout
+cmake --preset release && cmake --build --preset release -j
+
+# Or the convenience installer
+bash scripts/install.sh
+
+# Local archive
+bash scripts/release.sh
+tar -xzf skifflm-*.tar.gz && ./bin/skifflm --help
+
+# Android development APK (requires the SDK)
+bash scripts/ci-android.sh
+```
+
+Prebuilt asset names follow the pattern `skifflm-<version>-<platform>.tar.gz`
+with a `checksums.txt`. Release workflow files target Linux/macOS/Windows and
+an Android APK.
 
 ## Android
 

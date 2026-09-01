@@ -15,6 +15,7 @@ struct Config {
     std::filesystem::path output_path;
     std::filesystem::path export_path;
     std::filesystem::path prompt_file;
+    std::filesystem::path project_path;
     std::string system_prompt;
     std::string model_name;
     std::string session_name;
@@ -60,6 +61,7 @@ struct Config {
     bool list_models = false;
     bool model_info = false;
     bool doctor = false;
+    bool doctor_network = false;
     bool smoke = false;
     bool warmup = false;
     bool json_output = false;

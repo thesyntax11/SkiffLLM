@@ -1,5 +1,6 @@
 #include "skifflm/config.hpp"
 #include "skifflm/session.hpp"
+#include "skifflm/tools.hpp"
 
 #include <cstdlib>
 #include <filesystem>
@@ -264,6 +265,47 @@ void test_popularity_flags() {
     check(cfg.warmup, "warmup should be enabled");
 }
 
+void test_tools_features() {
+    skifflm::Config cfg = skifflm::default_config();
+
+    // Unix-style positional prompt handling.
+    {
+        std::vector<std::string> storage = {"skifflm", "explain this code"};
+        auto args = args_from(storage);
+        std::string error;
+        check(skifflm::parse_args(static_cast<int>(args.size()), args.data(), cfg, error),
+              "positional prompt should parse");
+        check(cfg.one_shot == "explain this code", "positional word becomes the prompt");
+        check(cfg.model_path.empty(), "a non-path word must not become the model");
+        check(!cfg.interactive, "a positional prompt should disable interactive mode");
+    }
+
+    // Project context is bounded but includes the real map and source slice.
+    const auto dir = std::filesystem::temp_directory_path() / "skifflm-project-test";
+    std::filesystem::remove_all(dir);
+    std::filesystem::create_directories(dir / "src");
+    std::filesystem::create_directories(dir / ".git");
+    {
+        std::ofstream(dir / "src" / "main.cpp") << "int main() { return 0; }\n";
+        std::ofstream(dir / "src" / "test_main.cpp") << "void run() {}\n";
+        std::ofstream(dir / "config.yaml") << "name: test\n";
+        std::ofstream(dir / ".git" / "head") << "fake\n";
+    }
+    std::string error;
+    const std::string block = skifflm::build_project_block(dir, error);
+    check(!error.empty() || !block.empty(), "project block should build");
+    check(block.find("source files:") != std::string::npos, "project block reports source count");
+    check(block.find("main.cpp") != std::string::npos, "project block includes the file index");
+    check(block.find("<file path=\"src/main.cpp\">") != std::string::npos,
+          "project block includes a source slice");
+    check(block.find(".git") == std::string::npos, "project block skips vendor/hidden dirs");
+    std::filesystem::remove_all(dir);
+
+    check(skifflm::model_catalog().size() >= 5, "model catalog should be non-empty");
+    check(skifflm::find_catalog_model("qwen2.5-0.5b") != nullptr,
+          "catalog should find a known id");
+}
+
 void test_server_and_benchmark_flags() {
     skifflm::Config cfg = skifflm::default_config();
     std::vector<std::string> storage = {
@@ -312,5 +354,6 @@ int main() {
     test_advanced_flags();
     test_popularity_flags();
     test_server_and_benchmark_flags();
+    test_tools_features();
     return 0;
 }

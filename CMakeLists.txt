@@ -57,6 +57,7 @@ add_library(skifflm_core
     src/server.cpp
     src/session.cpp
     src/terminal.cpp
+    src/tools.cpp
 )
 target_compile_definitions(skifflm_core PRIVATE SKIFFLLM_VERSION="${PROJECT_VERSION}")
 
