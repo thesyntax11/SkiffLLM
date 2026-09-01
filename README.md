@@ -981,8 +981,11 @@ cp scripts/completions/skifflm.fish ~/.config/fish/completions/
 ## Testing
 
 ```bash
-ctest --test-dir build --output-on-failure
-scripts/ci-local.sh
+make tests
+make check
+# or directly with CMake/CTest
+ctest --test-dir build/release --output-on-failure
+scripts/ci-local.sh build/release
 ```
 
 The suite covers configuration parsing, argument parsing, profiles, session
