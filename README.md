@@ -595,26 +595,32 @@ Suggested speedups:
 
 ## Offline Guarantee
 
-- No network access used at runtime.
+- No network access used by the desktop runtime.
 - No remote inference endpoints.
 - No API keys or accounts.
 - No telemetry, analytics, or crash reporting.
 - Prompts and outputs stay on the local machine.
 
 The only optional network use is during the build when CMake downloads the
-pinned llama.cpp source tree. Supply an existing checkout with
-`SKIFFLLM_LLAMA_SOURCE_DIR` to avoid it completely.
+pinned llama.cpp source tree, plus the explicit `scripts/model_fetch.py`
+helper when you ask it to fetch a model. Supply an existing checkout with
+`SKIFFLLM_LLAMA_SOURCE_DIR` (or skip the helper) to avoid network use entirely.
 
 ## Project Layout
 
 ```text
-CMakeLists.txt                Build configuration
+CMakeLists.txt                Build configuration and CMake presets
 include/skifflm/              Public API headers
 src/                          CLI, core, and local server implementation
 tests/                        Unit and integration tests
 configs/                      Example configuration
-scripts/                      Build helper, benchmark helper and shell completions
-.github/workflows/            CI workflow
+scripts/                      CI, release, model fetch, API client, completions
+android/                      Kotlin/Compose Android app and llama.cpp JNI
+docs/                         Setup, usage, architecture, FAQ, release docs
+.github/                      Issue templates, PR template, CI workflow
+CONTRIBUTING.md               Contribution guide
+SECURITY.md                   Security policy
+CODE_OF_CONDUCT.md            Code of conduct
 ```
 
 ## Roadmap
