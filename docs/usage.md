@@ -25,6 +25,27 @@ skifflm --project . "where is authentication handled?"
 content before generation. It skips `.git`, build dirs, caches, and vendored
 dependencies.
 
+## Sessions & memory
+
+```bash
+skifflm session list
+skifflm session show coding
+skifflm session remove old-draft
+
+skifflm --remember "the user prefers concise answers"
+skifflm --forget concise
+```
+
+Interactive shell commands: `/remember <fact>`, `/forget <text>`,
+`/memories`, `/clear-memories`.
+
+## Summarize shortcut
+
+```bash
+skifflm --summarize README.md
+skifflm --summarize error.log --model qwen2.5-0.5b.gguf
+```
+
 ## Model manager
 
 ```bash

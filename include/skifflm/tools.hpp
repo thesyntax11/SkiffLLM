@@ -44,6 +44,23 @@ int handle_model_command(Config& cfg,
 int handle_git_command(Config& cfg,
                        const std::vector<std::string>& args,
                        std::string& error);
+int handle_session_command(Config& cfg,
+                           const std::vector<std::string>& args,
+                           std::string& error);
+
+std::filesystem::path session_file_for(const Config& cfg,
+                                       const std::string& name);
+std::vector<std::filesystem::path> list_session_files(const Config& cfg,
+                                                      std::string& error);
+std::string load_memories(const Config& cfg);
+bool append_memory(const Config& cfg,
+                   const std::string& text,
+                   std::string& error);
+bool remove_memory(const Config& cfg,
+                   const std::string& needle,
+                   size_t& removed,
+                   std::string& error);
+bool clear_memories(const Config& cfg, std::string& error);
 
 bool is_stdin_tty();
 std::string read_stdin_all();

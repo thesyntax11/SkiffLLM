@@ -149,6 +149,49 @@ skifflm --code --project . "fix the bug in src/server.cpp"
 does **not** modify files: outputs from a local model need human review, and
 applying them automatically is a safety decision the project leaves to you.
 
+## Sessions & persistent memory
+
+Keep separate conversations, and let SkiffLLM remember facts that stay true
+across sessions.
+
+```bash
+# Separate conversations
+skifflm --session coding --model qwen2.5-1.5b.gguf
+skifflm --session writing --model qwen2.5-1.5b.gguf
+
+# Manage them
+skifflm session list
+skifflm session show coding
+skifflm session use coding --model qwen2.5-1.5b.gguf
+skifflm session remove old-draft
+```
+
+Persistent memory is local, plain text, and injected into the active system
+prompt.
+
+```bash
+skifflm --remember "the user prefers concise answers"
+skifflm --forget concise
+```
+
+Inside the interactive shell use `/remember <fact>`, `/forget <text>`,
+`/memories`, and `/clear-memories`. Memory lives in
+`~/.local/share/skifflm/memories.txt` and never leaves the machine.
+
+## Lovable shortcuts
+
+```bash
+# Summary in one command
+skifflm --summarize README.md
+skifflm --summarize error.log --model qwen2.5-0.5b.gguf
+
+# Whole project context
+skifflm --project . "where is authentication handled?"
+
+# Safe code proposal
+skifflm --code --project . "fix the bug in src/server.cpp"
+```
+
 ## Model manager
 
 SkiffLLM stays offline at runtime. Model retrieval is an explicit, separate

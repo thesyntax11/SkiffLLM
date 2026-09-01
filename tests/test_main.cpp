@@ -280,6 +280,44 @@ void test_tools_features() {
         check(!cfg.interactive, "a positional prompt should disable interactive mode");
     }
 
+    // Memory and convenience shorthand flags.
+    {
+        skifflm::Config memory_cfg = skifflm::default_config();
+        std::vector<std::string> storage = {"skifflm", "--remember", "be concise"};
+        auto args = args_from(storage);
+        std::string parse_error;
+        check(skifflm::parse_args(static_cast<int>(args.size()), args.data(), memory_cfg, parse_error),
+              "remember flag should parse");
+        check(memory_cfg.remember_text == "be concise", "remember text should be stored");
+
+        memory_cfg = skifflm::default_config();
+        storage = {"skifflm", "--forget", "concise"};
+        args = args_from(storage);
+        check(skifflm::parse_args(static_cast<int>(args.size()), args.data(), memory_cfg, parse_error),
+              "forget flag should parse");
+        check(memory_cfg.forget_text == "concise", "forget text should be stored");
+
+        memory_cfg = skifflm::default_config();
+        storage = {"skifflm", "--summarize", "README.md"};
+        args = args_from(storage);
+        check(skifflm::parse_args(static_cast<int>(args.size()), args.data(), memory_cfg, parse_error),
+              "summarize flag should parse");
+        check(memory_cfg.summarize_path == "README.md", "summarize path should be stored");
+        check(!memory_cfg.interactive, "summarize should disable interactive mode");
+    }
+
+    // Session file resolution keeps session names tidy.
+    {
+        skifflm::Config session_cfg = skifflm::default_config();
+        skifflm::Config custom = session_cfg;
+        custom.history_path = std::filesystem::temp_directory_path() / "skifflm-sessions" / "default.skif";
+
+        const auto path = skifflm::session_file_for(custom, "writing");
+        check(path.filename() == "writing.skif", "session file uses the sanitized name");
+        check(path.parent_path() == custom.history_path.parent_path(),
+              "session file lives beside history");
+    }
+
     // Safe code mode is a flag, not a file-mutating feature.
     {
         skifflm::Config code_cfg = skifflm::default_config();

@@ -1,4 +1,5 @@
 #include "skifflm/tools.hpp"
+#include "skifflm/session.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -84,6 +85,30 @@ struct ProjectFile {
 
 bool run_git(const std::string& arguments, std::string& output, std::string& error) {
     return run_command("git " + arguments, output, error);
+}
+
+std::string compact_preview(const std::string& text, std::size_t limit = 160) {
+    std::string result;
+    result.reserve(std::min(text.size(), limit + 1));
+    for (const char ch : text) {
+        if (ch == '\n' || ch == '\r' || ch == '\t') {
+            result.push_back(' ');
+        } else {
+            result.push_back(ch);
+        }
+        if (result.size() >= limit) {
+            result += "...";
+            break;
+        }
+    }
+    return result;
+}
+
+std::filesystem::path session_dir_for(const Config& cfg) {
+    if (!cfg.history_path.empty() && !cfg.history_path.parent_path().empty()) {
+        return cfg.history_path.parent_path();
+    }
+    return std::filesystem::path(".");
 }
 
 std::string instruction_for_git(const std::string& sub) {
@@ -471,6 +496,281 @@ int handle_git_command(Config& cfg,
 
     error = "unknown git action: " + action +
             " (use diff, review, explain, commit, log or status)";
+    return 2;
+}
+
+std::filesystem::path session_file_for(const Config& cfg, const std::string& name) {
+    const bool has_separator = name.find('/') != std::string::npos ||
+                               name.find('\\') != std::string::npos;
+    const bool has_skif = name.size() > 5 && name.compare(name.size() - 5, 5, ".skif") == 0;
+    if (has_separator || has_skif) {
+        return expand_path(name);
+    }
+    std::string sanitized;
+    sanitized.reserve(name.size());
+    for (const unsigned char ch : name) {
+        if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
+            (ch >= '0' && ch <= '9') || ch == '-' || ch == '_' || ch == '.') {
+            sanitized.push_back(static_cast<char>(ch));
+        } else {
+            sanitized.push_back('_');
+        }
+    }
+    if (sanitized.empty()) {
+        sanitized = "default";
+    }
+    return session_dir_for(cfg) / (sanitized + ".skif");
+}
+
+std::vector<std::filesystem::path> list_session_files(const Config& cfg,
+                                                      std::string& error) {
+    std::vector<std::filesystem::path> result;
+    const std::filesystem::path dir = session_dir_for(cfg);
+    std::error_code ec;
+    if (!std::filesystem::exists(dir, ec)) {
+        return result;
+    }
+    if (!std::filesystem::is_directory(dir, ec)) {
+        error = "history directory is not a directory: " + dir.string();
+        return {};
+    }
+    for (auto it = std::filesystem::directory_iterator(dir, ec);
+         it != std::filesystem::directory_iterator();
+         it.increment(ec)) {
+        if (ec) {
+            break;
+        }
+        const std::filesystem::path path = it->path();
+        if (it->is_regular_file(ec) && path.extension() == ".skif") {
+            result.push_back(path);
+        }
+    }
+    std::sort(result.begin(), result.end());
+    return result;
+}
+
+std::string load_memories(const Config& cfg) {
+    if (cfg.memory_path.empty()) {
+        return {};
+    }
+    std::ifstream input(cfg.memory_path);
+    if (!input.is_open()) {
+        return {};
+    }
+    std::ostringstream out;
+    std::string line;
+    bool first = true;
+    while (std::getline(input, line)) {
+        const std::string trimmed = trim(line);
+        if (trimmed.empty()) {
+            continue;
+        }
+        if (!first) {
+            out << "\n";
+        }
+        first = false;
+        out << trimmed;
+    }
+    return out.str();
+}
+
+bool append_memory(const Config& cfg, const std::string& text, std::string& error) {
+    const std::string value = trim(text);
+    if (value.empty()) {
+        error = "memory text is empty";
+        return false;
+    }
+    std::error_code ec;
+    const auto parent = cfg.memory_path.parent_path();
+    if (!parent.empty()) {
+        std::filesystem::create_directories(parent, ec);
+        if (ec) {
+            error = "cannot create memory directory: " + parent.string();
+            return false;
+        }
+    }
+    std::ofstream output(cfg.memory_path, std::ios::app | std::ios::binary);
+    if (!output.is_open()) {
+        error = "cannot open memory file: " + cfg.memory_path.string();
+        return false;
+    }
+    if (std::filesystem::exists(cfg.memory_path, ec) &&
+        std::filesystem::file_size(cfg.memory_path, ec) > 0) {
+        output << "\n";
+    }
+    // Escape newlines so each memory is one persistent line.
+    for (const char ch : value) {
+        if (ch == '\n' || ch == '\r') {
+            output << ' ';
+        } else {
+            output << ch;
+        }
+    }
+    output << "\n";
+    if (!output) {
+        error = "failed to write memory file";
+        return false;
+    }
+    return true;
+}
+
+bool remove_memory(const Config& cfg,
+                   const std::string& needle,
+                   size_t& removed,
+                   std::string& error) {
+    removed = 0;
+    const std::string target = lower(trim(needle));
+    if (target.empty()) {
+        error = "forget text is empty";
+        return false;
+    }
+    std::ifstream input(cfg.memory_path);
+    if (!input.is_open()) {
+        return true;
+    }
+    std::vector<std::string> kept;
+    std::string line;
+    while (std::getline(input, line)) {
+        if (lower(trim(line)).find(target) != std::string::npos) {
+            removed += 1;
+        } else {
+            kept.push_back(line);
+        }
+    }
+    input.close();
+    if (removed == 0) {
+        return true;
+    }
+    const auto parent = cfg.memory_path.parent_path();
+    std::error_code ec;
+    if (!parent.empty()) {
+        std::filesystem::create_directories(parent, ec);
+    }
+    std::ofstream output(cfg.memory_path, std::ios::trunc | std::ios::binary);
+    if (!output.is_open()) {
+        error = "cannot open memory file for writing";
+        return false;
+    }
+    for (const auto& remaining : kept) {
+        output << remaining << "\n";
+    }
+    if (!output) {
+        error = "failed to write memory file";
+        return false;
+    }
+    return true;
+}
+
+bool clear_memories(const Config& cfg, std::string& error) {
+    std::error_code remove_error;
+    std::filesystem::remove(cfg.memory_path, remove_error);
+    std::ifstream probe(cfg.memory_path);
+    if (probe.is_open()) {
+        probe.close();
+        error = "could not clear memory file: " + cfg.memory_path.string();
+        return false;
+    }
+    return true;
+}
+
+int handle_session_command(Config& cfg,
+                           const std::vector<std::string>& args,
+                           std::string& error) {
+    const std::string action = args.empty() ? "list" : args[0];
+    if (action == "list" || action == "ls") {
+        std::string list_error;
+        const auto files = list_session_files(cfg, list_error);
+        if (!list_error.empty()) {
+            error = list_error;
+            return 1;
+        }
+        if (files.empty()) {
+            std::cout << "No saved sessions yet.\n";
+            return 0;
+        }
+        std::cout << std::left;
+        std::cout << std::setw(24) << "SESSION"
+                  << std::setw(14) << "SIZE"
+                  << "MODIFIED\n";
+        std::cout << std::string(62, '-') << "\n";
+        for (const auto& path : files) {
+            std::error_code ec;
+            const uint64_t size = static_cast<uint64_t>(std::filesystem::file_size(path, ec));
+            const auto modified = std::filesystem::last_write_time(path, ec);
+            (void)modified;
+            std::cout << std::setw(24) << path.stem().string()
+                      << std::setw(14) << to_human_bytes(size)
+                      << path.filename().string() << "\n";
+        }
+        std::cout << "\nUse `skifflm --session <name>` or `skifflm session use <name>`.\n";
+        return 0;
+    }
+
+    if (action == "show" || action == "info") {
+        if (args.size() < 2) {
+            error = "usage: skifflm session show <name>";
+            return 2;
+        }
+        const std::filesystem::path path = session_file_for(cfg, args[1]);
+        std::error_code ec;
+        if (!std::filesystem::exists(path, ec)) {
+            error = "session does not exist: " + args[1];
+            return 1;
+        }
+        Config session_cfg = cfg;
+        session_cfg.history_path = path;
+        Session session(session_cfg);
+        std::string session_error;
+        if (!session.load(session_error)) {
+            error = session_error;
+            return 1;
+        }
+        std::cout << "Session: " << path.stem().string() << "\n";
+        std::cout << "Path:    " << path.string() << "\n";
+        std::cout << "Messages:" << session.message_count() << "\n";
+        std::cout << "System:  " << (session.system_prompt().empty()
+                                         ? std::string("(none)")
+                                         : compact_preview(session.system_prompt())) << "\n";
+        if (!session.empty()) {
+            std::cout << "Last:    "
+                      << compact_preview(session.conversation().back().content, 160) << "\n";
+        }
+        return 0;
+    }
+
+    if (action == "remove" || action == "rm" || action == "delete") {
+        if (args.size() < 2) {
+            error = "usage: skifflm session remove <name>";
+            return 2;
+        }
+        const std::filesystem::path path = session_file_for(cfg, args[1]);
+        std::error_code ec;
+        if (!std::filesystem::exists(path, ec)) {
+            std::cout << "Session " << args[1] << " is not saved.\n";
+            return 0;
+        }
+        if (!std::filesystem::remove(path, ec) || ec) {
+            error = "could not remove session: " + path.string();
+            return 1;
+        }
+        std::cout << "Removed session " << args[1] << "\n";
+        return 0;
+    }
+
+    if (action == "use" || action == "switch") {
+        if (args.size() < 2) {
+            error = "usage: skifflm session use <name>";
+            return 2;
+        }
+        cfg.session_name = args[1];
+        cfg.history_path = session_file_for(cfg, args[1]);
+        cfg.one_shot.clear();
+        cfg.interactive = true;
+        return -1;  // continue into the normal model path
+    }
+
+    error = "unknown session action: " + action +
+            " (use list, show, remove or use)";
     return 2;
 }
 

@@ -172,6 +172,7 @@ Config default_config() {
     cfg.model_dir = expand_path(home + "/.local/share/skifflm/models");
     cfg.config_path = expand_path(home + "/.config/skifflm/config");
     cfg.history_path = expand_path(home + "/.local/share/skifflm/history.skif");
+    cfg.memory_path = expand_path(home + "/.local/share/skifflm/memories.txt");
     return cfg;
 }
 
@@ -516,6 +517,13 @@ bool apply_key_value(Config& cfg,
     } else if (key == "project") {
         cfg.project_path = expand_path(value);
         cfg.interactive = false;
+    } else if (key == "summarize") {
+        cfg.summarize_path = expand_path(value);
+        cfg.interactive = false;
+    } else if (key == "remember") {
+        cfg.remember_text = trim(value);
+    } else if (key == "forget") {
+        cfg.forget_text = trim(value);
     } else if (key == "color") {
         if (!set_flag(cfg.color, true, false, value, key)) {
             return false;
@@ -829,7 +837,8 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
             key == "session" || key == "profile" || key == "stop" ||
             key == "output" || key == "export" || key == "attach" ||
             key == "file" || key == "chat-template" || key == "prompt" ||
-            key == "prompt-file" || key == "project" || key == "tokenize" ||
+            key == "prompt-file" || key == "project" || key == "summarize" ||
+            key == "remember" || key == "forget" || key == "tokenize" ||
             key == "host" || key == "port" || key == "benchmark") {
             const std::string value = option_value(i, argc, argv, "--" + key, error);
             if (!error.empty()) {
@@ -961,6 +970,9 @@ std::string usage(const std::string& program) {
     out << "  --prompt-file <path>       Read the single prompt from a file\n";
     out << "  --stdin                    Read the single prompt from stdin\n";
     out << "  --project <dir>            Add a bounded project context block\n";
+    out << "  --summarize <file>         Summarize a file (content context)\n";
+    out << "  --remember <text>          Save a persistent memory line\n";
+    out << "  --forget <text>            Remove matching persistent memories\n";
     out << "  --json                     Machine-readable JSON output\n";
     out << "  --output <path>            Write the text answer to a file\n";
     out << "  --non-interactive          Disable the interactive shell\n";

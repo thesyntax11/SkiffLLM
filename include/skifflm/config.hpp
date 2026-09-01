@@ -17,6 +17,10 @@ struct Config {
     std::filesystem::path prompt_file;
     std::filesystem::path project_path;
     std::string system_prompt;
+    std::string remember_text;
+    std::string forget_text;
+    std::filesystem::path memory_path;
+    std::filesystem::path summarize_path;
     std::string model_name;
     std::string session_name;
     std::string profile_name;

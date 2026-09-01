@@ -28,6 +28,9 @@
   diff/review/explain/commit/log/status`, and `skifflm --doctor --network`.
 - Added `scripts/install.sh`, `docs/GOOD_FIRST_ISSUES.md`, and removed the
   duplicate lowercase `docs/architecture.md`.
+- Added `skifflm session list/show/use/remove`, persistent local memory
+  (`--remember`, `--forget`, `/remember`, `/forget`, `/memories`,
+  `/clear-memories`), and a `--summarize <file>` shortcut.
 - Added safe `--code` mode that proposes unified diffs without editing files,
   and made `scripts/release.sh` emit `checksums.txt` plus an optional Android
   APK.

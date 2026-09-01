@@ -761,6 +761,48 @@ int run_interactive(skifflm::Config& cfg,
                 terminal.success("Session reset.");
                 continue;
             }
+            if (command == "/remember" || command == "/memory") {
+                if (argument.empty()) {
+                    terminal.error("Usage: /remember <fact>");
+                    continue;
+                }
+                std::string memory_error;
+                if (!skifflm::append_memory(cfg, argument, memory_error)) {
+                    terminal.error(memory_error);
+                } else {
+                    terminal.success("Remembered.");
+                }
+                continue;
+            }
+            if (command == "/forget") {
+                if (argument.empty()) {
+                    terminal.error("Usage: /forget <text to remove>");
+                    continue;
+                }
+                size_t removed = 0;
+                std::string memory_error;
+                if (!skifflm::remove_memory(cfg, argument, removed, memory_error)) {
+                    terminal.error(memory_error);
+                } else {
+                    terminal.success("Forgot " + std::to_string(removed) + " memory line(s).");
+                }
+                continue;
+            }
+            if (command == "/memories") {
+                const std::string memory = skifflm::load_memories(cfg);
+                terminal.write("Memories:\n", skifflm::Color::Cyan);
+                terminal.write_raw(memory.empty() ? "(none)\n" : memory + "\n");
+                continue;
+            }
+            if (command == "/clear-memories") {
+                std::string memory_error;
+                if (!skifflm::clear_memories(cfg, memory_error)) {
+                    terminal.error(memory_error);
+                } else {
+                    terminal.success("All memories cleared.");
+                }
+                continue;
+            }
             if (command == "/system") {
                 if (argument.empty()) {
                     terminal.write("System prompt: " + (session.system_prompt().empty()
@@ -1291,7 +1333,7 @@ int main(int argc, char** argv) {
     int argument_start = 1;
     if (argc >= 2) {
         const std::string first(argv[1]);
-        if (first == "model" || first == "git") {
+        if (first == "model" || first == "git" || first == "session") {
             subcommand = first;
             argument_start = 2;
         }
@@ -1382,6 +1424,37 @@ int main(int argc, char** argv) {
             return status;
         }
     }
+    if (subcommand == "session") {
+        error.clear();
+        const int status = skifflm::handle_session_command(cfg, sub_args, error);
+        if (status >= 0) {
+            if (!error.empty()) {
+                std::cerr << error << std::endl;
+            }
+            return status;
+        }
+    }
+
+    // Quick memory editing needs no model and no runtime.
+    if (!cfg.remember_text.empty()) {
+        std::string memory_error;
+        if (!skifflm::append_memory(cfg, cfg.remember_text, memory_error)) {
+            std::cerr << memory_error << std::endl;
+            return 1;
+        }
+        std::cout << "Remembered: " << cfg.remember_text << "\n";
+        return 0;
+    }
+    if (!cfg.forget_text.empty()) {
+        size_t removed = 0;
+        std::string memory_error;
+        if (!skifflm::remove_memory(cfg, cfg.forget_text, removed, memory_error)) {
+            std::cerr << memory_error << std::endl;
+            return 1;
+        }
+        std::cout << "Forgot " << removed << " matching memory lines.\n";
+        return 0;
+    }
 
     // Unix pipeline ergonomics:
     //   cat file | skifflm "summarize this"
@@ -1397,6 +1470,24 @@ int main(int argc, char** argv) {
             }
             cfg.interactive = false;
         }
+    }
+
+    // --summarize <file> is a lovable shorthand: it reads the file and turns
+    // it into context for a one-shot summary (or combines with a positional
+    // instruction when both are present).
+    if (!cfg.summarize_path.empty()) {
+        const std::string document = read_file(cfg.summarize_path);
+        if (document.empty()) {
+            std::cerr << "Summarize file is empty or unreadable: "
+                      << cfg.summarize_path.string() << std::endl;
+            return 1;
+        }
+        const std::string instruction =
+            cfg.one_shot.empty()
+                ? "Summarize the following document."
+                : cfg.one_shot;
+        cfg.one_shot = instruction + "\n\n<document>\n" + document + "\n</document>\n";
+        cfg.interactive = false;
     }
 
     // --project <dir> adds a bounded project context before the prompt.
@@ -1509,6 +1600,16 @@ int main(int argc, char** argv) {
         terminal.error(error);
         llama_backend_free();
         return 1;
+    }
+
+    // Inject persistent user facts into the active system prompt.
+    const std::string memories = skifflm::load_memories(cfg);
+    if (!memories.empty()) {
+        const std::string current = session.system_prompt();
+        session.set_system_prompt(
+            current.empty()
+                ? "Persistent user facts:\n" + memories
+                : current + "\n\nPersistent user facts:\n" + memories);
     }
 
     skifflm::GenerationOptions options;
