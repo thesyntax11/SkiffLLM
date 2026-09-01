@@ -5,9 +5,17 @@ project.
 
 ## Model files
 
-SkiffLLM does not bundle or download models. A GGUF file must already exist on
-the machine. This keeps runtime network use to zero, but it raises the setup
-cost compared with services that include model retrieval.
+SkiffLLM does not bundle models. The desktop runtime requires a GGUF file to
+already exist, which keeps its own runtime network use to zero and raises setup
+cost compared with services that include retrieval.
+
+Two explicit options exist:
+
+- Desktop: `python3 scripts/model_fetch.py --model <id>`
+- Android: `Settings` → `Models` → `Download`
+
+Both are user-initiated HTTPS transfers from Hugging Face. The Android app uses
+`INTERNET` permission only for this purpose.
 
 ## Local API server
 
@@ -30,11 +38,21 @@ when the prompt is too large.
 The chat template override accepts a name supported by the loaded llama.cpp
 model. Unknown template names fall back to `chatml` or fail with a clear error.
 
+## Android
+
+- Runs one generation at a time and one download at a time.
+- The app warms and loads models on the UI-ish background executor; large
+  models still take time and memory.
+- Model downloads require enough free storage and a network connection.
+- GPU offload depends on llama.cpp build support and the device backend.
+
 ## CI
 
 The CI and release workflow files are present in the working tree but are not
 pushed to this branch until the repository grants the required `workflows`
-permission. Until then, local checks can be run with `scripts/ci-local.sh`.
+permission. Until then, local checks can be run with `scripts/ci-local.sh`
+(desktop) and `scripts/ci-android.sh` (Android, with the Android SDK
+installed).
 
 ## Planned
 
