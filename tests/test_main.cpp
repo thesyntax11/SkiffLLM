@@ -50,6 +50,7 @@ void test_config_file() {
         out << "attach=notes.txt\n";
         out << "chat-template=chatml\n";
         out << "warmup\n";
+        out << "api-key=local-token\n";
     }
 
     skifflm::Config cfg = skifflm::default_config();
@@ -69,6 +70,7 @@ void test_config_file() {
     check(cfg.attach_paths.size() == 1, "attach path should be stored");
     check(cfg.attach_paths[0] == "notes.txt", "attach path should match");
     check(cfg.chat_template == "chatml", "chat template should be stored");
+    check(cfg.api_key == "local-token", "api key should be stored from config");
     check(cfg.warmup, "warmup should be enabled");
 
     std::filesystem::remove_all(dir);
@@ -484,6 +486,8 @@ void test_server_and_benchmark_flags() {
         "0.0.0.0",
         "--port",
         "9090",
+        "--api-key",
+        "local-token",
         "--benchmark",
         "3",
     };
@@ -495,6 +499,7 @@ void test_server_and_benchmark_flags() {
     check(cfg.server_host == "0.0.0.0", "server host should be stored");
     check(cfg.server_port == 9090, "server port should be stored");
     check(cfg.benchmark_runs == 3, "benchmark runs should be stored");
+    check(cfg.api_key == "local-token", "api key should be stored");
     check(!cfg.interactive, "serve should disable interactive mode");
 }
 

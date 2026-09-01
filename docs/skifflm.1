@@ -70,6 +70,10 @@ Local server bind address. Default is 127.0.0.1.
 \fB\-\-port <n>\fR
 Local server port. Default is 8080.
 .TP
+\fB\-\-api-key <key>\fR
+Require Authorization: Bearer <key> on /v1/models and
+/v1/chat/completions. /health, /version, and / stay public.
+.TP
 \fB\-\-benchmark <runs>\fR
 Run a real generation benchmark with the given number of runs.
 .TP
@@ -212,6 +216,9 @@ Default system prompt.
 .TP
 \fBSKIFFLLM_PROFILE\fR
 Default sampling profile.
+.TP
+\fBSKIFFLLM_API_KEY\fR
+Bearer token for --serve.
 .SH FILES
 .TP
 \fB~/.config/skifflm/config\fR
@@ -224,8 +231,10 @@ Default model directory.
 Default session history.
 .SH SERVER
 .TP
-The server binds to localhost and exposes /health, /v1/models, and
-/v1/chat/completions. It is single-client and has no authentication.
+The server binds to localhost by default and exposes /health, /v1/models, and
+/v1/chat/completions. Fast endpoints answer while generation is serialized.
+With --api-key, /v1/* requires Authorization: Bearer <key>; /health,
+/version, and / stay public.
 .SH INTERACTIVE COMMANDS
 .TP
 .B /help, /info, /history

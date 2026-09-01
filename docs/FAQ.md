@@ -40,11 +40,17 @@ the app data removes it.
 ## How do I expose the local API?
 
 ```bash
+# local only
 skifflm --model model.gguf --serve --host 127.0.0.1 --port 8080
+
+# reachable from another machine, protected by a shared token
+skifflm --model model.gguf --serve --host 0.0.0.0 --port 8080 --api-key "local-token"
 ```
 
-Keep it on `127.0.0.1`. The server has no authentication. If you bind to
-`0.0.0.0`, protect that interface yourself.
+With `--api-key` set, `/v1/models` and `/v1/chat/completions` require
+`Authorization: Bearer <key>` and otherwise return `401`. `/health`,
+`/version`, and `/` stay public. Keep the default `127.0.0.1` binding whenever
+possible; non-loopback listeners should always set `--api-key`.
 
 ## Why does `--benchmark` differ from vendor numbers?
 

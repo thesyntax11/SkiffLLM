@@ -691,6 +691,8 @@ bool apply_key_value(Config& cfg,
             error = "port must be between 1 and 65535";
             return false;
         }
+    } else if (key == "api-key" || key == "key") {
+        cfg.api_key = value;
     } else if (key == "benchmark") {
         if (!parse_int_value(value, cfg.benchmark_runs)) {
             error = "invalid integer for --benchmark: " + value;
@@ -852,7 +854,8 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
             key == "file" || key == "chat-template" || key == "prompt" ||
             key == "prompt-file" || key == "project" || key == "summarize" ||
             key == "remember" || key == "forget" || key == "tokenize" ||
-            key == "host" || key == "port" || key == "benchmark") {
+            key == "host" || key == "port" || key == "api-key" ||
+            key == "key" || key == "benchmark") {
             const std::string value = option_value(i, argc, argv, "--" + key, error);
             if (!error.empty()) {
                 return false;
@@ -891,8 +894,7 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
 
         // Flags consumed by the `skifflm openai` subcommand are accepted here
         // so that `parse_args` does not reject them before dispatch.
-        if (key == "base-url" || key == "base" || key == "api-key" || key == "key" ||
-            key == "max-tokens") {
+        if (key == "base-url" || key == "base" || key == "max-tokens") {
             if (!has_value) {
                 const std::string value = option_value(i, argc, argv, "--" + key, error);
                 if (!error.empty()) {
@@ -931,6 +933,9 @@ void apply_environment(Config& cfg) {
         std::string error;
         apply_profile(cfg, value, error);
     }
+    if (const char* value = std::getenv("SKIFFLLM_API_KEY")) {
+        cfg.api_key = value;
+    }
 }
 
 std::string usage(const std::string& program) {
@@ -959,6 +964,7 @@ std::string usage(const std::string& program) {
     out << "  --serve                    Serve a local OpenAI-compatible API\n";
     out << "  --host <addr>              Local server bind address (default: 127.0.0.1)\n";
     out << "  --port <n>                 Local server port (default: 8080)\n";
+    out << "  --api-key <key>            Require Bearer auth on the local server\n";
     out << "  --benchmark <runs>         Run a real generation benchmark\n\n";
     out << "Inference options:\n";
     out << "  --ctx <n>                  Context size (default: 4096)\n";
@@ -1040,6 +1046,7 @@ void print_config(const Config& cfg) {
     std::cout << "chat_template    " << (cfg.chat_template.empty() ? "(model default)" : cfg.chat_template) << "\n";
     std::cout << "server_host      " << cfg.server_host << "\n";
     std::cout << "server_port      " << cfg.server_port << "\n";
+    std::cout << "server_api_key   " << (cfg.api_key.empty() ? "(none)" : "(set)") << "\n";
     std::cout << "benchmark_runs   " << (cfg.benchmark_runs == 0 ? "(none)" : std::to_string(cfg.benchmark_runs)) << "\n";
     std::cout << "attach_files     ";
     if (cfg.attach_paths.empty()) {

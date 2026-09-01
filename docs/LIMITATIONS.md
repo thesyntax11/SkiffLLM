@@ -19,11 +19,15 @@ Both are user-initiated HTTPS transfers from Hugging Face. The Android app uses
 
 ## Local API server
 
-The `--serve` mode is a compact, local, single-request HTTP server. It is not
-a multi-threaded production gateway.
+The `--serve` mode is a compact, local HTTP server. It is not a multi-threaded
+production gateway.
 
-- It handles one request at a time.
-- It has no authentication.
+- Fast endpoints (`/health`, `/version`, `/v1/models`) answer while a chat
+  generation is running; generation is serialized behind a mutex because a
+  llama.cpp context is not thread-safe.
+- `/v1/*` endpoints accept an optional `--api-key` and then require
+  `Authorization: Bearer <key>`. They are public when no key is set, which is
+  safe only when listening on `127.0.0.1`.
 - It has no rate limiting.
 - It is intended for local tooling, editor plugins, and personal automation.
 
@@ -57,7 +61,7 @@ installed).
 ## Planned
 
 - Embeddings and retrieval-augmented generation
-- Concurrent server requests
+- Multi-worker generation across multiple models
 - Package manager integration
 - Grammar-constrained generation
 - Backend benchmark matrix

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v1.6.0 — 2026-09-01
 
 ### Desktop
 
@@ -35,6 +35,8 @@
   Android app share one optimized warm-up pass.
 - Added `/warmup` to re-run the warm-up pass in the interactive shell.
 - Added CORS preflight (`OPTIONS`) and CORS headers to the local server.
+- Added `--api-key` Bearer-token enforcement for `/v1/models` and
+  `/v1/chat/completions`; `/health`, `/version` and `/` stay public.
 - Upgraded `scripts/api_client.py` with `--stream`, `--temperature`,
   `--max-tokens`, and a clean CLI.
 - Added `CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, and an
@@ -127,7 +129,7 @@
 - The Android model info JSON path (`EngineController.modelDescription()`)
   now surfaces `description`, `params`, and `context_train`.
 
-### Android 1.6.0
+### Android
 
 - Added a native Android app under `android/` built with Kotlin, Jetpack
   Compose, and a llama.cpp JNI bridge.

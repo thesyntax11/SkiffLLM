@@ -7,6 +7,8 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License MIT"/>
+  <img src="https://img.shields.io/badge/version-v1.6.0-blue" alt="Version v1.6.0"/>
+  <img src="https://github.com/thesyntax11/SkiffLLM/actions/workflows/ci.yml/badge.svg" alt="CI status"/>
   <img src="https://img.shields.io/badge/c%2B%2B-17-blue.svg" alt="C++17"/>
   <img src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows%20%7C%20Android%20%7C%20iOS-lightgrey" alt="Platforms"/>
   <img src="https://img.shields.io/badge/runtime-offline-green" alt="Offline"/>
@@ -244,12 +246,17 @@ The local server is compatible with the OpenAI client you already have.
 
 ```bash
 skifflm --model qwen2.5-1.5b.gguf --serve --host 127.0.0.1 --port 8080
+# with a shared token:
+skifflm --model qwen2.5-1.5b.gguf --serve --host 127.0.0.1 --port 8080 --api-key "local-token"
 ```
+
+Any API key string is accepted by the OpenAI client; SkiffLLM only compares
+the `Authorization: Bearer` value you pass to `--api-key`.
 
 ```python
 from openai import OpenAI
 
-client = OpenAI(base_url="http://127.0.0.1:8080/v1", api_key="sk-local")
+client = OpenAI(base_url="http://127.0.0.1:8080/v1", api_key="local-token")
 resp = client.chat.completions.create(
     model="qwen2.5-1.5b",
     messages=[{"role": "user", "content": "Explain this diff."}],
@@ -263,7 +270,19 @@ The server is concurrent: fast endpoints (`/health`, `/v1/models`,
 `/version`) answer while a long `/v1/chat/completions` is generating.
 Generation for one model is serialized because llama.cpp contexts are not
 thread-safe, so simultaneous chat requests queue instead of corrupting state.
-Bind to `127.0.0.1` unless you accept an auth-less network listener.
+
+If you bind to `0.0.0.0` or another interface, protect the API with a shared
+token:
+
+```bash
+skifflm --model model.gguf --serve --host 0.0.0.0 --port 8080 --api-key "$SKIFFLLM_SERVER_KEY"
+```
+
+When `--api-key` is set, `/v1/models` and `/v1/chat/completions` require
+`Authorization: Bearer <key>` and return `401` otherwise. `/health`,
+`/version`, and `/` stay public so health checks and version probes keep
+working. Bind to `127.0.0.1` by default; remote listeners are only useful when
+you can protect them.
 
 ## Privacy proof
 
@@ -424,6 +443,7 @@ echo "Summarize this" | ./build/skifflm --model model.gguf
 ./build/skifflm --export conversation.md
 ./build/skifflm --model model.gguf --benchmark 3
 ./build/skifflm --model model.gguf --serve --host 127.0.0.1 --port 8080
+./build/skifflm --model model.gguf --serve --host 0.0.0.0 --port 8080 --api-key local-token
 ```
 
 ## Command Line
@@ -453,6 +473,7 @@ Core options:
   --serve                    Serve a local OpenAI-compatible API
   --host <addr>              Local server bind address (default: 127.0.0.1)
   --port <n>                 Local server port (default: 8080)
+  --api-key <key>            Require Bearer auth on the local server
   --benchmark <runs>         Run a real generation benchmark
 
 Inference options:
@@ -644,19 +665,22 @@ SkiffLLM can serve a local, offline OpenAI-compatible HTTP endpoint:
 
 ```bash
 skifflm --model model.gguf --serve --host 127.0.0.1 --port 8080
+# require a bearer token on the /v1/* endpoints:
+skifflm --model model.gguf --serve --host 127.0.0.1 --port 8080 --api-key "local-token"
 ```
 
 Endpoints:
 
 ```text
-GET  /health                 Simple health check
-GET  /v1/models              List the single loaded model
-POST /v1/chat/completions    Chat completion, with OpenAI-style streaming support
+GET  /health                 Simple health check (public)
+GET  /v1/models              List the single loaded model (Bearer when --api-key is set)
+POST /v1/chat/completions    Chat completion, with OpenAI-style streaming support (Bearer when --api-key is set)
 ```
 
 Example request:
 
 ```bash
+# add `--header "Authorization: Bearer local-token"` when --api-key is set
 curl http://127.0.0.1:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
@@ -670,16 +694,18 @@ A small dependency-free Python client is included:
 
 ```bash
 python3 scripts/api_client.py http://127.0.0.1:8080 "Say hello."
+python3 scripts/api_client.py http://127.0.0.1:8080 --api-key local-token "Say hello."
 python3 scripts/api_client.py http://127.0.0.1:8080 --stream "Tell me a short joke."
 python3 scripts/api_client.py http://127.0.0.1:8080 --prompt "Hello" --temperature 0.7
 ```
 
 The server binds to `127.0.0.1` by default. It responds to CORS preflight
 (`OPTIONS`) and sends CORS headers on normal and streaming responses, so
-browser-based clients can use it locally. It has no auth and no remote
-exposure; if you bind to `0.0.0.0`, you are responsible for the network
-security of that interface. It handles concurrent requests without
-blocking health checks and model listing.
+browser-based clients can use it locally. It handles concurrent requests
+without blocking health checks and model listing. `/v1/*` endpoints are
+auth-less only when you do not pass `--api-key`; with a token set, requests
+without a matching `Authorization: Bearer <key>` header receive `401`. If you
+bind to `0.0.0.0`, always set `--api-key`.
 
 You can check a running server without loading a model:
 
@@ -794,6 +820,7 @@ SKIFFLLM_CONFIG      Config file path
 SKIFFLLM_HISTORY     History file path
 SKIFFLLM_SYSTEM      Default system prompt
 SKIFFLLM_PROFILE     Default sampling profile
+SKIFFLLM_API_KEY     Bearer token for `--serve` (optional)
 ```
 
 ## JSON Output
@@ -963,7 +990,7 @@ Suggested speedups:
 
 - No network access used by the desktop runtime.
 - No remote inference endpoints.
-- No API keys or accounts.
+- No cloud API keys or accounts.
 - No telemetry, analytics, or crash reporting.
 - Prompts and outputs stay on the local machine.
 
@@ -1002,8 +1029,9 @@ CODE_OF_CONDUCT.md            Code of conduct
 
 ## Known Limitations
 
-SkiffLLM does not bundle models, the local server is single-request and has no
-auth, and retrieval-augmented generation is not implemented yet. See
+SkiffLLM does not bundle models, and retrieval-augmented generation is not
+implemented yet. The local server is public on `127.0.0.1` by default; use
+`--api-key` when binding to a non-loopback interface. See
 [Known Limitations](docs/LIMITATIONS.md) for an honest list.
 
 ## Contributing

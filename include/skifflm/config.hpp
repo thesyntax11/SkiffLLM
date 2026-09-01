@@ -74,6 +74,7 @@ struct Config {
     bool serve = false;
     std::string server_host = "127.0.0.1";
     int server_port = 8080;
+    std::string api_key;
     int benchmark_runs = 0;
     std::string one_shot;
     std::string tokenize_text;

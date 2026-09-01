@@ -5,7 +5,7 @@
 Examples:
     python3 scripts/api_client.py
     python3 scripts/api_client.py --stream "Tell me a short joke."
-    python3 scripts/api_client.py http://127.0.0.1:8080 --temperature 0.7 --prompt "Hello"
+    python3 scripts/api_client.py http://127.0.0.1:8080 --api-key secret --temperature 0.7 --prompt "Hello"
 """
 
 from __future__ import annotations
@@ -19,24 +19,26 @@ import urllib.request
 DEFAULT_BASE = "http://127.0.0.1:8080"
 
 
-def build_request(method: str, url: str, payload: dict | None = None):
+def build_request(method: str, url: str, payload: dict | None = None, api_key: str | None = None):
     data = None
     headers = {}
     if payload is not None:
         data = json.dumps(payload).encode("utf-8")
         headers["Content-Type"] = "application/json"
+    if api_key:
+        headers["Authorization"] = "Bearer " + api_key
     return urllib.request.Request(url, data=data, headers=headers, method=method)
 
 
-def request(method: str, url: str, payload: dict | None = None, timeout: int = 120):
-    req = build_request(method, url, payload)
+def request(method: str, url: str, payload: dict | None = None, timeout: int = 120, api_key: str | None = None):
+    req = build_request(method, url, payload, api_key)
     with urllib.request.urlopen(req, timeout=timeout) as response:
         body = response.read().decode("utf-8")
         return response.status, body
 
 
-def stream_request(url: str, payload: dict, timeout: int = 120):
-    req = build_request("POST", url, payload)
+def stream_request(url: str, payload: dict, timeout: int = 120, api_key: str | None = None):
+    req = build_request("POST", url, payload, api_key)
     response = urllib.request.urlopen(req, timeout=timeout)
     return response
 
@@ -44,6 +46,7 @@ def stream_request(url: str, payload: dict, timeout: int = 120):
 def main() -> int:
     parser = argparse.ArgumentParser(description="Call a SkiffLLM local server")
     parser.add_argument("base", nargs="?", default=DEFAULT_BASE, help="server base URL")
+    parser.add_argument("--api-key", help="Bearer token required by the server")
     parser.add_argument("--stream", action="store_true", help="stream tokens as SSE")
     parser.add_argument("--prompt", help="prompt text (falls back to positional text)")
     parser.add_argument("--model", default="skifflm", help="model id")
@@ -54,12 +57,12 @@ def main() -> int:
 
     base = args.base.rstrip("/")
 
-    status, body = request("GET", base + "/health", timeout=10)
+    status, body = request("GET", base + "/health", timeout=10, api_key=args.api_key)
     print(status, body.strip())
     if status != 200:
         return 1
 
-    status, body = request("GET", base + "/v1/models", timeout=10)
+    status, body = request("GET", base + "/v1/models", timeout=10, api_key=args.api_key)
     print(status, body.strip())
     if status != 200:
         return 1
@@ -75,7 +78,7 @@ def main() -> int:
 
     if args.stream:
         print("POST", base + "/v1/chat/completions", "(streaming)")
-        response = stream_request(base + "/v1/chat/completions", payload)
+        response = stream_request(base + "/v1/chat/completions", payload, api_key=args.api_key)
         try:
             for line in response:
                 text = line.decode("utf-8", errors="replace").rstrip("\r\n")
@@ -98,7 +101,7 @@ def main() -> int:
         print()
         return 0
 
-    status, body = request("POST", base + "/v1/chat/completions", payload)
+    status, body = request("POST", base + "/v1/chat/completions", payload, api_key=args.api_key)
     print(status)
     print(body.strip())
     return 0 if status == 200 else 1

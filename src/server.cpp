@@ -9,6 +9,7 @@
 #include <ctime>
 #include <cstdlib>
 #include <cstring>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <sstream>
@@ -105,6 +106,8 @@ std::string status_reason(int status) {
             return "No Content";
         case 400:
             return "Bad Request";
+        case 401:
+            return "Unauthorized";
         case 404:
             return "Not Found";
         case 405:
@@ -129,7 +132,7 @@ bool send_response(skifflm_socket_t socket_fd,
     headers << "X-Content-Type-Options: nosniff\r\n";
     headers << "Access-Control-Allow-Origin: *\r\n";
     headers << "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n";
-    headers << "Access-Control-Allow-Headers: Content-Type\r\n";
+    headers << "Access-Control-Allow-Headers: Content-Type, Authorization\r\n";
     headers << "Access-Control-Max-Age: 86400\r\n";
     headers << "Connection: close\r\n\r\n";
     return send_all(socket_fd, headers.str() + body, error);
@@ -144,7 +147,7 @@ bool send_stream_headers(skifflm_socket_t socket_fd, std::string& error) {
     headers << "X-Content-Type-Options: nosniff\r\n";
     headers << "Access-Control-Allow-Origin: *\r\n";
     headers << "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n";
-    headers << "Access-Control-Allow-Headers: Content-Type\r\n";
+    headers << "Access-Control-Allow-Headers: Content-Type, Authorization\r\n";
     headers << "Access-Control-Max-Age: 86400\r\n";
     headers << "Connection: close\r\n\r\n";
     return send_all(socket_fd, headers.str(), error);
@@ -224,7 +227,36 @@ struct HttpRequest {
     std::string method;
     std::string target;
     std::string body;
+    std::map<std::string, std::string> headers;
 };
+
+bool constant_time_equal(const std::string& expected, const std::string& actual) {
+    if (expected.size() != actual.size()) {
+        return false;
+    }
+    unsigned char difference = 0;
+    for (size_t i = 0; i < expected.size(); ++i) {
+        difference |= static_cast<unsigned char>(expected[i]) ^ static_cast<unsigned char>(actual[i]);
+    }
+    return difference == 0;
+}
+
+bool request_authorized(const HttpRequest& request, const std::string& api_key) {
+    if (api_key.empty()) {
+        return true;
+    }
+    const auto header = request.headers.find("authorization");
+    if (header == request.headers.end()) {
+        return false;
+    }
+    const std::string& authorization = header->second;
+    const std::string scheme = "bearer ";
+    if (authorization.size() <= scheme.size() ||
+        lower(authorization.substr(0, scheme.size())) != scheme) {
+        return false;
+    }
+    return constant_time_equal(api_key, trim(authorization.substr(scheme.size())));
+}
 
 bool read_http_request(skifflm_socket_t socket_fd,
                        HttpRequest& request,
@@ -298,6 +330,7 @@ bool read_http_request(skifflm_socket_t socket_fd,
         }
         const std::string name = lower(trim(line.substr(0, colon)));
         const std::string value = trim(line.substr(colon + 1));
+        request.headers[name] = value;
         if (name == "content-length") {
             char* end = nullptr;
             content_length = std::strtol(value.c_str(), &end, 10);
@@ -979,6 +1012,13 @@ void handle_request(skifflm_socket_t socket_fd,
         send_response(socket_fd, 200, "application/json", out.str(), error);
         return;
     }
+    if (request.target == "/v1/models" || request.target == "/v1/chat/completions") {
+        if (!request_authorized(request, config.api_key)) {
+            send_response(socket_fd, 401, "application/json",
+                          "{\"error\":\"missing or invalid API key\"}\n", error);
+            return;
+        }
+    }
     if (request.method == "GET" && request.target == "/v1/models") {
         std::ostringstream out;
         out << "{\"object\":\"list\",\"data\":[{\"id\":";
@@ -1032,6 +1072,9 @@ int run_server(Config& config,
     terminal.success("Serving local API on http://" + config.server_host + ":" +
                      std::to_string(config.server_port) +
                      " (Ctrl+C to stop; generation is serialized per model)");
+    if (!config.api_key.empty()) {
+        terminal.info("/v1/* requires Authorization: Bearer <key>; public endpoints are /health, /version and /.");
+    }
 
     std::mutex generation_mutex;
     struct ClientWorker {
