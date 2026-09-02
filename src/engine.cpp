@@ -8,6 +8,7 @@
 #include <cstring>
 #include <filesystem>
 #include <random>
+#include <sstream>
 #include <thread>
 
 namespace skifflm {
