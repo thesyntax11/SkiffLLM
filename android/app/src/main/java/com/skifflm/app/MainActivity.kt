@@ -81,7 +81,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onNewIntent(intent: Intent?) {
+    override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         SharedIntent.offer(intent)
@@ -704,7 +704,9 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
                     }
                 }
                 if (generating) {
-                    MessageBubble(ChatMessage("assistant", draft))
+                    item {
+                        MessageBubble(ChatMessage("assistant", draft))
+                    }
                 }
             }
             errorText?.let {
