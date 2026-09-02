@@ -11,8 +11,19 @@ set -euo pipefail
 #   curl -fsSL https://raw.githubusercontent.com/thesyntax11/SkiffLLM/main/scripts/install-from-release.sh | bash -s -- --version v1.6.0
 
 VERSION=""
-OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
-ARCH="$(uname -m)"
+RAW_OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
+case "${RAW_OS}" in
+    darwin) OS="darwin" ;;
+    linux) OS="linux" ;;
+    mingw*|msys*|cygwin*) OS="windows" ;;
+    *) OS="${RAW_OS}" ;;
+esac
+RAW_ARCH="$(uname -m)"
+case "${RAW_ARCH}" in
+    amd64|x86_64) ARCH="x86_64" ;;
+    aarch64|arm64) ARCH="arm64" ;;
+    *) ARCH="${RAW_ARCH}" ;;
+esac
 PREFIX="${PREFIX:-${HOME}/.local}"
 REPO="thesyntax11/SkiffLLM"
 
@@ -70,12 +81,17 @@ if [[ -z "${VERSION}" ]]; then
     exit 2
 fi
 
+# Release archives are named with the bare version (e.g. "1.6.0") while the
+# GitHub tag is prefixed (e.g. "v1.6.0"). Strip a leading "v" only from the
+# asset filename; keep the full tag for the release/download URL.
+ASSET_VERSION="${VERSION#v}"
+
 case "${OS}-${ARCH}" in
-    linux-x86_64)  ASSET="skifflm-${VERSION}-linux-x86_64.tar.gz";;
-    linux-aarch64|linux-arm64) ASSET="skifflm-${VERSION}-linux-aarch64.tar.gz";;
-    darwin-x86_64) ASSET="skifflm-${VERSION}-macos-x86_64.tar.gz";;
-    darwin-arm64)  ASSET="skifflm-${VERSION}-macos-arm64.tar.gz";;
-    windows-x86_64) ASSET="skifflm-${VERSION}-windows-x86_64.zip";;
+    linux-x86_64)  ASSET="skifflm-${ASSET_VERSION}-linux-x86_64.tar.gz";;
+    linux-aarch64|linux-arm64) ASSET="skifflm-${ASSET_VERSION}-linux-aarch64.tar.gz";;
+    darwin-x86_64) ASSET="skifflm-${ASSET_VERSION}-macos-x86_64.tar.gz";;
+    darwin-arm64)  ASSET="skifflm-${ASSET_VERSION}-macos-arm64.tar.gz";;
+    windows-x86_64) ASSET="skifflm-${ASSET_VERSION}-windows-x86_64.zip";;
     *)
         echo "error: no release asset mapping for ${OS}-${ARCH}" >&2
         exit 2

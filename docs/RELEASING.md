@@ -37,8 +37,10 @@ bash scripts/install-from-release.sh --version v1.6.0
 
 ## GitHub release
 
-When workflow permissions are available on the repository, tag a commit and
-push the tag:
+The repository's `main` branch must contain `.github/workflows/release.yml`.
+Given Actions workflow permissions that allow write access (Settings → Actions
+→ General → Workflow permissions → Read and write), tag a commit and push the
+tag:
 
 ```bash
 git tag -a v1.6.0 -m "SkiffLLM 1.6.0"
@@ -46,19 +48,23 @@ git push origin v1.6.0
 ```
 
 The release workflow in `.github/workflows/release.yml` builds Linux, macOS,
-and Windows archives plus an Android APK, and publishes them automatically.
-Asset names are normalized to `skifflm-<version>-<os>-<arch>.tar.gz` (`.zip` on
-Windows) so `scripts/install-from-release.sh` can resolve them. The
-`linux-aarch64` entry runs on an ARM64 hosted runner; if that runner is not
-available on your plan, remove that matrix entry rather than shipping an
-x86_64 binary under an aarch64 name.
+and Windows desktop archives plus an Android debug APK, and publishes them as
+GitHub Release assets automatically. Asset names are normalized so
+`scripts/install-from-release.sh` can resolve them:
 
-> As of this revision `.github/workflows/release.yml` has **not** been
-> committed to the repository, so the automatic GitHub Release path above is
-> aspirational. Until it is added, publish releases manually. The reproducible
-> way to produce an archive on this repo is `scripts/release.sh`, which creates
-> `skifflm-<version>-<os>-<arch>.tar.gz` and a `checksums.txt`, then attach that
-> archive to a GitHub Release and use `scripts/install-from-release.sh`.
+- `skifflm-<version>-linux-x86_64.tar.gz`
+- `skifflm-<version>-macos-arm64.tar.gz`
+- `skifflm-<version>-windows-x86_64.zip`
+- `SkiffLLM-<version>-Android.apk`
+- `checksums.txt` (SHA-256 for every asset above)
+
+The workflow runs `scripts/release.sh` on the exact host platform it targets,
+so the archive always contains a native binary. It does **not** cross-compile,
+which means `linux-aarch64` and `macos-x86_64` assets are not produced by the
+current workflow. If you need one, add a job that runs on an ARM64 Linux
+runner or the `macos-15-intel` runner and run `bash scripts/release.sh`
+there. Do not rename an `x86_64` binary as `aarch64` to fill a gap — that
+would break the installer's checksum/name contract.
 
 ## Release checklist
 

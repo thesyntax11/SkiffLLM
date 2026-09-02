@@ -24,6 +24,8 @@
   <img src="https://img.shields.io/badge/c%2B%2B-17-blue.svg" alt="C++17"/>
   <img src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows%20%7C%20Android%20%7C%20iOS-lightgrey" alt="Plattformen"/>
   <img src="https://img.shields.io/badge/runtime-offline-green" alt="Offline"/>
+  <img src="https://github.com/thesyntax11/SkiffLLM/actions/workflows/ci.yml/badge.svg" alt="CI"/>
+  <img src="https://github.com/thesyntax11/SkiffLLM/actions/workflows/release.yml/badge.svg" alt="Release"/>
 </p>
 
 SkiffLLM ist eine einzelne lokale KI-Laufzeit, die sich wie ein Unix-Werkzeug
