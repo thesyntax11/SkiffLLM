@@ -1,10 +1,3 @@
-#include "skifflm/config.hpp"
-#include "skifflm/engine.hpp"
-#include "skifflm/server.hpp"
-#include "skifflm/session.hpp"
-#include "skifflm/terminal.hpp"
-#include "skifflm/tools.hpp"
-
 #include <algorithm>
 #include <chrono>
 #include <csignal>
@@ -15,6 +8,13 @@
 #include <memory>
 #include <sstream>
 #include <thread>
+
+#include "skifflm/config.hpp"
+#include "skifflm/engine.hpp"
+#include "skifflm/server.hpp"
+#include "skifflm/session.hpp"
+#include "skifflm/terminal.hpp"
+#include "skifflm/tools.hpp"
 
 #ifdef _WIN32
 #include <io.h>
@@ -40,8 +40,7 @@ void log_to_stderr(enum ggml_log_level, const char* text, void*) {
     std::cerr << text;
 }
 
-void discard_log(enum ggml_log_level, const char*, void*) {
-}
+void discard_log(enum ggml_log_level, const char*, void*) {}
 
 double parse_double(const std::string& text, bool& ok) {
     if (text.empty()) {
@@ -93,13 +92,11 @@ bool is_space(char ch) {
     return ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r';
 }
 
-std::string make_attach_block(const std::vector<std::filesystem::path>& paths,
-                              std::string& error) {
+std::string make_attach_block(const std::vector<std::filesystem::path>& paths, std::string& error) {
     std::ostringstream output;
     for (const auto& path : paths) {
         std::error_code ec;
-        if (!std::filesystem::exists(path, ec) ||
-            !std::filesystem::is_regular_file(path, ec)) {
+        if (!std::filesystem::exists(path, ec) || !std::filesystem::is_regular_file(path, ec)) {
             error = "attached file does not exist: " + path.string();
             return {};
         }
@@ -108,9 +105,7 @@ std::string make_attach_block(const std::vector<std::filesystem::path>& paths,
             error = "attached file is empty or unreadable: " + path.string();
             return {};
         }
-        output << "<file path=\"" << path.string() << "\">\n"
-               << content
-               << "\n</file>\n\n";
+        output << "<file path=\"" << path.string() << "\">\n" << content << "\n</file>\n\n";
     }
     return output.str();
 }
@@ -136,13 +131,11 @@ std::string expand_at_paths(const std::string& text, std::string& error) {
                                    raw_path.find('\\') != std::string::npos;
             std::error_code ec;
             const std::filesystem::path path = skifflm::expand_path(raw_path);
-            if (std::filesystem::exists(path, ec) &&
-                std::filesystem::is_regular_file(path, ec)) {
+            if (std::filesystem::exists(path, ec) && std::filesystem::is_regular_file(path, ec)) {
                 const std::string content = read_file(path);
                 if (!content.empty()) {
                     output << "<file path=\"" << path.string() << "\">\n"
-                           << content
-                           << "\n</file>\n\n";
+                           << content << "\n</file>\n\n";
                     i = end;
                     continue;
                 }
@@ -178,10 +171,10 @@ std::string export_markdown(const std::vector<skifflm::ChatMessage>& messages) {
     std::ostringstream output;
     output << "# SkiffLLM Conversation\n\n";
     for (const auto& message : messages) {
-        const std::string role = message.role == "system" ? "System"
-                                 : message.role == "user" ? "User"
+        const std::string role = message.role == "system"      ? "System"
+                                 : message.role == "user"      ? "User"
                                  : message.role == "assistant" ? "Assistant"
-                                 : message.role;
+                                                               : message.role;
         output << "## " << role << "\n\n" << message.content << "\n\n";
     }
     return output.str();
@@ -228,8 +221,7 @@ std::string json_escape(const std::string& value) {
     return out.str();
 }
 
-bool write_text_file(const std::filesystem::path& path,
-                     const std::string& content,
+bool write_text_file(const std::filesystem::path& path, const std::string& content,
                      std::string& error) {
     std::error_code ec;
     const auto parent = path.parent_path();
@@ -273,8 +265,7 @@ int print_models(const skifflm::Config& cfg) {
     return 0;
 }
 
-bool choose_model(skifflm::Config& cfg,
-                  std::unique_ptr<skifflm::LlmEngine>& engine,
+bool choose_model(skifflm::Config& cfg, std::unique_ptr<skifflm::LlmEngine>& engine,
                   std::string& error);
 
 std::string platform_name() {
@@ -294,8 +285,8 @@ std::string platform_name() {
 int run_doctor(const skifflm::Config& cfg, const std::string& version) {
     std::error_code ec;
     const bool model_dir_exists = std::filesystem::exists(cfg.model_dir, ec);
-    const bool model_exists = !cfg.model_path.empty() &&
-                              std::filesystem::exists(cfg.model_path, ec);
+    const bool model_exists =
+        !cfg.model_path.empty() && std::filesystem::exists(cfg.model_path, ec);
 
     if (cfg.json_output) {
         std::cout << "{\n";
@@ -303,8 +294,10 @@ int run_doctor(const skifflm::Config& cfg, const std::string& version) {
         std::cout << "  \"platform\":" << json_escape(platform_name()) << ",\n";
         std::cout << "  \"threads\":" << std::thread::hardware_concurrency() << ",\n";
         std::cout << "  \"supports_mmap\":" << (llama_supports_mmap() ? "true" : "false") << ",\n";
-        std::cout << "  \"supports_mlock\":" << (llama_supports_mlock() ? "true" : "false") << ",\n";
-        std::cout << "  \"supports_gpu\":" << (llama_supports_gpu_offload() ? "true" : "false") << ",\n";
+        std::cout << "  \"supports_mlock\":" << (llama_supports_mlock() ? "true" : "false")
+                  << ",\n";
+        std::cout << "  \"supports_gpu\":" << (llama_supports_gpu_offload() ? "true" : "false")
+                  << ",\n";
         std::cout << "  \"model_dir\":" << json_escape(cfg.model_dir.string()) << ",\n";
         std::cout << "  \"model_dir_present\":" << (model_dir_exists ? "true" : "false") << ",\n";
         std::cout << "  \"config_path\":" << json_escape(cfg.config_path.string()) << ",\n";
@@ -315,7 +308,8 @@ int run_doctor(const skifflm::Config& cfg, const std::string& version) {
         std::cout << "  \"telemetry\":\"disabled\",\n";
         std::cout << "  \"cloud_api\":\"none\",\n";
         std::cout << "  \"history_storage\":\"local\",\n";
-        std::cout << "  \"explicit_network_usages\":[\"model install (Hugging Face download)\",\"openai subcommand (user-chosen endpoint)\"],\n";
+        std::cout << "  \"explicit_network_usages\":[\"model install (Hugging Face "
+                     "download)\",\"openai subcommand (user-chosen endpoint)\"],\n";
         std::cout << "  \"privacy_status\":\"LOCAL-FIRST\"\n";
         std::cout << "}\n";
         return 0;
@@ -331,9 +325,9 @@ int run_doctor(const skifflm::Config& cfg, const std::string& version) {
               << (model_dir_exists ? " (present)" : " (missing)") << "\n";
     std::cout << "  Config path:         " << cfg.config_path.string() << "\n";
     std::cout << "  History path:        " << cfg.history_path.string() << "\n";
-    std::cout << "  Model configured:    " << (cfg.model_path.empty()
-                                                   ? std::string("(auto-discovery)")
-                                                   : cfg.model_path.string())
+    std::cout << "  Model configured:    "
+              << (cfg.model_path.empty() ? std::string("(auto-discovery)")
+                                         : cfg.model_path.string())
               << (model_exists ? " (present)" : "") << "\n";
     if (cfg.doctor_network) {
         std::cout << "  Core inference outbound: none (generation never connects)\n";
@@ -347,8 +341,7 @@ int run_doctor(const skifflm::Config& cfg, const std::string& version) {
     return 0;
 }
 
-int print_model_info(skifflm::Config& cfg,
-                     std::unique_ptr<skifflm::LlmEngine>& engine,
+int print_model_info(skifflm::Config& cfg, std::unique_ptr<skifflm::LlmEngine>& engine,
                      const skifflm::Terminal& terminal) {
     std::string model_error;
     if (!choose_model(cfg, engine, model_error)) {
@@ -383,10 +376,8 @@ int print_model_info(skifflm::Config& cfg,
     return 0;
 }
 
-int run_tokenize(skifflm::Config& cfg,
-                 std::unique_ptr<skifflm::LlmEngine>& engine,
-                 const skifflm::Terminal& terminal,
-                 const std::string& text) {
+int run_tokenize(skifflm::Config& cfg, std::unique_ptr<skifflm::LlmEngine>& engine,
+                 const skifflm::Terminal& terminal, const std::string& text) {
     std::string model_error;
     if (!choose_model(cfg, engine, model_error)) {
         if (cfg.json_output) {
@@ -407,8 +398,7 @@ int run_tokenize(skifflm::Config& cfg,
         return 1;
     }
     if (cfg.json_output) {
-        std::cout << "{\"text\":" << json_escape(text)
-                  << ",\"tokens\":" << tokens.size() << "}\n";
+        std::cout << "{\"text\":" << json_escape(text) << ",\"tokens\":" << tokens.size() << "}\n";
     } else {
         terminal.write("Token count: ", skifflm::Color::Cyan);
         terminal.write(std::to_string(tokens.size()) + "\n");
@@ -445,8 +435,7 @@ std::string command_argument(const std::string& command) {
     return stripped.substr(space + 1);
 }
 
-bool choose_model(skifflm::Config& cfg,
-                  std::unique_ptr<skifflm::LlmEngine>& engine,
+bool choose_model(skifflm::Config& cfg, std::unique_ptr<skifflm::LlmEngine>& engine,
                   std::string& error) {
     error.clear();
     if (engine) {
@@ -476,10 +465,8 @@ bool choose_model(skifflm::Config& cfg,
     return true;
 }
 
-void print_session_info(const skifflm::LlmEngine& engine,
-                        const skifflm::Session& session,
-                        const skifflm::Terminal& terminal,
-                        const skifflm::Config& cfg) {
+void print_session_info(const skifflm::LlmEngine& engine, const skifflm::Session& session,
+                        const skifflm::Terminal& terminal, const skifflm::Config& cfg) {
     const auto& info = engine.info();
     terminal.highlight("Model");
     terminal.write("  Path: " + cfg.model_path.string() + "\n");
@@ -496,18 +483,16 @@ void print_session_info(const skifflm::LlmEngine& engine,
 
     terminal.highlight("Session");
     terminal.write("  Messages: " + std::to_string(session.message_count()) + "\n");
-    terminal.write("  System prompt: " + (session.system_prompt().empty()
-                                              ? std::string("(none)")
-                                              : session.system_prompt()) + "\n");
+    terminal.write(
+        "  System prompt: " +
+        (session.system_prompt().empty() ? std::string("(none)") : session.system_prompt()) + "\n");
     terminal.write("  History file: " + cfg.history_path.string() + "\n");
     terminal.write("  Context: " + std::to_string(cfg.context_size) +
                    " | Batch: " + std::to_string(cfg.batch_size) + "\n");
 }
 
-bool rebuild_engine(skifflm::Config& cfg,
-                    std::unique_ptr<skifflm::LlmEngine>& engine,
-                    const std::string& model_path,
-                    const skifflm::Terminal& terminal) {
+bool rebuild_engine(skifflm::Config& cfg, std::unique_ptr<skifflm::LlmEngine>& engine,
+                    const std::string& model_path, const skifflm::Terminal& terminal) {
     const std::string previous = cfg.model_path.string();
     cfg.model_path = std::filesystem::path(model_path);
 
@@ -525,10 +510,9 @@ bool rebuild_engine(skifflm::Config& cfg,
 }
 
 class LiveStreamer {
-public:
+   public:
     explicit LiveStreamer(const skifflm::Terminal& terminal)
-        : terminal_(terminal), enabled_(terminal.live_output()) {
-    }
+        : terminal_(terminal), enabled_(terminal.live_output()) {}
 
     void reset() {
         buffer_.clear();
@@ -575,7 +559,7 @@ public:
         }
     }
 
-private:
+   private:
     const skifflm::Terminal& terminal_;
     bool enabled_;
     bool live_ = false;
@@ -584,8 +568,7 @@ private:
     std::size_t tokens_ = 0;
 };
 
-bool warmup_model(skifflm::LlmEngine& engine,
-                  const skifflm::Terminal& terminal,
+bool warmup_model(skifflm::LlmEngine& engine, const skifflm::Terminal& terminal,
                   bool quiet = false) {
     std::string error;
     const auto start = std::chrono::steady_clock::now();
@@ -604,25 +587,15 @@ bool warmup_model(skifflm::LlmEngine& engine,
     return true;
 }
 
-bool ask_model(skifflm::LlmEngine& engine,
-               const skifflm::GenerationOptions& options,
-               const std::vector<skifflm::ChatMessage>& messages,
-               skifflm::GenerationResult& result,
-               const skifflm::Terminal& terminal,
-               LiveStreamer& streamer) {
+bool ask_model(skifflm::LlmEngine& engine, const skifflm::GenerationOptions& options,
+               const std::vector<skifflm::ChatMessage>& messages, skifflm::GenerationResult& result,
+               const skifflm::Terminal& terminal, LiveStreamer& streamer) {
     std::string error;
     streamer.reset();
     skifflm::GenerationOptions current = options;
-    current.token_callback = [&streamer](const std::string& part) {
-        streamer.write(part);
-    };
-    const bool ok = engine.generate(messages,
-                                    current,
-                                    result,
-                                    []() {
-                                        return g_interrupted != 0;
-                                    },
-                                    error);
+    current.token_callback = [&streamer](const std::string& part) { streamer.write(part); };
+    const bool ok = engine.generate(
+        messages, current, result, []() { return g_interrupted != 0; }, error);
     streamer.finish();
     if (!ok) {
         terminal.error(error);
@@ -635,10 +608,8 @@ bool ask_model(skifflm::LlmEngine& engine,
     return true;
 }
 
-bool compact_session(const skifflm::Config& cfg,
-                     skifflm::LlmEngine& engine,
-                     skifflm::Session& session,
-                     skifflm::Terminal& terminal,
+bool compact_session(const skifflm::Config& cfg, skifflm::LlmEngine& engine,
+                     skifflm::Session& session, skifflm::Terminal& terminal,
                      const skifflm::GenerationOptions& options) {
     const auto conversation = session.conversation();
     if (conversation.size() < 2) {
@@ -661,7 +632,8 @@ bool compact_session(const skifflm::Config& cfg,
                    "work. Keep it compact and complete."});
     ask.push_back({"user",
                    "Compress this conversation into a compact bullet summary.\n\n"
-                   "<conversation>\n" + transcript.str() + "</conversation>\n"});
+                   "<conversation>\n" +
+                       transcript.str() + "</conversation>\n"});
 
     skifflm::GenerationOptions compact_options = options;
     compact_options.temperature = 0.2f;
@@ -671,19 +643,12 @@ bool compact_session(const skifflm::Config& cfg,
     skifflm::GenerationResult result;
     LiveStreamer streamer(terminal);
     streamer.reset();
-    compact_options.token_callback = [&streamer](const std::string& part) {
-        streamer.write(part);
-    };
+    compact_options.token_callback = [&streamer](const std::string& part) { streamer.write(part); };
     terminal.write("Compacting conversation...\n", skifflm::Color::Cyan);
 
     std::string error;
-    const bool ok = engine.generate(ask,
-                                    compact_options,
-                                    result,
-                                    []() {
-                                        return g_interrupted != 0;
-                                    },
-                                    error);
+    const bool ok = engine.generate(
+        ask, compact_options, result, []() { return g_interrupted != 0; }, error);
     streamer.finish();
     if (!ok) {
         terminal.error(error);
@@ -704,16 +669,13 @@ bool compact_session(const skifflm::Config& cfg,
     }
     terminal.success("Conversation compacted and saved.");
     terminal.print_stats(result, "Compacted");
-    skifflm::record_generation(cfg, result.prompt_tokens, result.generated_tokens,
-                               result.prompt_ms, result.generation_ms,
-                               result.tokens_per_second);
+    skifflm::record_generation(cfg, result.prompt_tokens, result.generated_tokens, result.prompt_ms,
+                               result.generation_ms, result.tokens_per_second);
     return true;
 }
 
-bool regenerate_session(const skifflm::Config& cfg,
-                        skifflm::LlmEngine& engine,
-                        skifflm::Session& session,
-                        skifflm::Terminal& terminal,
+bool regenerate_session(const skifflm::Config& cfg, skifflm::LlmEngine& engine,
+                        skifflm::Session& session, skifflm::Terminal& terminal,
                         const skifflm::GenerationOptions& options) {
     auto& messages = session.messages();
     int last_user = -1;
@@ -736,19 +698,12 @@ bool regenerate_session(const skifflm::Config& cfg,
     LiveStreamer streamer(terminal);
     streamer.reset();
     skifflm::GenerationOptions regen_options = options;
-    regen_options.token_callback = [&streamer](const std::string& part) {
-        streamer.write(part);
-    };
+    regen_options.token_callback = [&streamer](const std::string& part) { streamer.write(part); };
     terminal.write("Regenerating response...\n", skifflm::Color::Cyan);
 
     std::string error;
-    const bool ok = engine.generate(ask,
-                                    regen_options,
-                                    result,
-                                    []() {
-                                        return g_interrupted != 0;
-                                    },
-                                    error);
+    const bool ok = engine.generate(
+        ask, regen_options, result, []() { return g_interrupted != 0; }, error);
     streamer.finish();
     if (!ok) {
         terminal.error(error);
@@ -765,16 +720,13 @@ bool regenerate_session(const skifflm::Config& cfg,
         }
     }
     terminal.print_stats(result, "Generated");
-    skifflm::record_generation(cfg, result.prompt_tokens, result.generated_tokens,
-                               result.prompt_ms, result.generation_ms,
-                               result.tokens_per_second);
+    skifflm::record_generation(cfg, result.prompt_tokens, result.generated_tokens, result.prompt_ms,
+                               result.generation_ms, result.tokens_per_second);
     return true;
 }
 
-int run_interactive(skifflm::Config& cfg,
-                    std::unique_ptr<skifflm::LlmEngine>& engine,
-                    skifflm::Session& session,
-                    skifflm::Terminal& terminal,
+int run_interactive(skifflm::Config& cfg, std::unique_ptr<skifflm::LlmEngine>& engine,
+                    skifflm::Session& session, skifflm::Terminal& terminal,
                     skifflm::GenerationOptions& options) {
     std::string model_error;
     if (!choose_model(cfg, engine, model_error)) {
@@ -956,9 +908,10 @@ int run_interactive(skifflm::Config& cfg,
             }
             if (command == "/system") {
                 if (argument.empty()) {
-                    terminal.write("System prompt: " + (session.system_prompt().empty()
-                                                            ? std::string("(none)")
-                                                            : session.system_prompt()) + "\n");
+                    terminal.write("System prompt: " +
+                                   (session.system_prompt().empty() ? std::string("(none)")
+                                                                    : session.system_prompt()) +
+                                   "\n");
                 } else {
                     session.set_system_prompt(argument);
                     terminal.success("System prompt updated.");
@@ -1118,7 +1071,8 @@ int run_interactive(skifflm::Config& cfg,
                     continue;
                 }
                 options.n_predict = value;
-                terminal.success("Max generated tokens set to " + std::to_string(options.n_predict));
+                terminal.success("Max generated tokens set to " +
+                                 std::to_string(options.n_predict));
                 continue;
             }
             if (command == "/export") {
@@ -1130,10 +1084,10 @@ int run_interactive(skifflm::Config& cfg,
                 markdown << "# SkiffLLM Conversation\n\n";
                 const auto conversation = session.conversation();
                 for (const auto& message : conversation) {
-                    const std::string role = message.role == "system" ? "System"
-                                             : message.role == "user" ? "User"
+                    const std::string role = message.role == "system"      ? "System"
+                                             : message.role == "user"      ? "User"
                                              : message.role == "assistant" ? "Assistant"
-                                             : message.role;
+                                                                           : message.role;
                     markdown << "## " << role << "\n\n" << message.content << "\n\n";
                 }
                 std::string export_error;
@@ -1186,12 +1140,7 @@ int run_interactive(skifflm::Config& cfg,
         LiveStreamer streamer(terminal);
 
         skifflm::GenerationResult result;
-        const bool generate_ok = ask_model(*engine,
-                                           options,
-                                           ask,
-                                           result,
-                                           terminal,
-                                           streamer);
+        const bool generate_ok = ask_model(*engine, options, ask, result, terminal, streamer);
         if (!generate_ok) {
             session.messages().pop_back();
             continue;
@@ -1232,10 +1181,8 @@ struct BenchmarkRun {
     double tokens_per_second = 0.0;
 };
 
-int run_benchmark(skifflm::Config& cfg,
-                  std::unique_ptr<skifflm::LlmEngine>& engine,
-                  skifflm::Terminal& terminal,
-                  const skifflm::GenerationOptions& options) {
+int run_benchmark(skifflm::Config& cfg, std::unique_ptr<skifflm::LlmEngine>& engine,
+                  skifflm::Terminal& terminal, const skifflm::GenerationOptions& options) {
     std::string model_error;
     if (!choose_model(cfg, engine, model_error)) {
         if (cfg.json_output) {
@@ -1268,13 +1215,8 @@ int run_benchmark(skifflm::Config& cfg,
         skifflm::GenerationResult result;
         run_options.token_callback = nullptr;
         std::string error;
-        const bool ok = engine->generate(ask,
-                                         run_options,
-                                         result,
-                                         []() {
-                                             return g_interrupted != 0;
-                                         },
-                                         error);
+        const bool ok = engine->generate(
+            ask, run_options, result, []() { return g_interrupted != 0; }, error);
         if (!ok) {
             if (cfg.json_output) {
                 std::cout << "{\"error\":" << json_escape(error) << "}\n";
@@ -1307,9 +1249,8 @@ int run_benchmark(skifflm::Config& cfg,
     const double average_prompt_ms = total_prompt_ms / runs.size();
     const double average_generation_ms = total_generation_ms / runs.size();
     const double average_tokens = static_cast<double>(total_generated) / runs.size();
-    const double average_tps = total_generation_ms > 0.0
-                                   ? (total_generated / (total_generation_ms / 1000.0))
-                                   : 0.0;
+    const double average_tps =
+        total_generation_ms > 0.0 ? (total_generated / (total_generation_ms / 1000.0)) : 0.0;
 
     if (cfg.json_output) {
         std::ostringstream out;
@@ -1342,10 +1283,12 @@ int run_benchmark(skifflm::Config& cfg,
         terminal.write("  Prompt: " + prompt_text + "\n");
         terminal.write("  Runs: " + std::to_string(cfg.benchmark_runs) + "\n");
         terminal.write("  Average prompt time: " + std::to_string(average_prompt_ms) + " ms\n");
-        terminal.write("  Average generation time: " + std::to_string(average_generation_ms) + " ms\n");
+        terminal.write("  Average generation time: " + std::to_string(average_generation_ms) +
+                       " ms\n");
         terminal.write("  Average generated tokens: " + std::to_string(average_tokens) + "\n");
         terminal.write("  Average generation speed: " + std::to_string(average_tps) + " tok/s\n");
-        terminal.write("  Best generation speed: " + std::to_string(best_generation_tps) + " tok/s\n");
+        terminal.write("  Best generation speed: " + std::to_string(best_generation_tps) +
+                       " tok/s\n");
         terminal.write("  Worst prompt time: " + std::to_string(worst_prompt_ms) + " ms\n");
         for (size_t i = 0; i < runs.size(); ++i) {
             terminal.write("  Run " + std::to_string(i + 1) + ": " +
@@ -1357,12 +1300,9 @@ int run_benchmark(skifflm::Config& cfg,
     return 0;
 }
 
-int run_one_shot(skifflm::Config& cfg,
-                 std::unique_ptr<skifflm::LlmEngine>& engine,
-                 skifflm::Session& session,
-                 skifflm::Terminal& terminal,
-                 const skifflm::GenerationOptions& options,
-                 const std::string& raw_prompt) {
+int run_one_shot(skifflm::Config& cfg, std::unique_ptr<skifflm::LlmEngine>& engine,
+                 skifflm::Session& session, skifflm::Terminal& terminal,
+                 const skifflm::GenerationOptions& options, const std::string& raw_prompt) {
     std::string model_error;
     if (!choose_model(cfg, engine, model_error)) {
         if (cfg.json_output) {
@@ -1410,21 +1350,14 @@ int run_one_shot(skifflm::Config& cfg,
     LiveStreamer streamer(terminal);
     if (!cfg.json_output) {
         streamer.reset();
-        current.token_callback = [&streamer](const std::string& part) {
-            streamer.write(part);
-        };
+        current.token_callback = [&streamer](const std::string& part) { streamer.write(part); };
         terminal.write("User: " + compact_preview(prompt_text) + "\n", skifflm::Color::Cyan);
     }
 
     skifflm::GenerationResult result;
     std::string error;
-    const bool ok = engine->generate(ask,
-                                     current,
-                                     result,
-                                     []() {
-                                         return g_interrupted != 0;
-                                     },
-                                     error);
+    const bool ok = engine->generate(
+        ask, current, result, []() { return g_interrupted != 0; }, error);
     streamer.finish();
     if (!ok) {
         if (cfg.json_output) {
@@ -1457,9 +1390,8 @@ int run_one_shot(skifflm::Config& cfg,
         terminal.print_stats(result, "Generated");
     }
 
-    skifflm::record_generation(cfg, result.prompt_tokens, result.generated_tokens,
-                               result.prompt_ms, result.generation_ms,
-                               result.tokens_per_second);
+    skifflm::record_generation(cfg, result.prompt_tokens, result.generated_tokens, result.prompt_ms,
+                               result.generation_ms, result.tokens_per_second);
 
     if (cfg.context_bar && !cfg.json_output) {
         const uint32_t capacity = engine->context_capacity();
@@ -1488,7 +1420,7 @@ int run_one_shot(skifflm::Config& cfg,
     return 0;
 }
 
-}
+}  // namespace
 
 int main(int argc, char** argv) {
     skifflm::Config cfg = skifflm::default_config();
@@ -1577,13 +1509,16 @@ int main(int argc, char** argv) {
     if (cfg.backend_info) {
         const skifflm::LlmEngine probe(cfg);
         std::cout << "Backends linked into this build: "
-                  << (probe.active_backends().empty() ? "CPU-only" : probe.active_backends()) << "\n";
+                  << (probe.active_backends().empty() ? "CPU-only" : probe.active_backends())
+                  << "\n";
         std::cout << "GPU layers configured: " << cfg.n_gpu_layers << "\n";
         std::cout << "Flash attention: " << (cfg.flash_attn ? "yes" : "no") << "\n";
         std::cout << "KV offload: " << (cfg.offload_kqv ? "yes" : "no") << "\n";
-        std::cout << "For optimal hardware acceleration, rebuild with "
-                  << "-DSKIFFLLM_LLAMA_BACKEND=cuda (Linux), -DSKIFFLLM_LLAMA_BACKEND=metal (macOS), "
-                  << "-DSKIFFLLM_LLAMA_BACKEND=vulkan or -DSKIFFLLM_LLAMA_BACKEND=opencl, then pass --gpu-layers.\n";
+        std::cout
+            << "For optimal hardware acceleration, rebuild with "
+            << "-DSKIFFLLM_LLAMA_BACKEND=cuda (Linux), -DSKIFFLLM_LLAMA_BACKEND=metal (macOS), "
+            << "-DSKIFFLLM_LLAMA_BACKEND=vulkan or -DSKIFFLLM_LLAMA_BACKEND=opencl, then pass "
+               "--gpu-layers.\n";
         return 0;
     }
 
@@ -1702,14 +1637,12 @@ int main(int argc, char** argv) {
     if (!cfg.summarize_path.empty()) {
         const std::string document = read_file(cfg.summarize_path);
         if (document.empty()) {
-            std::cerr << "Summarize file is empty or unreadable: "
-                      << cfg.summarize_path.string() << std::endl;
+            std::cerr << "Summarize file is empty or unreadable: " << cfg.summarize_path.string()
+                      << std::endl;
             return 1;
         }
         const std::string instruction =
-            cfg.one_shot.empty()
-                ? "Summarize the following document."
-                : cfg.one_shot;
+            cfg.one_shot.empty() ? "Summarize the following document." : cfg.one_shot;
         cfg.one_shot = instruction + "\n\n<document>\n" + document + "\n</document>\n";
         cfg.interactive = false;
     }
@@ -1844,10 +1777,9 @@ int main(int argc, char** argv) {
     const std::string memories = skifflm::load_memories(cfg);
     if (!memories.empty()) {
         const std::string current = session.system_prompt();
-        session.set_system_prompt(
-            current.empty()
-                ? "Persistent user facts:\n" + memories
-                : current + "\n\nPersistent user facts:\n" + memories);
+        session.set_system_prompt(current.empty()
+                                      ? "Persistent user facts:\n" + memories
+                                      : current + "\n\nPersistent user facts:\n" + memories);
     }
 
     skifflm::GenerationOptions options;
@@ -1884,13 +1816,8 @@ int main(int argc, char** argv) {
                          "         (or set SKIFFLLM_API_KEY) before exposing it\n"
                          "         beyond loopback.\n";
         }
-        const int status = skifflm::run_server(cfg,
-                                               *engine,
-                                               terminal,
-                                               options,
-                                               []() {
-                                                   return g_interrupted != 0;
-                                               });
+        const int status = skifflm::run_server(cfg, *engine, terminal, options,
+                                               []() { return g_interrupted != 0; });
         engine.reset();
         llama_backend_free();
         return status;

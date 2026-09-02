@@ -1,8 +1,8 @@
 #include "skifflm/http_auth.hpp"
 
-#include "skifflm/config.hpp"
-
 #include <cctype>
+
+#include "skifflm/config.hpp"
 
 namespace skifflm {
 
@@ -28,16 +28,15 @@ bool constant_time_equal(const std::string& expected, const std::string& actual)
     }
     unsigned char difference = 0;
     for (size_t i = 0; i < expected.size(); ++i) {
-        difference |= static_cast<unsigned char>(expected[i]) ^
-                      static_cast<unsigned char>(actual[i]);
+        difference |=
+            static_cast<unsigned char>(expected[i]) ^ static_cast<unsigned char>(actual[i]);
     }
     return difference == 0;
 }
 
 }  // namespace
 
-bool bearer_token_matches(const std::string& authorization,
-                          const std::string& api_key) {
+bool bearer_token_matches(const std::string& authorization, const std::string& api_key) {
     if (api_key.empty()) {
         return true;
     }
@@ -55,4 +54,4 @@ bool bearer_token_matches(const std::string& authorization,
     return constant_time_equal(api_key, token);
 }
 
-}
+}  // namespace skifflm

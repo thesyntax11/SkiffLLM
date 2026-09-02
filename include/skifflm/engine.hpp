@@ -1,14 +1,14 @@
 #pragma once
 
-#include "skifflm/config.hpp"
-#include "skifflm/messages.hpp"
-
 #include <llama.h>
 
 #include <cstdint>
 #include <functional>
 #include <string>
 #include <vector>
+
+#include "skifflm/config.hpp"
+#include "skifflm/messages.hpp"
 
 namespace skifflm {
 
@@ -50,7 +50,7 @@ struct GenerationResult {
 };
 
 class LlmEngine {
-public:
+   public:
     explicit LlmEngine(const Config& config);
     ~LlmEngine();
 
@@ -65,22 +65,16 @@ public:
     // Human-readable list of the backends linked into this build
     // (CPU, CUDA, Metal, Vulkan, OpenCL, BLAS...). Empty when unavailable.
     std::string active_backends() const;
-    bool tokenize(const std::string& text,
-                  std::vector<int32_t>& tokens,
-                  std::string& error) const;
-    bool generate(const std::vector<ChatMessage>& messages,
-                  const GenerationOptions& options,
-                  GenerationResult& result,
-                  const std::function<bool()>& should_stop,
+    bool tokenize(const std::string& text, std::vector<int32_t>& tokens, std::string& error) const;
+    bool generate(const std::vector<ChatMessage>& messages, const GenerationOptions& options,
+                  GenerationResult& result, const std::function<bool()>& should_stop,
                   std::string& error);
     bool warmup(std::string& error);
 
-private:
-    std::vector<llama_token> encode(const std::string& text,
-                                    std::string& error) const;
+   private:
+    std::vector<llama_token> encode(const std::string& text, std::string& error) const;
     std::string token_to_piece(llama_token token) const;
-    std::string build_prompt(const std::vector<ChatMessage>& messages,
-                             std::string& error) const;
+    std::string build_prompt(const std::vector<ChatMessage>& messages, std::string& error) const;
     bool build_sampler(const GenerationOptions& options, std::string& error);
     bool decode(const std::vector<llama_token>& tokens, std::string& error);
 
@@ -94,4 +88,4 @@ private:
     std::string error_;
 };
 
-}
+}  // namespace skifflm

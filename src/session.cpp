@@ -1,8 +1,8 @@
 #include "skifflm/session.hpp"
 
 #include <cstdint>
-#include <fstream>
 #include <filesystem>
+#include <fstream>
 #include <utility>
 
 namespace skifflm {
@@ -17,12 +17,12 @@ constexpr uint32_t kVersion = 1u;
 constexpr uint32_t kMaxStringBytes = 64u * 1024u * 1024u;  // 64 MiB per field
 constexpr uint32_t kMaxMessages = 200000u;
 
-template<typename T>
+template <typename T>
 void write_value(std::ostream& out, const T& value) {
     out.write(reinterpret_cast<const char*>(&value), sizeof(T));
 }
 
-template<typename T>
+template <typename T>
 bool read_value(std::istream& in, T& value) {
     return static_cast<bool>(in.read(reinterpret_cast<char*>(&value), sizeof(T)));
 }
@@ -48,7 +48,7 @@ bool read_string(std::istream& in, std::string& value) {
     return static_cast<bool>(in);
 }
 
-}
+}  // namespace
 
 Session::Session(const Config& config) : config_(config) {}
 
@@ -202,4 +202,4 @@ const Config& Session::config() const {
     return config_;
 }
 
-}
+}  // namespace skifflm

@@ -169,10 +169,9 @@ jobs:
 
       - name: Check C++ formatting
         run: |
-          if ! command -v clang-format >/dev/null 2>&1; then
-            sudo apt-get update
-            sudo apt-get install -y clang-format
-          fi
+          python3 -m pip install --break-system-packages "clang-format==17.0.6"
+          command -v clang-format
+          clang-format --version
           bash scripts/check-format.sh
         shell: bash
 

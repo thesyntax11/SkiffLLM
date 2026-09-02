@@ -30,7 +30,7 @@ uint32_t resolve_seed(uint32_t seed) {
     return seed;
 }
 
-}
+}  // namespace
 
 LlmEngine::LlmEngine(const Config& config) : config_(config) {}
 
@@ -87,19 +87,18 @@ bool LlmEngine::load(std::string& error) {
 
     llama_context_params context_params = llama_context_default_params();
     context_params.n_ctx = static_cast<uint32_t>(config_.context_size);
-    context_params.n_batch = static_cast<uint32_t>(std::min(config_.batch_size, config_.context_size));
-    const uint32_t ubatch = config_.n_ubatch > 0
-                                ? static_cast<uint32_t>(config_.n_ubatch)
-                                : std::min(context_params.n_batch, 512u);
+    context_params.n_batch =
+        static_cast<uint32_t>(std::min(config_.batch_size, config_.context_size));
+    const uint32_t ubatch = config_.n_ubatch > 0 ? static_cast<uint32_t>(config_.n_ubatch)
+                                                 : std::min(context_params.n_batch, 512u);
     context_params.n_ubatch = std::min(ubatch, context_params.n_batch);
     context_params.n_seq_max = 1;
     context_params.n_threads = threads;
     context_params.n_threads_batch = threads;
     context_params.embeddings = false;
     context_params.no_perf = true;
-    context_params.flash_attn_type = config_.flash_attn
-                                         ? LLAMA_FLASH_ATTN_TYPE_ENABLED
-                                         : LLAMA_FLASH_ATTN_TYPE_DISABLED;
+    context_params.flash_attn_type =
+        config_.flash_attn ? LLAMA_FLASH_ATTN_TYPE_ENABLED : LLAMA_FLASH_ATTN_TYPE_DISABLED;
     context_params.offload_kqv = config_.offload_kqv;
 
     ctx_ = llama_init_from_model(model_, context_params);
@@ -200,8 +199,7 @@ std::string LlmEngine::active_backends() const {
     return out.str();
 }
 
-bool LlmEngine::tokenize(const std::string& text,
-                         std::vector<int32_t>& tokens,
+bool LlmEngine::tokenize(const std::string& text, std::vector<int32_t>& tokens,
                          std::string& error) const {
     const std::vector<llama_token> encoded = encode(text, error);
     if (encoded.empty()) {
@@ -215,20 +213,14 @@ bool LlmEngine::tokenize(const std::string& text,
     return true;
 }
 
-std::vector<llama_token> LlmEngine::encode(const std::string& text,
-                                           std::string& error) const {
+std::vector<llama_token> LlmEngine::encode(const std::string& text, std::string& error) const {
     if (vocab_ == nullptr) {
         error = "model vocabulary is unavailable";
         return {};
     }
 
-    int32_t required = llama_tokenize(vocab_,
-                                      text.c_str(),
-                                      static_cast<int32_t>(text.size()),
-                                      nullptr,
-                                      0,
-                                      true,
-                                      true);
+    int32_t required = llama_tokenize(vocab_, text.c_str(), static_cast<int32_t>(text.size()),
+                                      nullptr, 0, true, true);
     if (required < 0) {
         required = -required;
     }
@@ -238,13 +230,8 @@ std::vector<llama_token> LlmEngine::encode(const std::string& text,
     }
 
     std::vector<llama_token> tokens(static_cast<size_t>(required));
-    const int32_t written = llama_tokenize(vocab_,
-                                           text.c_str(),
-                                           static_cast<int32_t>(text.size()),
-                                           tokens.data(),
-                                           required,
-                                           true,
-                                           true);
+    const int32_t written = llama_tokenize(vocab_, text.c_str(), static_cast<int32_t>(text.size()),
+                                           tokens.data(), required, true, true);
     if (written < 0) {
         tokens.resize(static_cast<size_t>(-written));
         return tokens;
@@ -288,20 +275,12 @@ std::string LlmEngine::build_prompt(const std::vector<ChatMessage>& messages,
     }
 
     std::string tmpl = info_.chat_template.empty() ? "chatml" : info_.chat_template;
-    int32_t required = llama_chat_apply_template(tmpl.c_str(),
-                                                 raw.data(),
-                                                 raw.size(),
-                                                 true,
-                                                 nullptr,
-                                                 0);
+    int32_t required =
+        llama_chat_apply_template(tmpl.c_str(), raw.data(), raw.size(), true, nullptr, 0);
     if (required <= 0) {
         tmpl = "chatml";
-        required = llama_chat_apply_template(tmpl.c_str(),
-                                             raw.data(),
-                                             raw.size(),
-                                             true,
-                                             nullptr,
-                                             0);
+        required =
+            llama_chat_apply_template(tmpl.c_str(), raw.data(), raw.size(), true, nullptr, 0);
     }
 
     if (required <= 0) {
@@ -310,12 +289,9 @@ std::string LlmEngine::build_prompt(const std::vector<ChatMessage>& messages,
     }
 
     std::string prompt(static_cast<size_t>(required) + 1, '\0');
-    const int32_t written = llama_chat_apply_template(tmpl.c_str(),
-                                                      raw.data(),
-                                                      raw.size(),
-                                                      true,
-                                                      &prompt[0],
-                                                      static_cast<int32_t>(prompt.size()));
+    const int32_t written =
+        llama_chat_apply_template(tmpl.c_str(), raw.data(), raw.size(), true, &prompt[0],
+                                  static_cast<int32_t>(prompt.size()));
     if (written <= 0) {
         error = "failed to apply the chat template";
         return {};
@@ -359,9 +335,7 @@ bool LlmEngine::build_sampler(const GenerationOptions& options, std::string& err
         llama_sampler_chain_add(sampler_,
                                 llama_sampler_init_penalties(llama_vocab_n_tokens(vocab_),
                                                              options.repeat_last_n,
-                                                             options.repeat_penalty,
-                                                             0.0f,
-                                                             0.0f));
+                                                             options.repeat_penalty, 0.0f, 0.0f));
     }
     if (options.temperature > 0.0f) {
         llama_sampler_chain_add(sampler_, llama_sampler_init_temp(options.temperature));
@@ -400,10 +374,8 @@ bool LlmEngine::decode(const std::vector<llama_token>& tokens, std::string& erro
     return true;
 }
 
-bool LlmEngine::generate(const std::vector<ChatMessage>& messages,
-                         const GenerationOptions& options,
-                         GenerationResult& result,
-                         const std::function<bool()>& should_stop,
+bool LlmEngine::generate(const std::vector<ChatMessage>& messages, const GenerationOptions& options,
+                         GenerationResult& result, const std::function<bool()>& should_stop,
                          std::string& error) {
     error.clear();
     result = GenerationResult{};
@@ -444,29 +416,36 @@ bool LlmEngine::generate(const std::vector<ChatMessage>& messages,
 
     if (prompt_tokens.size() > max_prompt_tokens) {
         if (!options.auto_trim || active_messages.size() <= 1) {
-            error = "prompt exceeds the context window; increase --ctx, raise --reserve-ctx or shorten the conversation";
+            error =
+                "prompt exceeds the context window; increase --ctx, raise --reserve-ctx or shorten "
+                "the conversation";
             return false;
         }
-        const size_t minimum_messages = options.n_keep > 0
-                                            ? static_cast<size_t>(options.n_keep * 2 + (active_messages.front().role == "system" ? 1 : 0))
-                                            : 2;
-        while (prompt_tokens.size() > max_prompt_tokens && active_messages.size() > minimum_messages) {
+        const size_t minimum_messages =
+            options.n_keep > 0
+                ? static_cast<size_t>(options.n_keep * 2 +
+                                      (active_messages.front().role == "system" ? 1 : 0))
+                : 2;
+        while (prompt_tokens.size() > max_prompt_tokens &&
+               active_messages.size() > minimum_messages) {
             const size_t remove_index = active_messages[0].role == "system" ? 1 : 0;
-            active_messages.erase(active_messages.begin() + static_cast<std::ptrdiff_t>(remove_index));
+            active_messages.erase(active_messages.begin() +
+                                  static_cast<std::ptrdiff_t>(remove_index));
             if (!encode_active()) {
                 return false;
             }
         }
         if (prompt_tokens.size() > max_prompt_tokens) {
-            error = "prompt still exceeds the context window after trimming; increase --ctx or shorten the conversation";
+            error =
+                "prompt still exceeds the context window after trimming; increase --ctx or shorten "
+                "the conversation";
             return false;
         }
     }
 
-    const uint32_t generation_capacity =
-        context_size - static_cast<uint32_t>(prompt_tokens.size());
-    const int generation_target = std::min(options.n_predict,
-                                           static_cast<int>(generation_capacity));
+    const uint32_t generation_capacity = context_size - static_cast<uint32_t>(prompt_tokens.size());
+    const int generation_target =
+        std::min(options.n_predict, static_cast<int>(generation_capacity));
     if (generation_target < 1) {
         error = "no room for generation; increase --ctx or shorten the conversation";
         return false;
@@ -586,7 +565,8 @@ bool LlmEngine::warmup(std::string& error) {
     warm.stop_sequences.clear();
 
     GenerationResult result;
-    return generate(ask, warm, result, []() { return false; }, error);
+    return generate(
+        ask, warm, result, []() { return false; }, error);
 }
 
-}
+}  // namespace skifflm

@@ -1,16 +1,14 @@
 #include "skifflm/server.hpp"
 
-#include "skifflm/http_auth.hpp"
-
 #include <algorithm>
 #include <atomic>
 #include <cerrno>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
-#include <ctime>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -19,6 +17,8 @@
 #include <thread>
 #include <utility>
 #include <vector>
+
+#include "skifflm/http_auth.hpp"
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -60,13 +60,13 @@ void close_socket(skifflm_socket_t socket_fd) {
 bool set_socket_timeout(skifflm_socket_t socket_fd, int seconds, std::string& error) {
 #ifdef _WIN32
     const DWORD timeout = static_cast<DWORD>(seconds) * 1000;
-    if (setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO,
-                   reinterpret_cast<const char*>(&timeout), sizeof(timeout)) != 0) {
+    if (setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&timeout),
+                   sizeof(timeout)) != 0) {
         error = "cannot set receive timeout: " + socket_error();
         return false;
     }
-    if (setsockopt(socket_fd, SOL_SOCKET, SO_SNDTIMEO,
-                   reinterpret_cast<const char*>(&timeout), sizeof(timeout)) != 0) {
+    if (setsockopt(socket_fd, SOL_SOCKET, SO_SNDTIMEO, reinterpret_cast<const char*>(&timeout),
+                   sizeof(timeout)) != 0) {
         error = "cannot set send timeout: " + socket_error();
         return false;
     }
@@ -121,11 +121,8 @@ std::string status_reason(int status) {
     }
 }
 
-bool send_response(skifflm_socket_t socket_fd,
-                   int status,
-                   const std::string& content_type,
-                   const std::string& body,
-                   std::string& error) {
+bool send_response(skifflm_socket_t socket_fd, int status, const std::string& content_type,
+                   const std::string& body, std::string& error) {
     std::ostringstream headers;
     headers << "HTTP/1.1 " << status << " " << status_reason(status) << "\r\n";
     headers << "Content-Type: " << content_type << "\r\n";
@@ -155,8 +152,7 @@ bool send_stream_headers(skifflm_socket_t socket_fd, std::string& error) {
     return send_all(socket_fd, headers.str(), error);
 }
 
-bool create_listener(const std::string& host, int port,
-                     skifflm_socket_t& listener,
+bool create_listener(const std::string& host, int port, skifflm_socket_t& listener,
                      std::string& error) {
 #ifdef _WIN32
     WSADATA data;
@@ -175,10 +171,8 @@ bool create_listener(const std::string& host, int port,
     char port_text[16] = {0};
     std::snprintf(port_text, sizeof(port_text), "%d", port);
     struct addrinfo* addresses = nullptr;
-    const int lookup = getaddrinfo(host.empty() ? nullptr : host.c_str(),
-                                   port_text,
-                                   &hints,
-                                   &addresses);
+    const int lookup =
+        getaddrinfo(host.empty() ? nullptr : host.c_str(), port_text, &hints, &addresses);
     if (lookup != 0) {
 #ifdef _WIN32
         error = "address lookup failed: " + std::string(gai_strerror(lookup));
@@ -196,10 +190,11 @@ bool create_listener(const std::string& host, int port,
             continue;
         }
         const int reuse = 1;
-        setsockopt(candidate, SOL_SOCKET, SO_REUSEADDR,
-                   reinterpret_cast<const char*>(&reuse), sizeof(reuse));
+        setsockopt(candidate, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&reuse),
+                   sizeof(reuse));
 #ifdef _WIN32
-        const int bind_result = bind(candidate, address->ai_addr, static_cast<int>(address->ai_addrlen));
+        const int bind_result =
+            bind(candidate, address->ai_addr, static_cast<int>(address->ai_addrlen));
 #else
         const int bind_result = bind(candidate, address->ai_addr, address->ai_addrlen);
 #endif
@@ -232,9 +227,7 @@ struct HttpRequest {
     std::map<std::string, std::string> headers;
 };
 
-bool read_http_request(skifflm_socket_t socket_fd,
-                       HttpRequest& request,
-                       std::string& error) {
+bool read_http_request(skifflm_socket_t socket_fd, HttpRequest& request, std::string& error) {
     std::string data;
     char buffer[4096] = {0};
     while (data.size() < 65536) {
@@ -322,11 +315,12 @@ bool read_http_request(skifflm_socket_t socket_fd,
     std::string body = data.substr(header_size);
     while (body.size() < static_cast<size_t>(content_length)) {
         char buffer[8192] = {0};
-        const int received = recv(socket_fd,
-                                  buffer,
-                                  static_cast<int>(std::min<size_t>(sizeof(buffer),
-                                                                   static_cast<size_t>(content_length) - body.size())),
-                                  0);
+        const int received =
+            recv(socket_fd, buffer,
+                 static_cast<int>(
+                     std::min<size_t>(sizeof(buffer),
+                                      static_cast<size_t>(content_length) - body.size())),
+                 0);
         if (received <= 0) {
             error = "request body read failed: " + socket_error();
             return false;
@@ -340,14 +334,7 @@ bool read_http_request(skifflm_socket_t socket_fd,
 }
 
 struct Json {
-    enum class Type {
-        Null,
-        Boolean,
-        Number,
-        String,
-        Array,
-        Object
-    };
+    enum class Type { Null, Boolean, Number, String, Array, Object };
 
     Type type = Type::Null;
     bool boolean = false;
@@ -425,9 +412,8 @@ std::string json_escape(const std::string& value) {
 }
 
 class JsonParser {
-public:
-    explicit JsonParser(const std::string& input) : text_(input) {
-    }
+   public:
+    explicit JsonParser(const std::string& input) : text_(input) {}
 
     bool parse(Json& output, std::string& error) {
         skip_whitespace();
@@ -443,7 +429,7 @@ public:
         return true;
     }
 
-private:
+   private:
     bool parse_value(Json& output) {
         skip_whitespace();
         if (index_ >= text_.size()) {
@@ -531,9 +517,8 @@ private:
                     if (!read_hex4(codepoint)) {
                         return false;
                     }
-                    if (codepoint >= 0xD800 && codepoint <= 0xDBFF &&
-                        index_ + 1 < text_.size() && text_[index_] == '\\' &&
-                        text_[index_ + 1] == 'u') {
+                    if (codepoint >= 0xD800 && codepoint <= 0xDBFF && index_ + 1 < text_.size() &&
+                        text_[index_] == '\\' && text_[index_ + 1] == 'u') {
                         index_ += 2;
                         uint32_t low = 0;
                         if (read_hex4(low)) {
@@ -759,9 +744,7 @@ std::string model_name(const Config& config) {
     return file.empty() ? "skifflm" : file;
 }
 
-bool request_messages(const Json& body,
-                      std::vector<ChatMessage>& messages,
-                      std::string& error) {
+bool request_messages(const Json& body, std::vector<ChatMessage>& messages, std::string& error) {
     const Json* raw = json_find(body, "messages");
     if (raw == nullptr || raw->type != Json::Type::Array) {
         error = "\"messages\" must be an array";
@@ -775,8 +758,8 @@ bool request_messages(const Json& body,
         }
         const Json* role = json_find(item, "role");
         const Json* content = json_find(item, "content");
-        if (role == nullptr || role->type != Json::Type::String ||
-            content == nullptr || content->type != Json::Type::String) {
+        if (role == nullptr || role->type != Json::Type::String || content == nullptr ||
+            content->type != Json::Type::String) {
             error = "message entries need string \"role\" and \"content\"";
             return false;
         }
@@ -791,15 +774,14 @@ bool request_messages(const Json& body,
     return true;
 }
 
-void send_chat_error(skifflm_socket_t socket_fd,
-                     bool stream_started,
-                     const std::string& message,
+void send_chat_error(skifflm_socket_t socket_fd, bool stream_started, const std::string& message,
                      const std::string& request_id) {
     (void)request_id;
     std::string error;
     if (stream_started) {
         std::ostringstream body;
-        body << "data: {\"error\":{\"message\":" << json_escape(message) << ",\"type\":\"generation_error\",\"param\":null,\"code\":null}}\n\n";
+        body << "data: {\"error\":{\"message\":" << json_escape(message)
+             << ",\"type\":\"generation_error\",\"param\":null,\"code\":null}}\n\n";
         body << "data: [DONE]\n\n";
         send_all(socket_fd, body.str(), error);
     } else {
@@ -810,11 +792,8 @@ void send_chat_error(skifflm_socket_t socket_fd,
     }
 }
 
-void handle_chat_completions(skifflm_socket_t socket_fd,
-                             const Config& config,
-                             LlmEngine& engine,
-                             const GenerationOptions& base_options,
-                             const HttpRequest& request,
+void handle_chat_completions(skifflm_socket_t socket_fd, const Config& config, LlmEngine& engine,
+                             const GenerationOptions& base_options, const HttpRequest& request,
                              const std::function<bool()>& interrupted,
                              const std::string& request_id) {
     Json body;
@@ -886,8 +865,8 @@ void handle_chat_completions(skifflm_socket_t socket_fd,
         if (!send_stream_headers(socket_fd, error)) {
             return;
         }
-        options.token_callback = [socket_fd, write_ok, &send_error, &request_id, &model, created](
-                                     const std::string& part) {
+        options.token_callback = [socket_fd, write_ok, &send_error, &request_id, &model,
+                                  created](const std::string& part) {
             std::ostringstream chunk;
             chunk << "data: {";
             chunk << "\"id\":" << json_escape(request_id) << ",";
@@ -902,13 +881,9 @@ void handle_chat_completions(skifflm_socket_t socket_fd,
 
         GenerationResult result;
         std::string generation_error;
-        const bool ok = engine.generate(messages,
-                                        options,
-                                        result,
-                                        [interrupted, write_ok]() {
-                                            return interrupted() || !*write_ok;
-                                        },
-                                        generation_error);
+        const bool ok = engine.generate(
+            messages, options, result,
+            [interrupted, write_ok]() { return interrupted() || !*write_ok; }, generation_error);
         if (!ok) {
             send_chat_error(socket_fd, true, generation_error, request_id);
             return;
@@ -929,11 +904,7 @@ void handle_chat_completions(skifflm_socket_t socket_fd,
     options.token_callback = nullptr;
     GenerationResult result;
     std::string error;
-    const bool ok = engine.generate(messages,
-                                    options,
-                                    result,
-                                    interrupted,
-                                    error);
+    const bool ok = engine.generate(messages, options, result, interrupted, error);
     if (!ok) {
         send_chat_error(socket_fd, false, error, request_id);
         return;
@@ -955,13 +926,9 @@ void handle_chat_completions(skifflm_socket_t socket_fd,
     send_response(socket_fd, 200, "application/json", out.str(), error);
 }
 
-void handle_request(skifflm_socket_t socket_fd,
-                    const Config& config,
-                    LlmEngine& engine,
-                    const GenerationOptions& options,
-                    const HttpRequest& request,
-                    const std::function<bool()>& interrupted,
-                    std::mutex& generation_mutex,
+void handle_request(skifflm_socket_t socket_fd, const Config& config, LlmEngine& engine,
+                    const GenerationOptions& options, const HttpRequest& request,
+                    const std::function<bool()>& interrupted, std::mutex& generation_mutex,
                     const std::string& request_id) {
     std::string error;
     if (request.method == "OPTIONS") {
@@ -989,9 +956,8 @@ void handle_request(skifflm_socket_t socket_fd,
     if (request.target == "/v1/models" || request.target == "/v1/chat/completions") {
         const auto authorization = request.headers.find("authorization");
         const bool authorized =
-            config.api_key.empty() ||
-            (authorization != request.headers.end() &&
-             bearer_token_matches(authorization->second, config.api_key));
+            config.api_key.empty() || (authorization != request.headers.end() &&
+                                       bearer_token_matches(authorization->second, config.api_key));
         if (!authorized) {
             send_response(socket_fd, 401, "application/json",
                           "{\"error\":\"missing or invalid API key\"}\n", error);
@@ -1001,7 +967,8 @@ void handle_request(skifflm_socket_t socket_fd,
     if (request.method == "GET" && request.target == "/v1/models") {
         std::ostringstream out;
         out << "{\"object\":\"list\",\"data\":[{\"id\":";
-        out << json_escape(model_name(config)) << ",\"object\":\"model\",\"created\":" << std::time(nullptr);
+        out << json_escape(model_name(config))
+            << ",\"object\":\"model\",\"created\":" << std::time(nullptr);
         out << ",\"owned_by\":\"skifflm\"}]}\n";
         send_response(socket_fd, 200, "application/json", out.str(), error);
         return;
@@ -1019,12 +986,11 @@ void handle_request(skifflm_socket_t socket_fd,
         // serialized behind a mutex while the accept loop and the fast
         // endpoints (health/models/version) keep serving other clients.
         std::lock_guard<std::mutex> lock(generation_mutex);
-        handle_chat_completions(socket_fd, config, engine, options,
-                                request, interrupted, request_id);
+        handle_chat_completions(socket_fd, config, engine, options, request, interrupted,
+                                request_id);
         return;
     }
-    send_response(socket_fd, 404, "application/json",
-                  "{\"error\":\"not found\"}\n", error);
+    send_response(socket_fd, 404, "application/json", "{\"error\":\"not found\"}\n", error);
 }
 
 std::string make_request_id() {
@@ -1034,13 +1000,10 @@ std::string make_request_id() {
     return out.str();
 }
 
-}
+}  // namespace
 
-int run_server(Config& config,
-               LlmEngine& engine,
-               Terminal& terminal,
-               const GenerationOptions& options,
-               const std::function<bool()>& interrupted) {
+int run_server(Config& config, LlmEngine& engine, Terminal& terminal,
+               const GenerationOptions& options, const std::function<bool()>& interrupted) {
     skifflm_socket_t listener = invalid_socket;
     std::string error;
     if (!create_listener(config.server_host, config.server_port, listener, error)) {
@@ -1052,7 +1015,9 @@ int run_server(Config& config,
                      std::to_string(config.server_port) +
                      " (Ctrl+C to stop; generation is serialized per model)");
     if (!config.api_key.empty()) {
-        terminal.info("/v1/* requires Authorization: Bearer <key>; public endpoints are /health, /version and /.");
+        terminal.info(
+            "/v1/* requires Authorization: Bearer <key>; public endpoints are /health, /version "
+            "and /.");
     }
 
     std::mutex generation_mutex;
@@ -1101,9 +1066,8 @@ int run_server(Config& config,
 #else
         socklen_t address_length = sizeof(address);
 #endif
-        skifflm_socket_t client = accept(listener,
-                                         reinterpret_cast<struct sockaddr*>(&address),
-                                         &address_length);
+        skifflm_socket_t client =
+            accept(listener, reinterpret_cast<struct sockaddr*>(&address), &address_length);
         if (client == invalid_socket) {
 #ifdef _WIN32
             const int code = WSAGetLastError();
@@ -1124,23 +1088,22 @@ int run_server(Config& config,
 
         set_socket_timeout(client, 30, error);
         auto done = std::make_shared<std::atomic<bool>>(false);
-        workers.push_back(ClientWorker{
-            std::thread([client, &config, &engine, &options,
-                         &interrupted, &generation_mutex, done]() {
-                std::string thread_error;
-                HttpRequest request;
-                if (!read_http_request(client, request, thread_error)) {
-                    send_response(client, 400, "application/json",
-                                  "{\"error\":\"bad request\"}\n", thread_error);
-                } else {
-                    handle_request(client, config, engine, options, request,
-                                   interrupted, generation_mutex, make_request_id());
-                }
-                close_socket(client);
-                done->store(true, std::memory_order_release);
-            }),
-            done
-        });
+        workers.push_back(
+            ClientWorker{std::thread([client, &config, &engine, &options, &interrupted,
+                                      &generation_mutex, done]() {
+                             std::string thread_error;
+                             HttpRequest request;
+                             if (!read_http_request(client, request, thread_error)) {
+                                 send_response(client, 400, "application/json",
+                                               "{\"error\":\"bad request\"}\n", thread_error);
+                             } else {
+                                 handle_request(client, config, engine, options, request,
+                                                interrupted, generation_mutex, make_request_id());
+                             }
+                             close_socket(client);
+                             done->store(true, std::memory_order_release);
+                         }),
+                         done});
 
         // Reap only threads that already finished so the accept loop never
         // blocks on a long generation; it keeps serving health/models/etc.
@@ -1170,4 +1133,4 @@ int run_server(Config& config,
     return 0;
 }
 
-}
+}  // namespace skifflm

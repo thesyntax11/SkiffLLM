@@ -1,15 +1,15 @@
 #pragma once
 
-#include "skifflm/config.hpp"
-#include "skifflm/messages.hpp"
-
 #include <string>
 #include <vector>
+
+#include "skifflm/config.hpp"
+#include "skifflm/messages.hpp"
 
 namespace skifflm {
 
 class Session {
-public:
+   public:
     explicit Session(const Config& config);
 
     bool load(std::string& error);
@@ -25,10 +25,10 @@ public:
     size_t message_count() const;
     const Config& config() const;
 
-private:
+   private:
     const Config& config_;
     std::string system_prompt_;
     std::vector<ChatMessage> messages_;
 };
 
-}
+}  // namespace skifflm

@@ -8,9 +8,9 @@
 #include <sstream>
 
 #ifdef _WIN32
-#include <windows.h>
-#include <io.h>
 #include <fcntl.h>
+#include <io.h>
+#include <windows.h>
 #else
 #include <sys/ioctl.h>
 #include <unistd.h>
@@ -33,9 +33,7 @@ bool is_terminal(FILE* stream) {
 }
 
 bool is_alnum(unsigned char ch) {
-    return (ch >= 'a' && ch <= 'z') ||
-           (ch >= 'A' && ch <= 'Z') ||
-           (ch >= '0' && ch <= '9');
+    return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9');
 }
 
 bool is_balanced(const std::string& text) {
@@ -64,7 +62,8 @@ bool is_balanced(const std::string& text) {
             continue;
         }
         if (ch == '\'') {
-            const bool previous_is_word = i > 0 && is_alnum(static_cast<unsigned char>(text[i - 1]));
+            const bool previous_is_word =
+                i > 0 && is_alnum(static_cast<unsigned char>(text[i - 1]));
             if (!previous_is_word) {
                 single = true;
             }
@@ -92,12 +91,11 @@ bool is_balanced(const std::string& text) {
     return !single && !double_quote && round <= 0 && square <= 0 && curly <= 0;
 }
 
-}
+}  // namespace
 
 Terminal::Terminal(const Config& config) : color_(config.color) {
     if (!config.history_path.empty()) {
-        readline_history_path_ =
-            (config.history_path.parent_path() / "readline_history").string();
+        readline_history_path_ = (config.history_path.parent_path() / "readline_history").string();
     }
     if (!config.color) {
         return;
@@ -167,16 +165,36 @@ std::string Terminal::paint(const std::string& text, Color color) const {
     }
     const char* code = "\033[0m";
     switch (color) {
-        case Color::Bold:    code = "\033[1m"; break;
-        case Color::Dim:     code = "\033[2m"; break;
-        case Color::Red:     code = "\033[31m"; break;
-        case Color::Green:   code = "\033[32m"; break;
-        case Color::Yellow:  code = "\033[33m"; break;
-        case Color::Blue:    code = "\033[34m"; break;
-        case Color::Magenta: code = "\033[35m"; break;
-        case Color::Cyan:    code = "\033[36m"; break;
-        case Color::White:   code = "\033[37m"; break;
-        case Color::Reset:   code = "\033[0m"; break;
+        case Color::Bold:
+            code = "\033[1m";
+            break;
+        case Color::Dim:
+            code = "\033[2m";
+            break;
+        case Color::Red:
+            code = "\033[31m";
+            break;
+        case Color::Green:
+            code = "\033[32m";
+            break;
+        case Color::Yellow:
+            code = "\033[33m";
+            break;
+        case Color::Blue:
+            code = "\033[34m";
+            break;
+        case Color::Magenta:
+            code = "\033[35m";
+            break;
+        case Color::Cyan:
+            code = "\033[36m";
+            break;
+        case Color::White:
+            code = "\033[37m";
+            break;
+        case Color::Reset:
+            code = "\033[0m";
+            break;
     }
     return std::string(code) + text + "\033[0m";
 }
@@ -217,13 +235,11 @@ void Terminal::write_raw_line(const std::string& text) const {
     std::cout.flush();
 }
 
-void Terminal::print_context_bar(std::uint64_t used_tokens,
-                                 std::uint64_t capacity_tokens) const {
+void Terminal::print_context_bar(std::uint64_t used_tokens, std::uint64_t capacity_tokens) const {
     if (capacity_tokens == 0) {
         return;
     }
-    const double fraction =
-        static_cast<double>(used_tokens) / static_cast<double>(capacity_tokens);
+    const double fraction = static_cast<double>(used_tokens) / static_cast<double>(capacity_tokens);
     const int percent = static_cast<int>(fraction * 100.0);
     const int bar_width = 20;
     const int filled = static_cast<int>(fraction * static_cast<double>(bar_width));
@@ -233,11 +249,9 @@ void Terminal::print_context_bar(std::uint64_t used_tokens,
         bar.push_back(i < filled ? '#' : '-');
     }
     std::ostringstream out;
-    out << "Context: [" << bar << "] " << percent << "% ("
-        << used_tokens << "/" << capacity_tokens << " tokens)\n";
-    const Color color = percent >= 85 ? Color::Yellow
-                        : percent >= 60 ? Color::Cyan
-                        : Color::Dim;
+    out << "Context: [" << bar << "] " << percent << "% (" << used_tokens << "/" << capacity_tokens
+        << " tokens)\n";
+    const Color color = percent >= 85 ? Color::Yellow : percent >= 60 ? Color::Cyan : Color::Dim;
     write(out.str(), color);
 }
 
@@ -327,8 +341,7 @@ bool Terminal::read_prompt(const std::string& prompt, std::string& output) {
     return true;
 }
 
-void Terminal::print_banner(const std::string& version,
-                            const ModelInfo& info,
+void Terminal::print_banner(const std::string& version, const ModelInfo& info,
                             const Config& config) {
     write("SkiffLLM ", Color::Bold);
     write(version + "\n", Color::Green);
@@ -363,11 +376,8 @@ void Terminal::print_stats(const GenerationResult& result, const std::string& la
     write(std::to_string(result.prompt_tokens) + " prompt tokens, ");
     write(std::to_string(result.generated_tokens) + " generated tokens, ");
     char buffer[160];
-    std::snprintf(buffer,
-                  sizeof(buffer),
-                  "%.2f s total, %.2f tok/s",
-                  (result.prompt_ms + result.generation_ms) / 1000.0,
-                  result.tokens_per_second);
+    std::snprintf(buffer, sizeof(buffer), "%.2f s total, %.2f tok/s",
+                  (result.prompt_ms + result.generation_ms) / 1000.0, result.tokens_per_second);
     write(buffer + std::string("\n"), Color::Dim);
     if (result.stopped) {
         write("Generation stopped by user.\n", Color::Yellow);
@@ -418,13 +428,13 @@ void Terminal::print_history(const std::vector<ChatMessage>& messages) const {
         return;
     }
     for (const auto& message : messages) {
-        const std::string role = message.role == "system" ? "System"
-                                : message.role == "user" ? "You"
-                                : message.role == "assistant" ? "Assistant"
-                                : message.role;
+        const std::string role = message.role == "system"      ? "System"
+                                 : message.role == "user"      ? "You"
+                                 : message.role == "assistant" ? "Assistant"
+                                                               : message.role;
         write(role + ": ", Color::Cyan);
         write(message.content + "\n");
     }
 }
 
-}
+}  // namespace skifflm

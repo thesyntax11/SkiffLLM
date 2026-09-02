@@ -1,14 +1,14 @@
-#include "skifflm/config.hpp"
-#include "skifflm/http_auth.hpp"
-#include "skifflm/session.hpp"
-#include "skifflm/tools.hpp"
-
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
+
+#include "skifflm/config.hpp"
+#include "skifflm/http_auth.hpp"
+#include "skifflm/session.hpp"
+#include "skifflm/tools.hpp"
 
 namespace {
 
@@ -80,16 +80,11 @@ void test_config_file() {
 void test_parse_args() {
     skifflm::Config cfg = skifflm::default_config();
     std::vector<std::string> storage = {
-        "skifflm",
-        "--model=/tmp/model.gguf",
-        "--ctx",
-        "1024",
-        "--temp=0.31",
-        "--repeat-penalty",
-        "1.05",
-        "--no-color",
-        "--seed",
-        "1234",
+        "skifflm",     "--model=/tmp/model.gguf",
+        "--ctx",       "1024",
+        "--temp=0.31", "--repeat-penalty",
+        "1.05",        "--no-color",
+        "--seed",      "1234",
     };
     auto args = args_from(storage);
 
@@ -125,22 +120,10 @@ void test_profiles() {
 void test_parse_args_new_features() {
     skifflm::Config cfg = skifflm::default_config();
     std::vector<std::string> storage = {
-        "skifflm",
-        "--session",
-        "writing",
-        "--profile=creative",
-        "--stop",
-        "END",
-        "--stop=OK",
-        "--min-p",
-        "0.08",
-        "--typical",
-        "0.5",
-        "--ubatch",
-        "256",
-        "--reserve-ctx",
-        "96",
-        "--json",
+        "skifflm",     "--session",     "writing",   "--profile=creative",
+        "--stop",      "END",           "--stop=OK", "--min-p",
+        "0.08",        "--typical",     "0.5",       "--ubatch",
+        "256",         "--reserve-ctx", "96",        "--json",
         "--no-banner",
     };
     auto args = args_from(storage);
@@ -235,17 +218,8 @@ void test_server_bearer_auth() {
 void test_advanced_flags() {
     skifflm::Config cfg = skifflm::default_config();
     std::vector<std::string> storage = {
-        "skifflm",
-        "--flash-attn",
-        "--numa",
-        "--no-kv-offload",
-        "--n-keep",
-        "3",
-        "--doctor",
-        "--model-info",
-        "--smoke",
-        "--tokenize",
-        "hello world",
+        "skifflm",  "--flash-attn", "--numa",  "--no-kv-offload", "--n-keep",    "3",
+        "--doctor", "--model-info", "--smoke", "--tokenize",      "hello world",
     };
     auto args = args_from(storage);
     std::string error;
@@ -265,15 +239,8 @@ void test_advanced_flags() {
 void test_popularity_flags() {
     skifflm::Config cfg = skifflm::default_config();
     std::vector<std::string> storage = {
-        "skifflm",
-        "--attach",
-        "notes.txt",
-        "--file=guide.md",
-        "--export",
-        "chat.md",
-        "--chat-template",
-        "chatml",
-        "--warmup",
+        "skifflm", "--attach",        "notes.txt", "--file=guide.md", "--export",
+        "chat.md", "--chat-template", "chatml",    "--warmup",
     };
     auto args = args_from(storage);
     std::string error;
@@ -308,21 +275,24 @@ void test_tools_features() {
         std::vector<std::string> storage = {"skifflm", "--remember", "be concise"};
         auto args = args_from(storage);
         std::string parse_error;
-        check(skifflm::parse_args(static_cast<int>(args.size()), args.data(), memory_cfg, parse_error),
+        check(skifflm::parse_args(static_cast<int>(args.size()), args.data(), memory_cfg,
+                                  parse_error),
               "remember flag should parse");
         check(memory_cfg.remember_text == "be concise", "remember text should be stored");
 
         memory_cfg = skifflm::default_config();
         storage = {"skifflm", "--forget", "concise"};
         args = args_from(storage);
-        check(skifflm::parse_args(static_cast<int>(args.size()), args.data(), memory_cfg, parse_error),
+        check(skifflm::parse_args(static_cast<int>(args.size()), args.data(), memory_cfg,
+                                  parse_error),
               "forget flag should parse");
         check(memory_cfg.forget_text == "concise", "forget text should be stored");
 
         memory_cfg = skifflm::default_config();
         storage = {"skifflm", "--summarize", "README.md"};
         args = args_from(storage);
-        check(skifflm::parse_args(static_cast<int>(args.size()), args.data(), memory_cfg, parse_error),
+        check(skifflm::parse_args(static_cast<int>(args.size()), args.data(), memory_cfg,
+                                  parse_error),
               "summarize flag should parse");
         check(memory_cfg.summarize_path == "README.md", "summarize path should be stored");
         check(!memory_cfg.interactive, "summarize should disable interactive mode");
@@ -332,7 +302,8 @@ void test_tools_features() {
     {
         skifflm::Config session_cfg = skifflm::default_config();
         skifflm::Config custom = session_cfg;
-        custom.history_path = std::filesystem::temp_directory_path() / "skifflm-sessions" / "default.skif";
+        custom.history_path =
+            std::filesystem::temp_directory_path() / "skifflm-sessions" / "default.skif";
 
         const auto path = skifflm::session_file_for(custom, "writing");
         check(path.filename() == "writing.skif", "session file uses the sanitized name");
@@ -368,7 +339,8 @@ void test_tools_features() {
         std::vector<std::string> storage = {"skifflm", "--code", "--project", ".", "fix it"};
         auto args = args_from(storage);
         std::string parse_error;
-        check(skifflm::parse_args(static_cast<int>(args.size()), args.data(), code_cfg, parse_error),
+        check(skifflm::parse_args(static_cast<int>(args.size()), args.data(), code_cfg,
+                                  parse_error),
               "code flag should parse");
         check(code_cfg.code_mode, "code mode should be enabled");
         check(code_cfg.project_path == ".", "project path should be stored");
@@ -397,8 +369,7 @@ void test_tools_features() {
     std::filesystem::remove_all(dir);
 
     check(skifflm::model_catalog().size() >= 5, "model catalog should be non-empty");
-    check(skifflm::find_catalog_model("qwen2.5-0.5b") != nullptr,
-          "catalog should find a known id");
+    check(skifflm::find_catalog_model("qwen2.5-0.5b") != nullptr, "catalog should find a known id");
 }
 
 void test_config_and_stats_features() {
@@ -477,17 +448,10 @@ void test_config_and_stats_features() {
 void test_openai_passthrough_flags() {
     skifflm::Config cfg = skifflm::default_config();
     std::vector<std::string> storage = {
-        "skifflm",
-        "--base-url",
-        "http://127.0.0.1:8080",
-        "--model",
-        "local",
-        "--stream",
-        "--no-json",
-        "--api-key",
-        "secret",
-        "--max-tokens",
-        "64",
+        "skifflm",      "--base-url", "http://127.0.0.1:8080",
+        "--model",      "local",      "--stream",
+        "--no-json",    "--api-key",  "secret",
+        "--max-tokens", "64",
     };
     auto args = args_from(storage);
     std::string error;
@@ -499,7 +463,9 @@ void test_openai_passthrough_flags() {
 void test_ui_and_backend_flags() {
     skifflm::Config cfg = skifflm::default_config();
     std::vector<std::string> storage = {
-        "skifflm", "--no-context-bar", "--backend-info",
+        "skifflm",
+        "--no-context-bar",
+        "--backend-info",
     };
     auto args = args_from(storage);
     std::string error;
@@ -519,16 +485,8 @@ void test_ui_and_backend_flags() {
 void test_server_and_benchmark_flags() {
     skifflm::Config cfg = skifflm::default_config();
     std::vector<std::string> storage = {
-        "skifflm",
-        "--serve",
-        "--host",
-        "0.0.0.0",
-        "--port",
-        "9090",
-        "--api-key",
-        "local-token",
-        "--benchmark",
-        "3",
+        "skifflm", "--serve",   "--host",      "0.0.0.0",     "--port",
+        "9090",    "--api-key", "local-token", "--benchmark", "3",
     };
     auto args = args_from(storage);
     std::string error;
@@ -554,7 +512,7 @@ void test_session_resolution() {
     check(cfg.history_path.filename() == "writing.skif", "session history should use the name");
 }
 
-}
+}  // namespace
 
 int main() {
     test_config_file();

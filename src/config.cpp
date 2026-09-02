@@ -83,10 +83,7 @@ bool parse_uint_value(const std::string& text, uint32_t& value) {
     return true;
 }
 
-std::string option_value(int& index,
-                         int argc,
-                         char** argv,
-                         const std::string& name,
+std::string option_value(int& index, int argc, char** argv, const std::string& name,
                          std::string& error) {
     const std::string prefix = name + "=";
     const std::string current(argv[index]);
@@ -102,8 +99,7 @@ std::string option_value(int& index,
 }
 
 bool starts_with(const std::string& text, const std::string& prefix) {
-    return text.size() >= prefix.size() &&
-           text.compare(0, prefix.size(), prefix) == 0;
+    return text.size() >= prefix.size() && text.compare(0, prefix.size(), prefix) == 0;
 }
 
 bool ends_with_ci(const std::string& text, const std::string& suffix) {
@@ -112,7 +108,8 @@ bool ends_with_ci(const std::string& text, const std::string& suffix) {
     }
     const size_t offset = text.size() - suffix.size();
     for (size_t i = 0; i < suffix.size(); ++i) {
-        const char a = static_cast<char>(std::tolower(static_cast<unsigned char>(text[offset + i])));
+        const char a =
+            static_cast<char>(std::tolower(static_cast<unsigned char>(text[offset + i])));
         const char b = static_cast<char>(std::tolower(static_cast<unsigned char>(suffix[i])));
         if (a != b) {
             return false;
@@ -125,8 +122,7 @@ bool looks_like_model_path(const std::string& value) {
     if (ends_with_ci(value, ".gguf")) {
         return true;
     }
-    if (value.find('/') == std::string::npos &&
-        value.find('\\') == std::string::npos) {
+    if (value.find('/') == std::string::npos && value.find('\\') == std::string::npos) {
         return false;
     }
     return std::filesystem::exists(expand_path(value));
@@ -149,8 +145,8 @@ std::string sanitize_session(const std::string& name) {
 std::filesystem::path resolve_session_path(const std::string& name,
                                            const std::filesystem::path& parent) {
     if (!name.empty()) {
-        const bool has_separator = name.find('/') != std::string::npos ||
-                                   name.find('\\') != std::string::npos;
+        const bool has_separator =
+            name.find('/') != std::string::npos || name.find('\\') != std::string::npos;
         const bool has_skif = name.size() > 5 && name.compare(name.size() - 5, 5, ".skif") == 0;
         if (has_separator || has_skif) {
             return expand_path(name);
@@ -165,7 +161,7 @@ std::filesystem::path resolve_session_path(const std::string& name,
     return base / (sanitize_session(name) + ".skif");
 }
 
-}
+}  // namespace
 
 Config default_config() {
     Config cfg;
@@ -200,9 +196,8 @@ std::string trim(const std::string& value) {
 }
 
 std::string lower(std::string value) {
-    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
-        return static_cast<char>(std::tolower(c));
-    });
+    std::transform(value.begin(), value.end(), value.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
     return value;
 }
 
@@ -258,8 +253,7 @@ std::vector<std::filesystem::path> discover_models(const Config& cfg, std::strin
             continue;
         }
         for (auto it = std::filesystem::recursive_directory_iterator(root, ec);
-             it != std::filesystem::recursive_directory_iterator();
-             it.increment(ec)) {
+             it != std::filesystem::recursive_directory_iterator(); it.increment(ec)) {
             if (ec) {
                 break;
             }
@@ -337,14 +331,9 @@ bool apply_profile(Config& cfg, const std::string& name, std::string& error) {
     return false;
 }
 
-bool apply_key_value(Config& cfg,
-                     const std::string& key,
-                     const std::string& value,
+bool apply_key_value(Config& cfg, const std::string& key, const std::string& value,
                      std::string& error) {
-    auto set_flag = [&error](bool& target,
-                             bool default_value,
-                             bool invert,
-                             const std::string& raw,
+    auto set_flag = [&error](bool& target, bool default_value, bool invert, const std::string& raw,
                              const std::string& option_name) -> bool {
         bool enabled = default_value;
         if (!raw.empty()) {
@@ -824,20 +813,16 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
         const std::string key = eq == std::string::npos ? name : name.substr(0, eq);
         const bool has_value = eq != std::string::npos;
 
-        if (key == "help" || key == "version" || key == "show-config" ||
-            key == "color" || key == "no-color" || key == "mmap" ||
-            key == "no-mmap" || key == "mlock" || key == "save" ||
-            key == "no-save" || key == "interactive" || key == "non-interactive" ||
-            key == "verbose" || key == "quiet" || key == "info" ||
-            key == "no-info" || key == "no-banner" || key == "stdin" ||
-            key == "reset-history" || key == "debug" || key == "auto-trim" ||
-            key == "no-auto-trim" || key == "json" || key == "list-models" ||
-            key == "flash-attn" || key == "no-flash-attn" || key == "numa" ||
-            key == "kv-offload" || key == "no-kv-offload" ||
-            key == "doctor" || key == "network" || key == "code" ||
-            key == "model-info" || key == "smoke" || key == "warmup" ||
-            key == "serve" || key == "context-bar" || key == "no-context-bar" ||
-            key == "backend-info") {
+        if (key == "help" || key == "version" || key == "show-config" || key == "color" ||
+            key == "no-color" || key == "mmap" || key == "no-mmap" || key == "mlock" ||
+            key == "save" || key == "no-save" || key == "interactive" || key == "non-interactive" ||
+            key == "verbose" || key == "quiet" || key == "info" || key == "no-info" ||
+            key == "no-banner" || key == "stdin" || key == "reset-history" || key == "debug" ||
+            key == "auto-trim" || key == "no-auto-trim" || key == "json" || key == "list-models" ||
+            key == "flash-attn" || key == "no-flash-attn" || key == "numa" || key == "kv-offload" ||
+            key == "no-kv-offload" || key == "doctor" || key == "network" || key == "code" ||
+            key == "model-info" || key == "smoke" || key == "warmup" || key == "serve" ||
+            key == "context-bar" || key == "no-context-bar" || key == "backend-info") {
             if (has_value) {
                 error = "option --" + key + " does not take a value";
                 return false;
@@ -848,14 +833,12 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
             continue;
         }
 
-        if (key == "model" || key == "model-dir" || key == "config" ||
-            key == "history" || key == "system" || key == "system-prompt" ||
-            key == "session" || key == "profile" || key == "stop" ||
-            key == "output" || key == "export" || key == "attach" ||
-            key == "file" || key == "chat-template" || key == "prompt" ||
-            key == "prompt-file" || key == "project" || key == "summarize" ||
-            key == "remember" || key == "forget" || key == "tokenize" ||
-            key == "host" || key == "port" || key == "api-key" ||
+        if (key == "model" || key == "model-dir" || key == "config" || key == "history" ||
+            key == "system" || key == "system-prompt" || key == "session" || key == "profile" ||
+            key == "stop" || key == "output" || key == "export" || key == "attach" ||
+            key == "file" || key == "chat-template" || key == "prompt" || key == "prompt-file" ||
+            key == "project" || key == "summarize" || key == "remember" || key == "forget" ||
+            key == "tokenize" || key == "host" || key == "port" || key == "api-key" ||
             key == "key" || key == "benchmark") {
             const std::string value = option_value(i, argc, argv, "--" + key, error);
             if (!error.empty()) {
@@ -868,9 +851,9 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
         }
 
         if (key == "ctx" || key == "context" || key == "batch" || key == "ubatch" ||
-            key == "reserve-ctx" || key == "threads" || key == "gpu-layers" ||
-            key == "top-k" || key == "repeat-last-n" || key == "n" ||
-            key == "n-predict" || key == "seed" || key == "n-keep") {
+            key == "reserve-ctx" || key == "threads" || key == "gpu-layers" || key == "top-k" ||
+            key == "repeat-last-n" || key == "n" || key == "n-predict" || key == "seed" ||
+            key == "n-keep") {
             const std::string value = option_value(i, argc, argv, "--" + key, error);
             if (!error.empty()) {
                 return false;
@@ -881,8 +864,8 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
             continue;
         }
 
-        if (key == "temp" || key == "temperature" || key == "top-p" ||
-            key == "min-p" || key == "typical" || key == "repeat-penalty") {
+        if (key == "temp" || key == "temperature" || key == "top-p" || key == "min-p" ||
+            key == "typical" || key == "repeat-penalty") {
             const std::string value = option_value(i, argc, argv, "--" + key, error);
             if (!error.empty()) {
                 return false;
@@ -987,7 +970,8 @@ std::string usage(const std::string& program) {
     out << "  --no-kv-offload               Keep KV cache on CPU\n\n";
 
     out << "Sampling options:\n";
-    out << "  --temp <t>                    Sampling temperature (default: 0.70; alias: --temperature)\n";
+    out << "  --temp <t>                    Sampling temperature (default: 0.70; alias: "
+           "--temperature)\n";
     out << "  --top-p <p>                   Nucleus sampling (default: 0.95)\n";
     out << "  --top-k <n>                   Top-K sampling (default: 40)\n";
     out << "  --min-p <p>                   Minimum probability filter\n";
@@ -1030,13 +1014,16 @@ std::string usage(const std::string& program) {
     out << "  --help                        Show this help\n";
     out << "  --version                     Show the version\n";
     out << "\nSubcommands:\n";
-    out << "  run [prompt] [opts]        One-shot prompt (e.g. `skifflm run \"Merhaba\" --ctx 2048 --temp 0.3 --threads 4`)\n";
+    out << "  run [prompt] [opts]        One-shot prompt (e.g. `skifflm run \"Merhaba\" --ctx 2048 "
+           "--temp 0.3 --threads 4`)\n";
     out << "  model list|info|install|remove|verify\n";
     out << "  chat-template list|detect|info\n";
     out << "  openai [prompt] [opts]     Send a prompt to a local OpenAI-compatible server\n";
     out << "  config path|show|init      Manage the config file\n";
     out << "  server health [--json]     Check a running local server\n";
-    out << "\nInteractive commands: /help /info /history /settings /stats /compact /regenerate /warmup /tokenize /file /clear-attach /clear /reset /system /model /profile /stop /temp /top-p /top-k /min-p /typical /n /ctx /export /save /exit\n";
+    out << "\nInteractive commands: /help /info /history /settings /stats /compact /regenerate "
+           "/warmup /tokenize /file /clear-attach /clear /reset /system /model /profile /stop "
+           "/temp /top-p /top-k /min-p /typical /n /ctx /export /save /exit\n";
     return out.str();
 }
 
@@ -1047,13 +1034,27 @@ std::string json_escape(const std::string& value) {
     out.reserve(value.size() + 8);
     for (const unsigned char ch : value) {
         switch (ch) {
-            case '"': out += "\\\""; break;
-            case '\\': out += "\\\\"; break;
-            case '\b': out += "\\b"; break;
-            case '\f': out += "\\f"; break;
-            case '\n': out += "\\n"; break;
-            case '\r': out += "\\r"; break;
-            case '\t': out += "\\t"; break;
+            case '"':
+                out += "\\\"";
+                break;
+            case '\\':
+                out += "\\\\";
+                break;
+            case '\b':
+                out += "\\b";
+                break;
+            case '\f':
+                out += "\\f";
+                break;
+            case '\n':
+                out += "\\n";
+                break;
+            case '\r':
+                out += "\\r";
+                break;
+            case '\t':
+                out += "\\t";
+                break;
             default:
                 if (ch < 0x20) {
                     char buf[8];
@@ -1067,20 +1068,28 @@ std::string json_escape(const std::string& value) {
     return out;
 }
 
-}
+}  // namespace
 
 void print_config(const Config& cfg, bool as_json) {
     if (as_json) {
         std::cout << "{\n";
-        std::cout << "  \"model\":\"" << json_escape(cfg.model_path.empty() ? "(auto)" : cfg.model_path.string()) << "\",\n";
+        std::cout << "  \"model\":\""
+                  << json_escape(cfg.model_path.empty() ? "(auto)" : cfg.model_path.string())
+                  << "\",\n";
         std::cout << "  \"model_dir\":\"" << json_escape(cfg.model_dir.string()) << "\",\n";
         std::cout << "  \"config_path\":\"" << json_escape(cfg.config_path.string()) << "\",\n";
         std::cout << "  \"history_path\":\"" << json_escape(cfg.history_path.string()) << "\",\n";
         std::cout << "  \"server_host\":\"" << json_escape(cfg.server_host) << "\",\n";
         std::cout << "  \"server_port\":" << cfg.server_port << ",\n";
         std::cout << "  \"api_key\":" << (cfg.api_key.empty() ? "null" : "\"(set)\"") << ",\n";
-        std::cout << "  \"profile\":" << (cfg.profile_name.empty() ? "null" : "\"" + json_escape(cfg.profile_name) + "\"") << ",\n";
-        std::cout << "  \"chat_template\":" << (cfg.chat_template.empty() ? "null" : "\"" + json_escape(cfg.chat_template) + "\"") << ",\n";
+        std::cout << "  \"profile\":"
+                  << (cfg.profile_name.empty() ? "null"
+                                               : "\"" + json_escape(cfg.profile_name) + "\"")
+                  << ",\n";
+        std::cout << "  \"chat_template\":"
+                  << (cfg.chat_template.empty() ? "null"
+                                                : "\"" + json_escape(cfg.chat_template) + "\"")
+                  << ",\n";
         std::cout << "  \"context_size\":" << cfg.context_size << ",\n";
         std::cout << "  \"batch_size\":" << cfg.batch_size << ",\n";
         std::cout << "  \"threads\":" << (cfg.n_threads == 0 ? 0 : cfg.n_threads) << ",\n";
@@ -1092,26 +1101,34 @@ void print_config(const Config& cfg, bool as_json) {
         std::cout << "  \"typical_p\":" << cfg.typical_p << ",\n";
         std::cout << "  \"repeat_penalty\":" << cfg.repeat_penalty << ",\n";
         std::cout << "  \"n_predict\":" << cfg.n_predict << ",\n";
-        std::cout << "  \"seed\":" << (cfg.seed == 0xFFFFFFFFu ? "\"random\"" : std::to_string(cfg.seed)) << ",\n";
+        std::cout << "  \"seed\":"
+                  << (cfg.seed == 0xFFFFFFFFu ? "\"random\"" : std::to_string(cfg.seed)) << ",\n";
         std::cout << "  \"save_history\":" << (cfg.save_history ? "true" : "false") << ",\n";
         std::cout << "  \"auto_trim\":" << (cfg.auto_trim ? "true" : "false") << ",\n";
         std::cout << "  \"serve\":" << (cfg.serve ? "true" : "false") << "\n";
         std::cout << "}\n";
         return;
     }
-    std::cout << "model            " << (cfg.model_path.empty() ? "(auto)" : cfg.model_path.string()) << "\n";
+    std::cout << "model            "
+              << (cfg.model_path.empty() ? "(auto)" : cfg.model_path.string()) << "\n";
     std::cout << "model_dir        " << cfg.model_dir.string() << "\n";
     std::cout << "config_path      " << cfg.config_path.string() << "\n";
     std::cout << "history_path     " << cfg.history_path.string() << "\n";
-    std::cout << "output_path      " << (cfg.output_path.empty() ? "(none)" : cfg.output_path.string()) << "\n";
-    std::cout << "export_path      " << (cfg.export_path.empty() ? "(none)" : cfg.export_path.string()) << "\n";
-    std::cout << "session_name     " << (cfg.session_name.empty() ? "(default)" : cfg.session_name) << "\n";
-    std::cout << "profile          " << (cfg.profile_name.empty() ? "(none)" : cfg.profile_name) << "\n";
-    std::cout << "chat_template    " << (cfg.chat_template.empty() ? "(model default)" : cfg.chat_template) << "\n";
+    std::cout << "output_path      "
+              << (cfg.output_path.empty() ? "(none)" : cfg.output_path.string()) << "\n";
+    std::cout << "export_path      "
+              << (cfg.export_path.empty() ? "(none)" : cfg.export_path.string()) << "\n";
+    std::cout << "session_name     " << (cfg.session_name.empty() ? "(default)" : cfg.session_name)
+              << "\n";
+    std::cout << "profile          " << (cfg.profile_name.empty() ? "(none)" : cfg.profile_name)
+              << "\n";
+    std::cout << "chat_template    "
+              << (cfg.chat_template.empty() ? "(model default)" : cfg.chat_template) << "\n";
     std::cout << "server_host      " << cfg.server_host << "\n";
     std::cout << "server_port      " << cfg.server_port << "\n";
     std::cout << "server_api_key   " << (cfg.api_key.empty() ? "(none)" : "(set)") << "\n";
-    std::cout << "benchmark_runs   " << (cfg.benchmark_runs == 0 ? "(none)" : std::to_string(cfg.benchmark_runs)) << "\n";
+    std::cout << "benchmark_runs   "
+              << (cfg.benchmark_runs == 0 ? "(none)" : std::to_string(cfg.benchmark_runs)) << "\n";
     std::cout << "attach_files     ";
     if (cfg.attach_paths.empty()) {
         std::cout << "(none)";
@@ -1124,12 +1141,15 @@ void print_config(const Config& cfg, bool as_json) {
         }
     }
     std::cout << "\n";
-    std::cout << "system_prompt    " << (cfg.system_prompt.empty() ? "(none)" : cfg.system_prompt) << "\n";
+    std::cout << "system_prompt    " << (cfg.system_prompt.empty() ? "(none)" : cfg.system_prompt)
+              << "\n";
     std::cout << "context_size     " << cfg.context_size << "\n";
     std::cout << "batch_size       " << cfg.batch_size << "\n";
-    std::cout << "ubatch           " << (cfg.n_ubatch == 0 ? "auto" : std::to_string(cfg.n_ubatch)) << "\n";
+    std::cout << "ubatch           " << (cfg.n_ubatch == 0 ? "auto" : std::to_string(cfg.n_ubatch))
+              << "\n";
     std::cout << "reserve_ctx      " << cfg.reserve_ctx << "\n";
-    std::cout << "threads          " << (cfg.n_threads == 0 ? "auto" : std::to_string(cfg.n_threads)) << "\n";
+    std::cout << "threads          "
+              << (cfg.n_threads == 0 ? "auto" : std::to_string(cfg.n_threads)) << "\n";
     std::cout << "gpu_layers       " << cfg.n_gpu_layers << "\n";
     std::cout << "temperature      " << cfg.temperature << "\n";
     std::cout << "top_p            " << cfg.top_p << "\n";
@@ -1139,7 +1159,8 @@ void print_config(const Config& cfg, bool as_json) {
     std::cout << "repeat_penalty   " << cfg.repeat_penalty << "\n";
     std::cout << "repeat_last_n    " << cfg.repeat_last_n << "\n";
     std::cout << "n_predict        " << cfg.n_predict << "\n";
-    std::cout << "seed             " << (cfg.seed == 0xFFFFFFFFu ? "random" : std::to_string(cfg.seed)) << "\n";
+    std::cout << "seed             "
+              << (cfg.seed == 0xFFFFFFFFu ? "random" : std::to_string(cfg.seed)) << "\n";
     std::cout << "use_mmap         " << (cfg.use_mmap ? "yes" : "no") << "\n";
     std::cout << "use_mlock        " << (cfg.use_mlock ? "yes" : "no") << "\n";
     std::cout << "flash_attn       " << (cfg.flash_attn ? "yes" : "no") << "\n";
@@ -1171,4 +1192,4 @@ void print_config(const Config& cfg, bool as_json) {
     std::cout << "\n";
 }
 
-}
+}  // namespace skifflm

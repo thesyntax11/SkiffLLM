@@ -10,4 +10,4 @@ struct ChatMessage {
     std::string content;
 };
 
-}
+}  // namespace skifflm

@@ -1,7 +1,4 @@
 #include "skifflm/tools.hpp"
-#include "skifflm/engine.hpp"
-#include "skifflm/session.hpp"
-#include "skifflm/server.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -14,6 +11,10 @@
 #include <iomanip>
 #include <iostream>
 #include <sstream>
+
+#include "skifflm/engine.hpp"
+#include "skifflm/server.hpp"
+#include "skifflm/session.hpp"
 
 #ifdef _WIN32
 #include <fcntl.h>
@@ -35,9 +36,7 @@ namespace {
 // Run an external program without going through a shell. Arguments are passed
 // as an argv vector, so user-controlled values (hosts, URLs, model ids, API
 // keys) can never be interpreted as shell metacharacters.
-bool run_argv(const std::vector<std::string>& argv,
-              bool capture_stdout,
-              std::string& output,
+bool run_argv(const std::vector<std::string>& argv, bool capture_stdout, std::string& output,
               std::string& error) {
     output.clear();
     error.clear();
@@ -60,11 +59,11 @@ bool run_argv(const std::vector<std::string>& argv,
     int saved_stdout = -1;
     if (capture_stdout) {
         std::error_code ec;
-        capture_file = std::filesystem::temp_directory_path(ec) /
-                       ("skifflm-capture-" + std::to_string(static_cast<long long>(_getpid())) + ".tmp");
+        capture_file =
+            std::filesystem::temp_directory_path(ec) /
+            ("skifflm-capture-" + std::to_string(static_cast<long long>(_getpid())) + ".tmp");
         const int fd = _open(capture_file.string().c_str(),
-                             _O_CREAT | _O_WRONLY | _O_TRUNC | _O_BINARY,
-                             _S_IREAD | _S_IWRITE);
+                             _O_CREAT | _O_WRONLY | _O_TRUNC | _O_BINARY, _S_IREAD | _S_IWRITE);
         if (fd < 0) {
             error = "cannot create capture file";
             return false;
@@ -170,28 +169,27 @@ bool is_hidden_or_build_dir(const std::filesystem::path& path) {
     if (name.empty()) {
         return false;
     }
-    if (name == ".git" || name == ".hg" || name == ".svn" || name == "build" ||
-        name == "build2" || name == "node_modules" || name == "vendor" ||
-        name == "_deps" || name == ".gradle" || name == "dist" || name == "out" ||
-        name == "target" || name == ".venv" || name == "venv" ||
-        name == "__pycache__" || name == ".next" || name == ".cache" ||
-        name == ".pytest_cache" || name == ".idea" || name == ".vscode") {
+    if (name == ".git" || name == ".hg" || name == ".svn" || name == "build" || name == "build2" ||
+        name == "node_modules" || name == "vendor" || name == "_deps" || name == ".gradle" ||
+        name == "dist" || name == "out" || name == "target" || name == ".venv" || name == "venv" ||
+        name == "__pycache__" || name == ".next" || name == ".cache" || name == ".pytest_cache" ||
+        name == ".idea" || name == ".vscode") {
         return true;
     }
     return name.size() > 1 && name[0] == '.';
 }
 
 bool is_source(const std::string& ext) {
-    static const std::vector<std::string> exts = {
-        "cpp", "cc", "cxx", "c", "hpp", "hxx", "hh", "h", "kt", "java",
-        "py", "rs", "go", "js", "ts", "tsx", "sh", "cmake"};
+    static const std::vector<std::string> exts = {"cpp", "cc", "cxx", "c",    "hpp", "hxx",
+                                                  "hh",  "h",  "kt",  "java", "py",  "rs",
+                                                  "go",  "js", "ts",  "tsx",  "sh",  "cmake"};
     return std::find(exts.begin(), exts.end(), ext) != exts.end();
 }
 
 bool is_config(const std::string& ext) {
-    static const std::vector<std::string> exts = {
-        "json", "yaml", "yml", "toml", "ini", "conf", "cfg", "xml",
-        "properties", "md", "txt"};
+    static const std::vector<std::string> exts = {"json",       "yaml", "yml", "toml",
+                                                  "ini",        "conf", "cfg", "xml",
+                                                  "properties", "md",   "txt"};
     return std::find(exts.begin(), exts.end(), ext) != exts.end();
 }
 
@@ -199,13 +197,11 @@ bool looks_like_test(const std::filesystem::path& relative) {
     const std::string lower = [&]() {
         std::string value = relative.string();
         std::transform(value.begin(), value.end(), value.begin(),
-                        [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+                       [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
         return value;
     }();
-    return lower.find("test") != std::string::npos ||
-           lower.find("spec") != std::string::npos ||
-           lower.find("_test") != std::string::npos ||
-           lower.find("/tests/") != std::string::npos ||
+    return lower.find("test") != std::string::npos || lower.find("spec") != std::string::npos ||
+           lower.find("_test") != std::string::npos || lower.find("/tests/") != std::string::npos ||
            lower.find("/test_") != std::string::npos;
 }
 
@@ -224,24 +220,13 @@ struct ProjectFile {
     uint64_t bytes = 0;
 };
 
-bool run_git(const std::vector<std::string>& arguments,
-             std::string& output,
-             std::string& error) {
+bool run_git(const std::vector<std::string>& arguments, std::string& output, std::string& error) {
     std::vector<std::string> argv;
     argv.reserve(arguments.size() + 1);
     argv.push_back("git");
     argv.insert(argv.end(), arguments.begin(), arguments.end());
     return run_argv(argv, true, output, error);
 }
-
-
-
-
-
-
-
-
-
 
 std::string instruction_for_git(const std::string& sub) {
     if (sub == "review") {
@@ -326,9 +311,7 @@ bool load_usage_stats(const Config& cfg, UsageStats& stats, std::string& error) 
     return false;
 }
 
-bool write_config_file(const std::filesystem::path& path,
-                       const Config& cfg,
-                       std::string& error) {
+bool write_config_file(const std::filesystem::path& path, const Config& cfg, std::string& error) {
     if (path.empty()) {
         error = "config path is empty";
         return false;
@@ -399,9 +382,7 @@ bool write_config_file(const std::filesystem::path& path,
     return true;
 }
 
-int handle_config_command(Config& cfg,
-                          const std::vector<std::string>& args,
-                          std::string& error) {
+int handle_config_command(Config& cfg, const std::vector<std::string>& args, std::string& error) {
     const std::string action = args.empty() ? "path" : args[0];
     if (action == "help") {
         std::cout << "Usage: skifflm config path|show|init\n";
@@ -428,9 +409,7 @@ int handle_config_command(Config& cfg,
     return 2;
 }
 
-int handle_server_command(Config& cfg,
-                          const std::vector<std::string>& args,
-                          std::string& error) {
+int handle_server_command(Config& cfg, const std::vector<std::string>& args, std::string& error) {
     if (args.empty() || args[0] == "help") {
         std::cout << "Usage: skifflm server health [--json] [--host <addr>] [--port <n>]\n";
         std::cout << "       skifflm server help\n";
@@ -450,9 +429,9 @@ int handle_server_command(Config& cfg,
             }
         }
         std::string output;
-        std::vector<std::string> health_argv = {
-            "curl", "-sf", "--max-time", "3",
-            "http://" + host + ":" + std::to_string(port) + "/health"};
+        std::vector<std::string> health_argv = {"curl", "-sf", "--max-time", "3",
+                                                "http://" + host + ":" + std::to_string(port) +
+                                                    "/health"};
         if (!run_argv(health_argv, true, output, error)) {
             if (as_json) {
                 std::cout << "{\"reachable\":false,\"error\":\"server is not reachable at http://"
@@ -475,8 +454,7 @@ int handle_server_command(Config& cfg,
     return 2;
 }
 
-int handle_chat_template_command(Config& cfg,
-                                 const std::vector<std::string>& args,
+int handle_chat_template_command(Config& cfg, const std::vector<std::string>& args,
                                  std::string& error) {
     const std::string action = args.empty() ? "list" : args[0];
     if (action == "list" || action == "ls" || action == "help") {
@@ -537,11 +515,21 @@ std::string json_openai_escape(const std::string& value) {
     out.reserve(value.size() + 16);
     for (const char ch : value) {
         switch (ch) {
-            case '\\': out += "\\\\"; break;
-            case '"':  out += "\\\""; break;
-            case '\n': out += "\\n"; break;
-            case '\r': out += "\\r"; break;
-            case '\t': out += "\\t"; break;
+            case '\\':
+                out += "\\\\";
+                break;
+            case '"':
+                out += "\\\"";
+                break;
+            case '\n':
+                out += "\\n";
+                break;
+            case '\r':
+                out += "\\r";
+                break;
+            case '\t':
+                out += "\\t";
+                break;
             default:
                 if (static_cast<unsigned char>(ch) < 0x20) {
                     char buffer[8];
@@ -565,21 +553,36 @@ std::string json_openai_unescape(const std::string& value) {
         }
         const char next = value[++i];
         switch (next) {
-            case 'n': out.push_back('\n'); break;
-            case 'r': out.push_back('\r'); break;
-            case 't': out.push_back('\t'); break;
-            case '"': out.push_back('"'); break;
-            case '\\': out.push_back('\\'); break;
-            case '/': out.push_back('/'); break;
+            case 'n':
+                out.push_back('\n');
+                break;
+            case 'r':
+                out.push_back('\r');
+                break;
+            case 't':
+                out.push_back('\t');
+                break;
+            case '"':
+                out.push_back('"');
+                break;
+            case '\\':
+                out.push_back('\\');
+                break;
+            case '/':
+                out.push_back('/');
+                break;
             case 'u': {
                 if (i + 4 < value.size()) {
                     unsigned int code = 0;
                     for (int j = 1; j <= 4; ++j) {
                         const char c = value[i + j];
                         code <<= 4;
-                        if (c >= '0' && c <= '9') code |= static_cast<unsigned int>(c - '0');
-                        else if (c >= 'a' && c <= 'f') code |= static_cast<unsigned int>(c - 'a' + 10);
-                        else if (c >= 'A' && c <= 'F') code |= static_cast<unsigned int>(c - 'A' + 10);
+                        if (c >= '0' && c <= '9')
+                            code |= static_cast<unsigned int>(c - '0');
+                        else if (c >= 'a' && c <= 'f')
+                            code |= static_cast<unsigned int>(c - 'a' + 10);
+                        else if (c >= 'A' && c <= 'F')
+                            code |= static_cast<unsigned int>(c - 'A' + 10);
                     }
                     i += 4;
                     if (code < 0x80) {
@@ -595,7 +598,9 @@ std::string json_openai_unescape(const std::string& value) {
                 }
                 break;
             }
-            default: out.push_back(next); break;
+            default:
+                out.push_back(next);
+                break;
         }
     }
     return out;
@@ -640,9 +645,7 @@ bool extract_openai_content(const std::string& json, std::string& content) {
     return true;
 }
 
-int handle_openai_command(Config& cfg,
-                          const std::vector<std::string>& args,
-                          std::string& error) {
+int handle_openai_command(Config& cfg, const std::vector<std::string>& args, std::string& error) {
     (void)cfg;
     std::string base_url = "http://127.0.0.1:8080";
     std::string model = "skifflm-local";
@@ -692,8 +695,9 @@ int handle_openai_command(Config& cfg,
         }
     }
     if (prompt.empty()) {
-        error = "usage: skifflm openai [--base-url http://127.0.0.1:8080] [--model id] "
-                "[--stream] [--json] [--temp <t>] [--max-tokens <n>] \"prompt\"";
+        error =
+            "usage: skifflm openai [--base-url http://127.0.0.1:8080] [--model id] "
+            "[--stream] [--json] [--temp <t>] [--max-tokens <n>] \"prompt\"";
         return 2;
     }
 
@@ -790,8 +794,6 @@ std::filesystem::path metrics_path_for(const Config& cfg) {
     return std::filesystem::path("metrics.txt");
 }
 
-
-
 void print_usage_stats(const Config& cfg, bool as_json) {
     UsageStats stats;
     std::string error;
@@ -800,16 +802,14 @@ void print_usage_stats(const Config& cfg, bool as_json) {
         return;
     }
     const double total_ms = stats.total_prompt_ms + stats.total_generation_ms;
-    const double tps = total_ms > 0.0
-                           ? static_cast<double>(stats.generated_tokens) / (total_ms / 1000.0)
-                           : 0.0;
+    const double tps =
+        total_ms > 0.0 ? static_cast<double>(stats.generated_tokens) / (total_ms / 1000.0) : 0.0;
     if (as_json) {
-        std::cout << "{\"sessions\":" << stats.sessions
-                  << ",\"messages\":" << stats.messages
+        std::cout << "{\"sessions\":" << stats.sessions << ",\"messages\":" << stats.messages
                   << ",\"prompt_tokens\":" << stats.prompt_tokens
                   << ",\"generated_tokens\":" << stats.generated_tokens
-                  << ",\"total_time_ms\":" << total_ms
-                  << ",\"avg_tokens_per_second\":" << tps << "}\n";
+                  << ",\"total_time_ms\":" << total_ms << ",\"avg_tokens_per_second\":" << tps
+                  << "}\n";
         return;
     }
     std::cout << "SkiffLLM usage stats\n";
@@ -822,12 +822,8 @@ void print_usage_stats(const Config& cfg, bool as_json) {
     std::cout << "  Metrics file:     " << metrics_path_for(cfg).string() << "\n";
 }
 
-void record_generation(const Config& cfg,
-                       int prompt_tokens,
-                       int generated_tokens,
-                       double prompt_ms,
-                       double generation_ms,
-                       double tokens_per_second) {
+void record_generation(const Config& cfg, int prompt_tokens, int generated_tokens, double prompt_ms,
+                       double generation_ms, double tokens_per_second) {
     const std::filesystem::path path = metrics_path_for(cfg);
     std::error_code ec;
     std::filesystem::create_directories(path.parent_path(), ec);
@@ -837,25 +833,21 @@ void record_generation(const Config& cfg,
     }
     // One tab-separated line per generation. Kept plain-text so users can
     // inspect and truncate it easily.
-    out << std::time(nullptr) << "\t" << prompt_tokens << "\t" << generated_tokens
-        << "\t" << prompt_ms << "\t" << generation_ms << "\t" << tokens_per_second
-        << "\n";
+    out << std::time(nullptr) << "\t" << prompt_tokens << "\t" << generated_tokens << "\t"
+        << prompt_ms << "\t" << generation_ms << "\t" << tokens_per_second << "\n";
     out.close();
 }
-
 
 const std::vector<CatalogModel>& model_catalog() {
     static const std::vector<CatalogModel> catalog = {
         {"qwen2.5-0.5b", "Qwen2.5 0.5B Instruct",
-         "Best first model on older machines; fast and small.",
-         "Qwen/Qwen2.5-0.5B-Instruct-GGUF", "qwen2.5-0.5b-instruct-q4_k_m.gguf",
-         "~1 GB working set", "Apache-2.0", 491400032, true},
+         "Best first model on older machines; fast and small.", "Qwen/Qwen2.5-0.5B-Instruct-GGUF",
+         "qwen2.5-0.5b-instruct-q4_k_m.gguf", "~1 GB working set", "Apache-2.0", 491400032, true},
         {"qwen3-0.6b", "Qwen3 0.6B Instruct",
          "Small Qwen3 with optional thinking mode; good quality per byte.",
-         "bartowski/Qwen_Qwen3-0.6B-GGUF", "Qwen_Qwen3-0.6B-Q4_K_M.gguf",
-         "~1 GB working set", "Apache-2.0", 484220320, true},
-        {"llama3.2-1b", "Llama 3.2 1B Instruct",
-         "Balanced quality and speed for typical CPUs.",
+         "bartowski/Qwen_Qwen3-0.6B-GGUF", "Qwen_Qwen3-0.6B-Q4_K_M.gguf", "~1 GB working set",
+         "Apache-2.0", 484220320, true},
+        {"llama3.2-1b", "Llama 3.2 1B Instruct", "Balanced quality and speed for typical CPUs.",
          "bartowski/Llama-3.2-1B-Instruct-GGUF", "Llama-3.2-1B-Instruct-Q4_K_M.gguf",
          "~1.5 GB working set", "Llama 3.2 Community License", 807694464, true},
         {"smollm2-1.7b", "SmolLM2 1.7B Instruct",
@@ -893,8 +885,7 @@ std::string build_project_block(const std::filesystem::path& root, std::string& 
 
     for (auto it = std::filesystem::recursive_directory_iterator(
              root, std::filesystem::directory_options::skip_permission_denied, ec);
-         it != std::filesystem::recursive_directory_iterator();
-         it.increment(ec)) {
+         it != std::filesystem::recursive_directory_iterator(); it.increment(ec)) {
         if (ec) {
             break;
         }
@@ -932,9 +923,8 @@ std::string build_project_block(const std::filesystem::path& root, std::string& 
         }
     }
 
-    std::sort(files.begin(), files.end(), [](const ProjectFile& a, const ProjectFile& b) {
-        return a.relative < b.relative;
-    });
+    std::sort(files.begin(), files.end(),
+              [](const ProjectFile& a, const ProjectFile& b) { return a.relative < b.relative; });
 
     std::ostringstream out;
     out << "<project root=\"" << root.string() << "\">\n";
@@ -1000,9 +990,7 @@ bool is_gguf_file(const std::filesystem::path& path) {
     return input.gcount() == 4 && std::memcmp(header, "GGUF", 4) == 0;
 }
 
-bool hash_file_sha256(const std::filesystem::path& path,
-                      std::string& hash,
-                      std::string& error) {
+bool hash_file_sha256(const std::filesystem::path& path, std::string& hash, std::string& error) {
     std::string output;
     std::vector<std::string> argv;
 #ifdef _WIN32
@@ -1032,8 +1020,7 @@ bool hash_file_sha256(const std::filesystem::path& path,
     return true;
 }
 
-bool hash_matches_sidecar(const std::filesystem::path& model_path,
-                          std::string& error) {
+bool hash_matches_sidecar(const std::filesystem::path& model_path, std::string& error) {
     const std::filesystem::path sidecar = model_path.string() + ".sha256";
     std::ifstream input(sidecar);
     if (!input.is_open()) {
@@ -1067,16 +1054,19 @@ bool hash_matches_sidecar(const std::filesystem::path& model_path,
         return false;
     }
     if (actual != expected) {
-        error = "SHA-256 mismatch: model file is corrupt or was modified\n"
-                "  expected " + expected + "\n"
-                "  actual   " + actual;
+        error =
+            "SHA-256 mismatch: model file is corrupt or was modified\n"
+            "  expected " +
+            expected +
+            "\n"
+            "  actual   " +
+            actual;
         return false;
     }
     return true;
 }
 
-bool write_checksum_sidecar(const std::filesystem::path& model_path,
-                            std::string& error) {
+bool write_checksum_sidecar(const std::filesystem::path& model_path, std::string& error) {
     std::string hash;
     if (!hash_file_sha256(model_path, hash, error)) {
         return false;
@@ -1095,10 +1085,8 @@ bool write_checksum_sidecar(const std::filesystem::path& model_path,
     return true;
 }
 
-bool verify_model_file(const std::filesystem::path& path,
-                       uint64_t expected_bytes,
-                       bool update_checksum,
-                       std::string& detail) {
+bool verify_model_file(const std::filesystem::path& path, uint64_t expected_bytes,
+                       bool update_checksum, std::string& detail) {
     std::error_code ec;
     detail.clear();
     if (!std::filesystem::exists(path, ec)) {
@@ -1120,8 +1108,8 @@ bool verify_model_file(const std::filesystem::path& path,
         // is an advisory note rather than a corruption failure. The GGUF header
         // and (when present) the SHA-256 sidecar remain the authority.
         detail += "size differs from the catalog snapshot (expected " +
-                  std::to_string(expected_bytes) + " bytes, found " +
-                  std::to_string(size) + " bytes); ";
+                  std::to_string(expected_bytes) + " bytes, found " + std::to_string(size) +
+                  " bytes); ";
     }
     std::string checksum_error;
     const std::filesystem::path sidecar = path.string() + ".sha256";
@@ -1145,9 +1133,7 @@ bool verify_model_file(const std::filesystem::path& path,
     return true;
 }
 
-int handle_model_command(Config& cfg,
-                         const std::vector<std::string>& args,
-                         std::string& error) {
+int handle_model_command(Config& cfg, const std::vector<std::string>& args, std::string& error) {
     const std::string action = args.empty() ? "list" : args[0];
     std::error_code ec;
     std::filesystem::create_directories(cfg.model_dir, ec);
@@ -1161,19 +1147,14 @@ int handle_model_command(Config& cfg,
 
     if (action == "list" || action == "ls") {
         std::cout << std::left;
-        std::cout << std::setw(16) << "ID"
-                  << std::setw(24) << "NAME"
-                  << std::setw(12) << "SIZE"
-                  << std::setw(24) << "RAM"
-                  << std::setw(30) << "LICENSE"
+        std::cout << std::setw(16) << "ID" << std::setw(24) << "NAME" << std::setw(12) << "SIZE"
+                  << std::setw(24) << "RAM" << std::setw(30) << "LICENSE"
                   << "INSTALLED\n";
         std::cout << std::string(106, '-') << "\n";
         for (const auto& model : model_catalog()) {
-            std::cout << std::setw(16) << model.id
-                      << std::setw(24) << model.name.substr(0, 23)
-                      << std::setw(12) << to_human_bytes(model.bytes)
-                      << std::setw(24) << model.ram_note
-                      << std::setw(30) << model.license.substr(0, 29)
+            std::cout << std::setw(16) << model.id << std::setw(24) << model.name.substr(0, 23)
+                      << std::setw(12) << to_human_bytes(model.bytes) << std::setw(24)
+                      << model.ram_note << std::setw(30) << model.license.substr(0, 29)
                       << (installed(model) ? "yes" : "no") << "\n";
         }
         std::cout << "\nInstall with: skifflm model install <id>\n";
@@ -1229,8 +1210,7 @@ int handle_model_command(Config& cfg,
 
         // Find the fetch helper next to the installed binary or in the source
         // checkout.
-        const std::filesystem::path project_root =
-            std::filesystem::current_path();
+        const std::filesystem::path project_root = std::filesystem::current_path();
         std::vector<std::filesystem::path> candidates = {
             project_root / "scripts" / "model_fetch.py",
         };
@@ -1247,17 +1227,16 @@ int handle_model_command(Config& cfg,
         if (!found) {
             error =
                 "model_fetch.py not found. Install a model with:\n"
-                "  python3 scripts/model_fetch.py --model " + model->id +
-                " --output-dir " + cfg.model_dir.string();
+                "  python3 scripts/model_fetch.py --model " +
+                model->id + " --output-dir " + cfg.model_dir.string();
             return 1;
         }
 
         std::string unused_out;
         std::string download_err;
-        const bool download_ok = run_argv(
-            {"python3", helper.string(), "--model", model->id,
-             "--output-dir", cfg.model_dir.string()},
-            false, unused_out, download_err);
+        const bool download_ok = run_argv({"python3", helper.string(), "--model", model->id,
+                                           "--output-dir", cfg.model_dir.string()},
+                                          false, unused_out, download_err);
         if (!download_ok) {
             error = "model download failed for " + model->id +
                     (download_err.empty() ? "" : ": " + download_err);
@@ -1266,8 +1245,7 @@ int handle_model_command(Config& cfg,
         std::cout << model->file << " installed in " << cfg.model_dir.string() << "\n";
         // Validate the freshly downloaded file before accepting it as usable.
         std::string verify_detail;
-        if (!verify_model_file(cfg.model_dir / model->file, model->bytes, false,
-                               verify_detail)) {
+        if (!verify_model_file(cfg.model_dir / model->file, model->bytes, false, verify_detail)) {
             std::cout << "Warning: " << verify_detail << "\n";
         }
         return 0;
@@ -1298,10 +1276,8 @@ int handle_model_command(Config& cfg,
                 static_cast<uint64_t>(std::filesystem::file_size(target, size_ec));
             std::cout << "Model verified: " << target.string() << "\n";
             std::cout << "  GGUF header: ok\n";
-            std::cout << "  Size: " << to_human_bytes(actual) << " ("
-                      << actual << " bytes)\n";
-            const bool has_sidecar =
-                std::filesystem::exists(target.string() + ".sha256", ec);
+            std::cout << "  Size: " << to_human_bytes(actual) << " (" << actual << " bytes)\n";
+            const bool has_sidecar = std::filesystem::exists(target.string() + ".sha256", ec);
             std::cout << "  SHA-256: " << (has_sidecar ? "match" : "not recorded")
                       << (update ? " (written)" : "") << "\n";
             if (!detail.empty()) {
@@ -1343,20 +1319,16 @@ int handle_model_command(Config& cfg,
         return 0;
     }
 
-    error = "unknown model action: " + action +
-            " (use list, info, install or remove)";
+    error = "unknown model action: " + action + " (use list, info, install or remove)";
     return 2;
 }
 
-int handle_git_command(Config& cfg,
-                       const std::vector<std::string>& args,
-                       std::string& error) {
+int handle_git_command(Config& cfg, const std::vector<std::string>& args, std::string& error) {
     const std::string action = args.empty() ? "diff" : args[0];
     bool use_cached = false;
     std::vector<std::string> git_args;
 
-    if (action == "diff" || action == "review" || action == "explain" ||
-        action == "commit") {
+    if (action == "diff" || action == "review" || action == "explain" || action == "commit") {
         use_cached = std::find(args.begin(), args.end(), "--cached") != args.end();
         git_args = use_cached ? std::vector<std::string>{"diff", "--cached"}
                               : std::vector<std::string>{"diff"};
@@ -1386,7 +1358,8 @@ int handle_git_command(Config& cfg,
         }
         cfg.one_shot =
             "Summarize this git history into a short release-note style outline.\n\n"
-            "<git log>\n" + log + "\n</git log>\n";
+            "<git log>\n" +
+            log + "\n</git log>\n";
         cfg.interactive = false;
         return -1;
     }
@@ -1400,14 +1373,13 @@ int handle_git_command(Config& cfg,
         return 0;
     }
 
-    error = "unknown git action: " + action +
-            " (use diff, review, explain, commit, log or status)";
+    error = "unknown git action: " + action + " (use diff, review, explain, commit, log or status)";
     return 2;
 }
 
 std::filesystem::path session_file_for(const Config& cfg, const std::string& name) {
-    const bool has_separator = name.find('/') != std::string::npos ||
-                               name.find('\\') != std::string::npos;
+    const bool has_separator =
+        name.find('/') != std::string::npos || name.find('\\') != std::string::npos;
     const bool has_skif = name.size() > 5 && name.compare(name.size() - 5, 5, ".skif") == 0;
     if (has_separator || has_skif) {
         return expand_path(name);
@@ -1415,8 +1387,8 @@ std::filesystem::path session_file_for(const Config& cfg, const std::string& nam
     std::string sanitized;
     sanitized.reserve(name.size());
     for (const unsigned char ch : name) {
-        if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
-            (ch >= '0' && ch <= '9') || ch == '-' || ch == '_' || ch == '.') {
+        if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') ||
+            ch == '-' || ch == '_' || ch == '.') {
             sanitized.push_back(static_cast<char>(ch));
         } else {
             sanitized.push_back('_');
@@ -1428,8 +1400,7 @@ std::filesystem::path session_file_for(const Config& cfg, const std::string& nam
     return session_dir_for(cfg) / (sanitized + ".skif");
 }
 
-std::vector<std::filesystem::path> list_session_files(const Config& cfg,
-                                                      std::string& error) {
+std::vector<std::filesystem::path> list_session_files(const Config& cfg, std::string& error) {
     std::vector<std::filesystem::path> result;
     const std::filesystem::path dir = session_dir_for(cfg);
     std::error_code ec;
@@ -1441,8 +1412,7 @@ std::vector<std::filesystem::path> list_session_files(const Config& cfg,
         return {};
     }
     for (auto it = std::filesystem::directory_iterator(dir, ec);
-         it != std::filesystem::directory_iterator();
-         it.increment(ec)) {
+         it != std::filesystem::directory_iterator(); it.increment(ec)) {
         if (ec) {
             break;
         }
@@ -1520,9 +1490,7 @@ bool append_memory(const Config& cfg, const std::string& text, std::string& erro
     return true;
 }
 
-bool remove_memory(const Config& cfg,
-                   const std::string& needle,
-                   size_t& removed,
+bool remove_memory(const Config& cfg, const std::string& needle, size_t& removed,
                    std::string& error) {
     removed = 0;
     const std::string target = lower(trim(needle));
@@ -1579,9 +1547,7 @@ bool clear_memories(const Config& cfg, std::string& error) {
     return true;
 }
 
-int handle_session_command(Config& cfg,
-                           const std::vector<std::string>& args,
-                           std::string& error) {
+int handle_session_command(Config& cfg, const std::vector<std::string>& args, std::string& error) {
     const std::string action = args.empty() ? "list" : args[0];
     if (action == "list" || action == "ls") {
         std::string list_error;
@@ -1595,8 +1561,7 @@ int handle_session_command(Config& cfg,
             return 0;
         }
         std::cout << std::left;
-        std::cout << std::setw(24) << "SESSION"
-                  << std::setw(14) << "SIZE"
+        std::cout << std::setw(24) << "SESSION" << std::setw(14) << "SIZE"
                   << "MODIFIED\n";
         std::cout << std::string(62, '-') << "\n";
         for (const auto& path : files) {
@@ -1604,9 +1569,8 @@ int handle_session_command(Config& cfg,
             const uint64_t size = static_cast<uint64_t>(std::filesystem::file_size(path, ec));
             const auto modified = std::filesystem::last_write_time(path, ec);
             (void)modified;
-            std::cout << std::setw(24) << path.stem().string()
-                      << std::setw(14) << to_human_bytes(size)
-                      << path.filename().string() << "\n";
+            std::cout << std::setw(24) << path.stem().string() << std::setw(14)
+                      << to_human_bytes(size) << path.filename().string() << "\n";
         }
         std::cout << "\nUse `skifflm --session <name>` or `skifflm session use <name>`.\n";
         return 0;
@@ -1634,12 +1598,13 @@ int handle_session_command(Config& cfg,
         std::cout << "Session: " << path.stem().string() << "\n";
         std::cout << "Path:    " << path.string() << "\n";
         std::cout << "Messages:" << session.message_count() << "\n";
-        std::cout << "System:  " << (session.system_prompt().empty()
-                                         ? std::string("(none)")
-                                         : compact_preview(session.system_prompt())) << "\n";
+        std::cout << "System:  "
+                  << (session.system_prompt().empty() ? std::string("(none)")
+                                                      : compact_preview(session.system_prompt()))
+                  << "\n";
         if (!session.empty()) {
-            std::cout << "Last:    "
-                      << compact_preview(session.conversation().back().content, 160) << "\n";
+            std::cout << "Last:    " << compact_preview(session.conversation().back().content, 160)
+                      << "\n";
         }
         return 0;
     }
@@ -1703,8 +1668,7 @@ int handle_session_command(Config& cfg,
         return -1;  // continue into the normal model path
     }
 
-    error = "unknown session action: " + action +
-            " (use list, show, rename, remove or use)";
+    error = "unknown session action: " + action + " (use list, show, rename, remove or use)";
     return 2;
 }
 
