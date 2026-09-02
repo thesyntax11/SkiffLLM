@@ -108,7 +108,7 @@ jobs:
       - name: Accept licenses and install CMake/NDK
         run: |
           yes | sdkmanager --licenses >/dev/null 2>&1 || true
-          sdkmanager "cmake;3.22.1" "ndk;26.1.10909125"
+          sdkmanager "cmake;3.22.1" "platforms;android-34" "build-tools;34.0.0" "ndk;26.3.11579264"
 
       - name: Build debug APK
         run: |
@@ -125,7 +125,7 @@ jobs:
 
   ios:
     name: iOS (simulator build)
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 

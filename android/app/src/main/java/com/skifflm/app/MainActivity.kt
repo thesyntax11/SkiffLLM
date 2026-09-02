@@ -680,8 +680,7 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
                     onClear = { clearConversation() }
                 )
             }
-        )
-    ) { padding ->
+        ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -697,7 +696,7 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
-                arrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(messages) { message ->
                     if (message.role != "system") {
