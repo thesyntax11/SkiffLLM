@@ -455,12 +455,13 @@ int handle_server_command(Config& cfg,
             "http://" + host + ":" + std::to_string(port) + "/health"};
         if (!run_argv(health_argv, true, output, error)) {
             if (as_json) {
-                error = "server is not reachable at http://" + host + ":" + std::to_string(port);
-                return 1;
+                std::cout << "{\"reachable\":false,\"error\":\"server is not reachable at http://"
+                          << host << ":" << port << "\"}\n";
+            } else {
+                std::cout << "Server not responding at http://" << host << ":" << port << "\n";
             }
-            std::cout << "Server not responding at http://" << host << ":" << port << "\n";
             error.clear();
-            return 0;
+            return 1;
         }
         if (as_json) {
             std::cout << output;
@@ -848,23 +849,23 @@ const std::vector<CatalogModel>& model_catalog() {
         {"qwen2.5-0.5b", "Qwen2.5 0.5B Instruct",
          "Best first model on older machines; fast and small.",
          "Qwen/Qwen2.5-0.5B-Instruct-GGUF", "qwen2.5-0.5b-instruct-q4_k_m.gguf",
-         "~1 GB working set", 491400032, true},
+         "~1 GB working set", "Apache-2.0", 491400032, true},
         {"qwen3-0.6b", "Qwen3 0.6B Instruct",
          "Small Qwen3 with optional thinking mode; good quality per byte.",
          "bartowski/Qwen_Qwen3-0.6B-GGUF", "Qwen_Qwen3-0.6B-Q4_K_M.gguf",
-         "~1 GB working set", 484220320, true},
+         "~1 GB working set", "Apache-2.0", 484220320, true},
         {"llama3.2-1b", "Llama 3.2 1B Instruct",
          "Balanced quality and speed for typical CPUs.",
          "bartowski/Llama-3.2-1B-Instruct-GGUF", "Llama-3.2-1B-Instruct-Q4_K_M.gguf",
-         "~1.5 GB working set", 807694464, true},
+         "~1.5 GB working set", "Llama 3.2 Community License", 807694464, true},
         {"smollm2-1.7b", "SmolLM2 1.7B Instruct",
          "Mid-size option with a good quality-to-speed ratio.",
          "bartowski/SmolLM2-1.7B-Instruct-GGUF", "SmolLM2-1.7B-Instruct-Q4_K_M.gguf",
-         "~2 GB working set", 1055609824, false},
+         "~2 GB working set", "Apache-2.0", 1055609824, false},
         {"phi3.5-mini", "Phi-3.5 Mini Instruct",
          "Better reasoning; needs roughly 4 GB working set.",
          "bartowski/Phi-3.5-mini-instruct-GGUF", "Phi-3.5-mini-instruct-Q4_K_M.gguf",
-         "~4 GB working set", 2393232672, false},
+         "~4 GB working set", "MIT", 2393232672, false},
     };
     return catalog;
 }
@@ -1164,13 +1165,15 @@ int handle_model_command(Config& cfg,
                   << std::setw(24) << "NAME"
                   << std::setw(12) << "SIZE"
                   << std::setw(24) << "RAM"
+                  << std::setw(30) << "LICENSE"
                   << "INSTALLED\n";
-        std::cout << std::string(96, '-') << "\n";
+        std::cout << std::string(106, '-') << "\n";
         for (const auto& model : model_catalog()) {
             std::cout << std::setw(16) << model.id
                       << std::setw(24) << model.name.substr(0, 23)
                       << std::setw(12) << to_human_bytes(model.bytes)
                       << std::setw(24) << model.ram_note
+                      << std::setw(30) << model.license.substr(0, 29)
                       << (installed(model) ? "yes" : "no") << "\n";
         }
         std::cout << "\nInstall with: skifflm model install <id>\n";
@@ -1194,6 +1197,7 @@ int handle_model_command(Config& cfg,
         std::cout << "File:       " << model->file << "\n";
         std::cout << "Size:       " << to_human_bytes(model->bytes) << "\n";
         std::cout << "RAM:        " << model->ram_note << "\n";
+        std::cout << "License:    " << model->license << "\n";
         std::cout << "Installed:  " << (installed(*model) ? "yes" : "no") << "\n";
         const std::filesystem::path target = cfg.model_dir / model->file;
         if (installed(*model)) {

@@ -16,6 +16,7 @@ struct CatalogModel {
     std::string repo;
     std::string file;
     std::string ram_note;
+    std::string license;
     uint64_t bytes = 0;
     bool recommended = false;
 };
