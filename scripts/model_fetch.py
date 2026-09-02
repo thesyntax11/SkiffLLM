@@ -19,6 +19,8 @@ import argparse
 import hashlib
 import os
 import sys
+import time
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -153,6 +155,32 @@ def set_sidecar(path: Path) -> None:
     write_sidecar(path)
 
 
+def _open_with_retry(request, attempts: int = 3, wait: float = 1.5):
+    """Open a URL, retrying transient network/TLS failures a few times.
+
+    Transient errors (connection reset, TLS EOF, short read) can occur when a
+    CDN drops a connection during the handshake. Retrying the request is safe
+    here because the downloader re-requests the full file and validates the
+    result afterwards; it never resumes a corrupt partial file.
+    """
+    last_error: Exception | None = None
+    for attempt in range(attempts):
+        try:
+            return urllib.request.urlopen(request, timeout=30)
+        except (urllib.error.URLError, ConnectionError, OSError) as exc:
+            last_error = exc
+            if attempt + 1 < attempts:
+                wait_seconds = wait * (attempt + 1)
+                print(
+                    f"  connection issue ({exc}); retrying in {wait_seconds:.0f}s...",
+                    file=sys.stderr,
+                )
+                time.sleep(wait_seconds)
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError("could not open download URL")
+
+
 def download(entry: dict, output_dir: Path) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     output = output_dir / entry["file"]
@@ -167,7 +195,7 @@ def download(entry: dict, output_dir: Path) -> Path:
     print(f"Downloading {entry['name']} ({human_bytes(entry['bytes'])})")
     print(f"  {url}")
 
-    with urllib.request.urlopen(request, timeout=30) as response:
+    with _open_with_retry(request) as response:
         total = int(response.headers.get("Content-Length") or 0)
         with temp.open("wb") as handle:
             while True:

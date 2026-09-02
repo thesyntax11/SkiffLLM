@@ -54,7 +54,11 @@ def main() -> int:
     parser.add_argument("--temperature", type=float, default=0.2, help="sampling temperature")
     parser.add_argument("--max-tokens", type=int, default=256, help="maximum generated tokens")
     parser.add_argument("text", nargs="*", help="prompt text")
-    args = parser.parse_args()
+    # Use parse_known_args so positional prompt text also works when it appears
+    # after a flag (e.g. `api_client.py URL --stream "Say hello"`). Argparse
+    # otherwise puts those words in `extras` and rejects them as unknown.
+    args, extras = parser.parse_known_args()
+    args.text = list(args.text) + list(extras)
 
     # Fall back to the same env names the desktop binary accepts, so the docs'
     # `SKIFFLLM_SERVER_KEY` example works verbatim.
