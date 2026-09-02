@@ -41,8 +41,8 @@ When workflow permissions are available on the repository, tag a commit and
 push the tag:
 
 ```bash
-git tag -a v1.4.0 -m "SkiffLLM 1.4.0"
-git push origin v1.4.0
+git tag -a v1.6.0 -m "SkiffLLM 1.6.0"
+git push origin v1.6.0
 ```
 
 The release workflow in `.github/workflows/release.yml` builds Linux, macOS,
@@ -52,6 +52,13 @@ Windows) so `scripts/install-from-release.sh` can resolve them. The
 `linux-aarch64` entry runs on an ARM64 hosted runner; if that runner is not
 available on your plan, remove that matrix entry rather than shipping an
 x86_64 binary under an aarch64 name.
+
+> As of this revision `.github/workflows/release.yml` has **not** been
+> committed to the repository, so the automatic GitHub Release path above is
+> aspirational. Until it is added, publish releases manually. The reproducible
+> way to produce an archive on this repo is `scripts/release.sh`, which creates
+> `skifflm-<version>-<os>-<arch>.tar.gz` and a `checksums.txt`, then attach that
+> archive to a GitHub Release and use `scripts/install-from-release.sh`.
 
 ## Release checklist
 
