@@ -67,9 +67,25 @@ jobs:
       - name: Build
         run: |
           if [ "$RUNNER_OS" = "Windows" ]; then
-            cmake --build build --config Release
+            if cmake --build build --config Release 2>&1 | tee build.log; then
+              :
+            else
+              status="${PIPESTATUS[0]}"
+              tail -n 60 build.log | while IFS= read -r line; do
+                echo "::error::$line"
+              done
+              exit "${status}"
+            fi
           else
-            cmake --build build --config Release -j 4
+            if cmake --build build --config Release -j 4 2>&1 | tee build.log; then
+              :
+            else
+              status="${PIPESTATUS[0]}"
+              tail -n 60 build.log | while IFS= read -r line; do
+                echo "::error::$line"
+              done
+              exit "${status}"
+            fi
           fi
         shell: bash
 
