@@ -48,14 +48,6 @@ void signal_handler(int) {
     g_interrupted = 1;
 }
 
-bool keep_open_on_no_arguments() {
-#ifdef _WIN32
-    return true;
-#else
-    return false;
-#endif
-}
-
 void wait_for_enter() {
 #ifdef _WIN32
     HANDLE input = GetStdHandle(STD_INPUT_HANDLE);
@@ -73,22 +65,6 @@ void wait_for_enter() {
     std::cin.get();
 #endif
 }
-
-class KeepConsoleOpen {
-   public:
-    explicit KeepConsoleOpen(bool enabled) : enabled_(enabled) {}
-    ~KeepConsoleOpen() {
-        if (!enabled_) {
-            return;
-        }
-        std::cout << "\nPress Enter to close...\n";
-        std::cout.flush();
-        wait_for_enter();
-    }
-
-   private:
-    bool enabled_;
-};
 
 void log_to_stderr(enum ggml_log_level, const char* text, void*) {
     std::cerr << text;
@@ -1275,7 +1251,18 @@ int run_one_shot(skiffllm::Config& cfg, std::unique_ptr<skiffllm::SkiffEngine>& 
 }
 
 int main(int argc, char** argv) {
-    KeepConsoleOpen keep_open(argc == 1 && keep_open_on_no_arguments());
+#ifdef _WIN32
+    if (argc == 1) {
+        std::cout << "SkiffLLM " << kVersion << "\n\n";
+        std::cout << skiffllm::usage(argv[0]);
+        std::cout << "\nOpen a terminal and provide a model, for example:\n";
+        std::cout << "  skiffllm.exe --model model.gguf\n\n";
+        std::cout << "Press Enter to close...\n";
+        std::cout.flush();
+        wait_for_enter();
+        return 0;
+    }
+#endif
     skiffllm::Config cfg = skiffllm::default_config();
     skiffllm::apply_environment(cfg);
 

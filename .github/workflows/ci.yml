@@ -117,6 +117,12 @@ jobs:
           pid=$!
           sleep 2
           if kill -0 "$pid" 2>/dev/null; then
+            if ! grep -q 'Press Enter to close...' keep-open.log; then
+              echo "::error::skiffllm did not print the close prompt"
+              cat keep-open.log
+              kill "$pid"
+              exit 1
+            fi
             kill "$pid"
           else
             echo "::error::skiffllm exited before waiting for Enter"
