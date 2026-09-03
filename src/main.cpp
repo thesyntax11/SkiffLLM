@@ -1,3 +1,5 @@
+#include <llama.h>
+
 #include <algorithm>
 #include <chrono>
 #include <csignal>
@@ -14,16 +16,6 @@
 #include "skiffllm/session.hpp"
 #include "skiffllm/terminal.hpp"
 #include "skiffllm/tools.hpp"
-
-#ifdef _WIN32
-#include <conio.h>
-#include <io.h>
-#include <windows.h>
-#else
-#include <unistd.h>
-#endif
-
-#include <llama.h>
 
 namespace {
 
@@ -46,24 +38,6 @@ volatile std::sig_atomic_t g_interrupted = 0;
 
 void signal_handler(int) {
     g_interrupted = 1;
-}
-
-void wait_for_enter() {
-#ifdef _WIN32
-    HANDLE input = GetStdHandle(STD_INPUT_HANDLE);
-    if (input != nullptr && input != INVALID_HANDLE_VALUE) {
-        DWORD mode = 0;
-        if (GetConsoleMode(input, &mode) != 0) {
-            FlushConsoleInputBuffer(input);
-        }
-    }
-    int ch = _getch();
-    while (ch != '\r' && ch != '\n' && ch != EOF) {
-        ch = _getch();
-    }
-#else
-    std::cin.get();
-#endif
 }
 
 void log_to_stderr(enum ggml_log_level, const char* text, void*) {
@@ -1248,23 +1222,110 @@ int run_one_shot(skiffllm::Config& cfg, std::unique_ptr<skiffllm::SkiffEngine>& 
     return 0;
 }
 
+#ifdef _WIN32
+int run_bare_console(skiffllm::Config& cfg) {
+    llama_backend_init();
+    llama_log_set(discard_log, nullptr);
+    skiffllm::Terminal terminal(cfg);
+    std::unique_ptr<skiffllm::SkiffEngine> engine;
+    skiffllm::Session session(cfg);
+    session.set_system_prompt(cfg.system_prompt);
+    skiffllm::GenerationOptions options;
+    options.n_predict = cfg.n_predict;
+    options.temperature = cfg.temperature;
+    options.top_p = cfg.top_p;
+    options.min_p = cfg.min_p;
+    options.typical_p = cfg.typical_p;
+    options.top_k = cfg.top_k;
+    options.repeat_penalty = cfg.repeat_penalty;
+    options.repeat_last_n = cfg.repeat_last_n;
+    options.seed = cfg.seed;
+    options.auto_trim = cfg.auto_trim;
+    options.reserve_ctx = cfg.reserve_ctx;
+    options.n_keep = cfg.n_keep;
+    options.stop_sequences = cfg.stop_sequences;
+    options.token_callback = nullptr;
+    std::cout << "SkiffLLM " << kVersion << "\n";
+    std::cout << "Type help for commands.\n";
+    while (true) {
+        std::cout << "skiffllm> ";
+        std::string line;
+        if (!std::getline(std::cin, line)) {
+            break;
+        }
+        const std::string command = skiffllm::trim(line);
+        if (command.empty()) {
+            continue;
+        }
+        if (command == "exit" || command == "quit") {
+            break;
+        }
+        if (command == "help" || command == "?") {
+            std::cout << skiffllm::usage("skiffllm-cli");
+            continue;
+        }
+        if (command == "version") {
+            std::cout << "SkiffLLM " << kVersion << "\n";
+            continue;
+        }
+        if (command == "clear") {
+            session.messages().clear();
+            std::cout << "Conversation cleared.\n";
+            continue;
+        }
+        if (command.rfind("model ", 0) == 0) {
+            const std::string path = skiffllm::trim(command.substr(6));
+            if (path.empty()) {
+                std::cout << "Usage: model <path.gguf>\n";
+                continue;
+            }
+            cfg.model_path = skiffllm::expand_path(path);
+            cfg.model_dir.clear();
+            engine.reset();
+            std::string error;
+            if (!choose_model(cfg, engine, error)) {
+                std::cerr << error << "\n";
+                continue;
+            }
+            std::cout << "Model loaded: " << cfg.model_path.string() << "\n";
+            continue;
+        }
+        if (command.rfind("prompt ", 0) == 0) {
+            const std::string prompt = skiffllm::trim(command.substr(7));
+            if (prompt.empty()) {
+                std::cout << "Usage: prompt <text>\n";
+                continue;
+            }
+            const int status = run_one_shot(cfg, engine, session, terminal, options, prompt);
+            if (status != 0) {
+                std::cout << "Generation failed.\n";
+            }
+            continue;
+        }
+        if (!engine) {
+            std::cout << "No model loaded. Type model <path.gguf> or help.\n";
+            continue;
+        }
+        const int status = run_one_shot(cfg, engine, session, terminal, options, command);
+        if (status != 0) {
+            std::cout << "Generation failed.\n";
+        }
+    }
+    llama_backend_free();
+    return 0;
+}
+#endif
+
 }
 
 int main(int argc, char** argv) {
-#ifdef _WIN32
-    if (argc == 1) {
-        std::cout << "SkiffLLM " << kVersion << " (" << __DATE__ << " " << __TIME__ << ")\n\n";
-        std::cout << skiffllm::usage(argv[0]);
-        std::cout << "\nOpen a terminal and provide a model, for example:\n";
-        std::cout << "  skiffllm.exe --model model.gguf\n\n";
-        std::cout << "Press Enter to close...\n";
-        std::cout.flush();
-        wait_for_enter();
-        return 0;
-    }
-#endif
     skiffllm::Config cfg = skiffllm::default_config();
     skiffllm::apply_environment(cfg);
+#ifdef _WIN32
+    if (argc == 1) {
+        return run_bare_console(cfg);
+    }
+#endif
 
     std::string subcommand;
     std::vector<std::string> sub_args;

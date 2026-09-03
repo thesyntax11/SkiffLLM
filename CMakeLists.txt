@@ -182,26 +182,6 @@ target_compile_features(skiffllm_core PUBLIC cxx_std_17)
 skiffllm_apply_toolchain(skiffllm_core)
 
 if(WIN32 AND SKIFFLLM_BUILD_GUI)
-    include(FetchContent)
-    FetchContent_Declare(imgui
-        GIT_REPOSITORY https://github.com/ocornut/imgui.git
-        GIT_TAG v1.91.4
-        GIT_SHALLOW TRUE
-    )
-    FetchContent_MakeAvailable(imgui)
-    add_library(skiffllm_imgui STATIC
-        ${imgui_SOURCE_DIR}/imgui.cpp
-        ${imgui_SOURCE_DIR}/imgui_draw.cpp
-        ${imgui_SOURCE_DIR}/imgui_tables.cpp
-        ${imgui_SOURCE_DIR}/imgui_widgets.cpp
-        ${imgui_SOURCE_DIR}/backends/imgui_impl_dx11.cpp
-        ${imgui_SOURCE_DIR}/backends/imgui_impl_win32.cpp
-    )
-    target_include_directories(skiffllm_imgui PUBLIC
-        ${imgui_SOURCE_DIR}
-        ${imgui_SOURCE_DIR}/backends
-    )
-    target_link_libraries(skiffllm_imgui PUBLIC d3d11 dxgi d3dcompiler)
     add_executable(skiffllm src/gui.cpp)
     add_executable(skiffllm_cli src/main.cpp)
     set_target_properties(skiffllm PROPERTIES WIN32_EXECUTABLE TRUE)
@@ -221,16 +201,14 @@ if(WIN32)
         @ONLY
     )
     target_sources(skiffllm PRIVATE "${SKIFFLLM_RC_FILE}")
-    if(WIN32 AND SKIFFLLM_BUILD_GUI)
-        target_sources(skiffllm_cli PRIVATE "${SKIFFLLM_RC_FILE}")
-    endif()
 endif()
 target_link_libraries(skiffllm PRIVATE skiffllm_core)
 target_compile_definitions(skiffllm PRIVATE SKIFFLLM_VERSION="${PROJECT_VERSION}")
 skiffllm_apply_toolchain(skiffllm)
 skiffllm_apply_link_options(skiffllm)
 if(WIN32 AND SKIFFLLM_BUILD_GUI)
-    target_link_libraries(skiffllm PRIVATE skiffllm_imgui)
+    target_link_libraries(skiffllm PRIVATE comctl32)
+    target_sources(skiffllm_cli PRIVATE "${SKIFFLLM_RC_FILE}")
     target_compile_definitions(skiffllm_cli PRIVATE SKIFFLLM_VERSION="${PROJECT_VERSION}")
     target_link_libraries(skiffllm_cli PRIVATE skiffllm_core)
     skiffllm_apply_toolchain(skiffllm_cli)

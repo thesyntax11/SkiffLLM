@@ -1,13 +1,4 @@
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-
-#include <d3d11.h>
-#include <d3dcompiler.h>
-#include <dxgi.h>
-#include <imgui.h>
-#include <imgui_impl_dx11.h>
-#include <imgui_impl_win32.h>
+#include <commctrl.h>
 #include <windows.h>
 
 #include <algorithm>
@@ -16,6 +7,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <cwchar>
 #include <filesystem>
 #include <memory>
 #include <mutex>
@@ -36,15 +28,40 @@ using skiffllm::GenerationResult;
 using skiffllm::ModelInfo;
 using skiffllm::SkiffEngine;
 
-static ID3D11Device* g_pd3dDevice = nullptr;
-static ID3D11DeviceContext* g_pd3dDeviceContext = nullptr;
-static IDXGISwapChain* g_pSwapChain = nullptr;
-static bool g_SwapChainOccluded = false;
-static UINT g_ResizeWidth = 0;
-static UINT g_ResizeHeight = 0;
-static ID3D11RenderTargetView* g_mainRenderTargetView = nullptr;
-
 namespace {
+
+constexpr UINT kModelMessage = WM_APP + 1;
+constexpr UINT kGenerationDone = WM_APP + 2;
+constexpr UINT kUpdateUi = WM_APP + 3;
+constexpr UINT kRefreshTimer = 1;
+
+constexpr int kCtlTitle = 1001;
+constexpr int kCtlModelDir = 1002;
+constexpr int kCtlModels = 1003;
+constexpr int kCtlRefresh = 1004;
+constexpr int kCtlLoad = 1005;
+constexpr int kCtlUnload = 1006;
+constexpr int kCtlBrowse = 1007;
+constexpr int kCtlModelPath = 1008;
+constexpr int kCtlSettings = 1009;
+constexpr int kCtlTemp = 1010;
+constexpr int kCtlTempVal = 1011;
+constexpr int kCtlTopP = 1012;
+constexpr int kCtlTopPVal = 1013;
+constexpr int kCtlTokens = 1014;
+constexpr int kCtlTokensVal = 1015;
+constexpr int kCtlContext = 1016;
+constexpr int kCtlContextVal = 1017;
+constexpr int kCtlThreads = 1018;
+constexpr int kCtlThreadsVal = 1019;
+constexpr int kCtlChat = 1020;
+constexpr int kCtlInput = 1021;
+constexpr int kCtlSend = 1022;
+constexpr int kCtlStop = 1023;
+constexpr int kCtlClear = 1024;
+constexpr int kCtlHelp = 1025;
+constexpr int kCtlExit = 1026;
+constexpr int kCtlStatus = 1027;
 
 struct GuiState {
     std::mutex mutex;
@@ -56,25 +73,105 @@ struct GuiState {
     std::string custom_model;
     std::atomic<bool> loading{false};
     std::atomic<bool> loaded{false};
-    std::string load_error;
-    std::vector<ChatMessage> messages;
-    std::string draft;
-    std::string stream;
-    std::string worker_error;
     std::atomic<bool> generating{false};
     std::atomic<bool> stop_requested{false};
+    std::atomic<bool> dirty{false};
+    std::string load_error;
+    std::vector<ChatMessage> messages;
+    std::string stream;
+    std::string shown_stream;
+    std::string worker_error;
     std::string status;
 };
 
 using GuiStatePtr = std::shared_ptr<GuiState>;
 
-std::string trim(std::string value) {
-    const std::string::size_type first = value.find_first_not_of(" \t\r\n");
-    if (first == std::string::npos) {
+GuiStatePtr g_state;
+std::string state_cached_model_dir;
+HWND g_window = nullptr;
+HFONT g_font = nullptr;
+HFONT g_title_font = nullptr;
+HBRUSH g_background = nullptr;
+HBRUSH g_panel = nullptr;
+HBRUSH g_edit_background = nullptr;
+COLORREF g_text_color = RGB(230, 236, 245);
+COLORREF g_muted_color = RGB(148, 160, 180);
+COLORREF g_accent_color = RGB(110, 184, 255);
+COLORREF g_panel_color = RGB(24, 30, 44);
+COLORREF g_background_color = RGB(14, 18, 28);
+COLORREF g_edit_color = RGB(20, 25, 38);
+
+std::string wide_to_utf8(const std::wstring& value) {
+    if (value.empty()) {
         return {};
     }
-    const std::string::size_type last = value.find_last_not_of(" \t\r\n");
-    return value.substr(first, last - first + 1);
+    const int size =
+        WideCharToMultiByte(CP_UTF8, 0, value.c_str(), -1, nullptr, 0, nullptr, nullptr);
+    std::string result(static_cast<size_t>(size - 1), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, value.c_str(), -1, result.data(), size, nullptr, nullptr);
+    return result;
+}
+
+std::wstring utf8_to_wide(const std::string& value) {
+    if (value.empty()) {
+        return {};
+    }
+    const int size = MultiByteToWideChar(CP_UTF8, 0, value.c_str(), -1, nullptr, 0);
+    std::wstring result(static_cast<size_t>(size - 1), L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, value.c_str(), -1, result.data(), size);
+    return result;
+}
+
+std::wstring format_value(const char* label, int value) {
+    std::wstring text = utf8_to_wide(label);
+    text += L" ";
+    text += std::to_wstring(value);
+    return text;
+}
+
+std::wstring format_slider_value(const char* label, int value, int scale) {
+    std::wstring text = utf8_to_wide(label);
+    text += L" ";
+    if (scale == 100) {
+        wchar_t buffer[32] = {};
+        swprintf(buffer, 32, L"%.2f", static_cast<float>(value) / 100.0f);
+        text += buffer;
+    } else {
+        text += std::to_wstring(value);
+    }
+    return text;
+}
+
+void set_text(HWND control, const std::wstring& text) {
+    SetWindowTextW(control, text.c_str());
+}
+
+std::wstring get_text(HWND control) {
+    const int len = GetWindowTextLengthW(control);
+    std::wstring text(static_cast<size_t>(len), L'\0');
+    GetWindowTextW(control, text.data(), len + 1);
+    return text;
+}
+
+void append_chat(const std::string& text) {
+    if (text.empty()) {
+        return;
+    }
+    HWND chat = GetDlgItem(g_window, kCtlChat);
+    const std::wstring wide = utf8_to_wide(text);
+    SendMessageW(chat, EM_SETSEL, static_cast<WPARAM>(-1), static_cast<LPARAM>(-1));
+    SendMessageW(chat, EM_REPLACESEL, FALSE, reinterpret_cast<LPARAM>(wide.c_str()));
+}
+
+void append_chat_line(const std::string& label, const std::string& text) {
+    std::string combined;
+    combined += "[" + label + "] " + text + "\r\n";
+    append_chat(combined);
+}
+
+void clear_chat_display() {
+    HWND chat = GetDlgItem(g_window, kCtlChat);
+    SetWindowTextW(chat, L"");
 }
 
 void refresh_models(GuiStatePtr state) {
@@ -84,40 +181,63 @@ void refresh_models(GuiStatePtr state) {
         std::lock_guard<std::mutex> guard(state->mutex);
         state->models = std::move(models);
         state->selected_model = 0;
-        if (!error.empty()) {
-            state->status = error;
-        } else if (state->models.empty()) {
-            state->status = "No models found";
-        } else {
-            state->status = "Select a model";
-        }
+        state->status =
+            error.empty() ? (state->models.empty() ? "No models found" : "Select a model") : error;
+        state->dirty.store(true);
     }
+    HWND list = GetDlgItem(g_window, kCtlModels);
+    SendMessageW(list, LB_RESETCONTENT, 0, 0);
+    for (const auto& model : models) {
+        const std::wstring name = utf8_to_wide(model.filename().string());
+        SendMessageW(list, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(name.c_str()));
+    }
+    if (!models.empty()) {
+        SendMessageW(list, LB_SETCURSEL, 0, 0);
+    }
+    PostMessageW(g_window, kUpdateUi, 0, 0);
 }
 
 void stop_generation(GuiStatePtr state) {
     state->stop_requested.store(true);
-    std::lock_guard<std::mutex> guard(state->mutex);
-    state->status = "Stopping generation...";
+    {
+        std::lock_guard<std::mutex> guard(state->mutex);
+        state->status = "Stopping generation...";
+        state->dirty.store(true);
+    }
+    PostMessageW(g_window, kUpdateUi, 0, 0);
 }
 
 void start_load(GuiStatePtr state) {
+    std::string model_path;
     {
         std::lock_guard<std::mutex> guard(state->mutex);
         if (state->loading.load() || state->loaded.load()) {
             return;
         }
-        std::string model_path;
+        state->cfg.n_predict =
+            static_cast<int>(SendMessageW(GetDlgItem(g_window, kCtlTokens), TBM_GETPOS, 0, 0));
+        state->cfg.context_size =
+            static_cast<int>(SendMessageW(GetDlgItem(g_window, kCtlContext), TBM_GETPOS, 0, 0));
+        state->cfg.temperature =
+            static_cast<float>(SendMessageW(GetDlgItem(g_window, kCtlTemp), TBM_GETPOS, 0, 0)) /
+            100.0f;
+        state->cfg.top_p =
+            static_cast<float>(SendMessageW(GetDlgItem(g_window, kCtlTopP), TBM_GETPOS, 0, 0)) /
+            100.0f;
+        state->cfg.n_threads =
+            static_cast<int>(SendMessageW(GetDlgItem(g_window, kCtlThreads), TBM_GETPOS, 0, 0));
         if (state->selected_model >= 0 &&
             state->selected_model < static_cast<int>(state->models.size())) {
             model_path = state->models[static_cast<size_t>(state->selected_model)].string();
         }
-        const std::string custom = trim(state->custom_model);
+        const std::string custom = wide_to_utf8(get_text(GetDlgItem(g_window, kCtlModelPath)));
         if (!custom.empty()) {
             model_path = skiffllm::expand_path(custom).string();
         }
         if (model_path.empty()) {
             state->load_error = "Choose a model first.";
             state->status = "Model load failed";
+            state->dirty.store(true);
             return;
         }
         state->cfg.model_path = model_path;
@@ -125,6 +245,7 @@ void start_load(GuiStatePtr state) {
         state->loaded.store(false);
         state->load_error.clear();
         state->status = "Loading model...";
+        state->dirty.store(true);
     }
     GuiStatePtr shared = state;
     std::thread([shared]() {
@@ -148,7 +269,9 @@ void start_load(GuiStatePtr state) {
                 shared->status = "Model load failed";
             }
             shared->loading.store(false);
+            shared->dirty.store(true);
         }
+        PostMessageW(g_window, kModelMessage, ok ? 1 : 0, 0);
     }).detach();
 }
 
@@ -161,6 +284,8 @@ void unload_model(GuiStatePtr state) {
     state->status = "Model unloaded";
     state->stream.clear();
     state->worker_error.clear();
+    state->dirty.store(true);
+    PostMessageW(g_window, kUpdateUi, 0, 0);
 }
 
 void start_generate(GuiStatePtr state) {
@@ -170,19 +295,23 @@ void start_generate(GuiStatePtr state) {
         if (!state->loaded.load() || state->generating.load() || state->loading.load()) {
             return;
         }
-        const std::string input = trim(state->draft);
-        if (input.empty()) {
+        const std::string input = wide_to_utf8(get_text(GetDlgItem(g_window, kCtlInput)));
+        const std::string trimmed = skiffllm::trim(input);
+        if (trimmed.empty()) {
             return;
         }
         state->messages.push_back({"user", input});
         ask = state->messages;
-        state->draft.clear();
         state->stream.clear();
+        state->shown_stream.clear();
         state->worker_error.clear();
         state->generating.store(true);
         state->stop_requested.store(false);
         state->status = "Generating...";
+        state->dirty.store(true);
     }
+    append_chat_line("You", ask.back().content);
+    SetWindowTextW(GetDlgItem(g_window, kCtlInput), L"");
     GuiStatePtr shared = state;
     std::thread([shared, ask]() {
         std::shared_ptr<Config> cfg;
@@ -197,6 +326,7 @@ void start_generate(GuiStatePtr state) {
             shared->worker_error = "Engine is unavailable.";
             shared->generating.store(false);
             shared->status = "Generation failed";
+            shared->dirty.store(true);
             return;
         }
         GenerationOptions options;
@@ -214,8 +344,13 @@ void start_generate(GuiStatePtr state) {
         options.n_keep = cfg->n_keep;
         options.stop_sequences = cfg->stop_sequences;
         options.token_callback = [shared](const std::string& part) {
-            std::lock_guard<std::mutex> guard(shared->mutex);
-            shared->stream += part;
+            {
+                std::lock_guard<std::mutex> guard(shared->mutex);
+                shared->stream += part;
+            }
+            if (!shared->dirty.exchange(true)) {
+                PostMessageW(g_window, kUpdateUi, 0, 0);
+            }
         };
         GenerationResult result;
         std::string error;
@@ -231,7 +366,9 @@ void start_generate(GuiStatePtr state) {
             shared->generating.store(false);
             shared->stop_requested.store(false);
             shared->status = ok ? "Generation complete" : "Generation interrupted";
+            shared->dirty.store(true);
         }
+        PostMessageW(g_window, kGenerationDone, ok ? 1 : 0, 0);
     }).detach();
 }
 
@@ -239,393 +376,403 @@ void clear_chat(GuiStatePtr state) {
     std::lock_guard<std::mutex> guard(state->mutex);
     state->messages.clear();
     state->stream.clear();
+    state->shown_stream.clear();
     state->worker_error.clear();
     state->status = "Conversation cleared";
+    state->dirty.store(true);
+    clear_chat_display();
 }
 
-void CreateRenderTarget();
-void CleanupRenderTarget();
-
-bool CreateDeviceD3D(HWND hWnd) {
-    DXGI_SWAP_CHAIN_DESC sd;
-    ZeroMemory(&sd, sizeof(sd));
-    sd.BufferCount = 2;
-    sd.BufferDesc.Width = 0;
-    sd.BufferDesc.Height = 0;
-    sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    sd.BufferDesc.RefreshRate.Numerator = 60;
-    sd.BufferDesc.RefreshRate.Denominator = 1;
-    sd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
-    sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    sd.OutputWindow = hWnd;
-    sd.SampleDesc.Count = 1;
-    sd.SampleDesc.Quality = 0;
-    sd.Windowed = TRUE;
-    sd.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
-
-    UINT create_device_flags = 0;
-    D3D_FEATURE_LEVEL feature_level;
-    const D3D_FEATURE_LEVEL feature_level_array[2] = {D3D_FEATURE_LEVEL_11_0,
-                                                      D3D_FEATURE_LEVEL_10_0};
-    HRESULT res =
-        D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr,
-                                      create_device_flags, feature_level_array, 2,
-                                      D3D11_SDK_VERSION, &sd, &g_pSwapChain, &g_pd3dDevice,
-                                      &feature_level, &g_pd3dDeviceContext);
-    if (res == DXGI_ERROR_UNSUPPORTED) {
-        res = D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_WARP, nullptr,
-                                            create_device_flags, feature_level_array, 2,
-                                            D3D11_SDK_VERSION, &sd, &g_pSwapChain, &g_pd3dDevice,
-                                            &feature_level, &g_pd3dDeviceContext);
-    }
-    if (res != S_OK) {
-        return false;
-    }
-    CreateRenderTarget();
-    return true;
+void set_status_text(const std::string& text) {
+    set_text(GetDlgItem(g_window, kCtlStatus), utf8_to_wide(text));
 }
 
-void CleanupDeviceD3D() {
-    CleanupRenderTarget();
-    if (g_pSwapChain) {
-        g_pSwapChain->Release();
-        g_pSwapChain = nullptr;
-    }
-    if (g_pd3dDeviceContext) {
-        g_pd3dDeviceContext->Release();
-        g_pd3dDeviceContext = nullptr;
-    }
-    if (g_pd3dDevice) {
-        g_pd3dDevice->Release();
-        g_pd3dDevice = nullptr;
-    }
-}
-
-void CreateRenderTarget() {
-    ID3D11Texture2D* back_buffer = nullptr;
-    if (g_pSwapChain) {
-        g_pSwapChain->GetBuffer(0, IID_PPV_ARGS(&back_buffer));
-    }
-    if (back_buffer) {
-        g_pd3dDevice->CreateRenderTargetView(back_buffer, nullptr, &g_mainRenderTargetView);
-        back_buffer->Release();
-    }
-}
-
-void CleanupRenderTarget() {
-    if (g_mainRenderTargetView) {
-        g_mainRenderTargetView->Release();
-        g_mainRenderTargetView = nullptr;
-    }
-}
-
-void LoadFonts() {
-    ImGuiIO& io = ImGui::GetIO();
-    wchar_t win_dir[MAX_PATH] = {};
-    const UINT len = GetWindowsDirectoryW(win_dir, MAX_PATH);
-    if (len > 0 && len < MAX_PATH) {
-        const std::filesystem::path fonts = std::filesystem::path(win_dir) / L"Fonts";
-        const std::filesystem::path segoe = fonts / L"segoeui.ttf";
-        if (std::filesystem::exists(segoe)) {
-            io.FontDefault = io.Fonts->AddFontFromFileTTF(segoe.string().c_str(), 16.0f);
-        }
-    }
-    if (!io.FontDefault) {
-        io.FontDefault = io.Fonts->AddFontDefault();
-    }
-}
-
-void ApplyStyle() {
-    ImGuiStyle& style = ImGui::GetStyle();
-    style.WindowRounding = 0.0f;
-    style.FrameRounding = 7.0f;
-    style.ChildRounding = 10.0f;
-    style.PopupRounding = 8.0f;
-    style.ScrollbarRounding = 9.0f;
-    style.GrabRounding = 6.0f;
-    style.WindowPadding = ImVec2(18.0f, 18.0f);
-    style.FramePadding = ImVec2(14.0f, 8.0f);
-    style.ItemSpacing = ImVec2(12.0f, 10.0f);
-    style.ItemInnerSpacing = ImVec2(8.0f, 6.0f);
-    style.ScrollbarSize = 14.0f;
-
-    ImVec4* c = style.Colors;
-    c[ImGuiCol_WindowBg] = ImVec4(0.06f, 0.08f, 0.13f, 1.0f);
-    c[ImGuiCol_ChildBg] = ImVec4(0.09f, 0.11f, 0.17f, 1.0f);
-    c[ImGuiCol_PopupBg] = ImVec4(0.10f, 0.12f, 0.18f, 0.98f);
-    c[ImGuiCol_Border] = ImVec4(0.18f, 0.22f, 0.32f, 1.0f);
-    c[ImGuiCol_FrameBg] = ImVec4(0.11f, 0.14f, 0.21f, 1.0f);
-    c[ImGuiCol_FrameBgHovered] = ImVec4(0.16f, 0.20f, 0.30f, 1.0f);
-    c[ImGuiCol_FrameBgActive] = ImVec4(0.20f, 0.25f, 0.36f, 1.0f);
-    c[ImGuiCol_TitleBg] = ImVec4(0.08f, 0.10f, 0.16f, 1.0f);
-    c[ImGuiCol_TitleBgActive] = ImVec4(0.08f, 0.10f, 0.16f, 1.0f);
-    c[ImGuiCol_TitleBgCollapsed] = ImVec4(0.08f, 0.10f, 0.16f, 0.8f);
-    c[ImGuiCol_Header] = ImVec4(0.14f, 0.18f, 0.28f, 1.0f);
-    c[ImGuiCol_HeaderHovered] = ImVec4(0.20f, 0.26f, 0.40f, 1.0f);
-    c[ImGuiCol_HeaderActive] = ImVec4(0.24f, 0.31f, 0.46f, 1.0f);
-    c[ImGuiCol_Button] = ImVec4(0.15f, 0.22f, 0.42f, 1.0f);
-    c[ImGuiCol_ButtonHovered] = ImVec4(0.22f, 0.32f, 0.58f, 1.0f);
-    c[ImGuiCol_ButtonActive] = ImVec4(0.28f, 0.40f, 0.68f, 1.0f);
-    c[ImGuiCol_CheckMark] = ImVec4(0.42f, 0.72f, 1.0f, 1.0f);
-    c[ImGuiCol_SliderGrab] = ImVec4(0.35f, 0.60f, 1.0f, 1.0f);
-    c[ImGuiCol_SliderGrabActive] = ImVec4(0.48f, 0.72f, 1.0f, 1.0f);
-    c[ImGuiCol_Text] = ImVec4(0.90f, 0.93f, 0.98f, 1.0f);
-    c[ImGuiCol_TextDisabled] = ImVec4(0.52f, 0.57f, 0.66f, 1.0f);
-    c[ImGuiCol_ScrollbarBg] = ImVec4(0.07f, 0.09f, 0.13f, 0.9f);
-    c[ImGuiCol_ScrollbarGrab] = ImVec4(0.24f, 0.30f, 0.42f, 1.0f);
-    c[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.32f, 0.40f, 0.55f, 1.0f);
-    c[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.40f, 0.50f, 0.68f, 1.0f);
-    c[ImGuiCol_Separator] = ImVec4(0.24f, 0.30f, 0.42f, 1.0f);
-}
-
-void DrawModelPanel(GuiStatePtr state) {
-    std::shared_ptr<SkiffEngine> engine;
-    std::string load_error;
+void update_status_from_state(GuiStatePtr state) {
     std::string status;
-    char custom_input[1024] = {};
+    std::string error;
     {
         std::lock_guard<std::mutex> guard(state->mutex);
-        engine = state->engine;
-        load_error = state->load_error;
         status = state->status;
-        std::snprintf(custom_input, sizeof(custom_input), "%s", state->custom_model.c_str());
+        error = state->load_error;
     }
-    ImGui::TextColored(ImVec4(0.42f, 0.72f, 1.0f, 1.0f), "SkiffLLM");
-    ImGui::TextDisabled("Offline LLM Desktop");
-    ImGui::Separator();
-    ImGui::Spacing();
-
-    ImGui::Text("Models");
-    ImGui::TextDisabled("%s", state->cfg.model_dir.string().c_str());
-    if (!state->models.empty()) {
-        const int selected = state->selected_model;
-        std::string preview = selected >= 0 && selected < static_cast<int>(state->models.size())
-                                  ? state->models[static_cast<size_t>(selected)].filename().string()
-                                  : "No model";
-        ImGui::PushItemWidth(-1.0f);
-        if (ImGui::BeginCombo("##model", preview.c_str())) {
-            for (int i = 0; i < static_cast<int>(state->models.size()); ++i) {
-                const bool picked = i == state->selected_model;
-                const std::string label = state->models[static_cast<size_t>(i)].filename().string();
-                if (ImGui::Selectable(label.c_str(), picked)) {
-                    state->selected_model = i;
-                }
-                if (picked) {
-                    ImGui::SetItemDefaultFocus();
-                }
-            }
-            ImGui::EndCombo();
-        }
-        ImGui::PopItemWidth();
-    } else {
-        ImGui::TextWrapped("No GGUF models found in this directory.");
+    std::string combined = status;
+    if (!error.empty()) {
+        combined += " - " + error;
     }
-
-    ImGui::Spacing();
-    ImGui::Text("Custom path");
-    ImGui::PushItemWidth(-1.0f);
-    ImGui::InputText("##custommodel", custom_input, IM_ARRAYSIZE(custom_input));
-    ImGui::PopItemWidth();
-    state->custom_model = custom_input;
-
-    if (state->loading.load()) {
-        ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.30f, 1.0f), "Loading model...");
-    } else if (state->loaded.load() && engine) {
-        const ModelInfo& info = engine->info();
-        ImGui::TextColored(ImVec4(0.42f, 0.86f, 0.55f, 1.0f), "Ready");
-        ImGui::TextDisabled("Context %u", engine->context_capacity());
-        if (!info.description.empty()) {
-            ImGui::TextDisabled("%s", info.description.c_str());
-        }
-        if (info.n_params != 0) {
-            ImGui::TextDisabled("Params %llu", info.n_params);
-        }
-    } else {
-        ImGui::TextColored(ImVec4(0.95f, 0.52f, 0.52f, 1.0f), "Not loaded");
-    }
-    if (!load_error.empty()) {
-        ImGui::TextWrapped("%s", load_error.c_str());
-    }
-
-    if (state->loaded.load()) {
-        if (ImGui::Button("Unload Model", ImVec2(-1.0f, 0.0f))) {
-            unload_model(state);
-        }
-    } else {
-        ImGui::BeginDisabled(state->loading.load());
-        if (ImGui::Button("Load Model", ImVec2(-1.0f, 0.0f))) {
-            start_load(state);
-        }
-        ImGui::EndDisabled();
-    }
-    if (ImGui::Button("Refresh Models", ImVec2(-1.0f, 0.0f))) {
-        refresh_models(state);
-    }
-
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
-    ImGui::Text("Generation Settings");
-    ImGui::PushItemWidth(-1.0f);
-    ImGui::SliderFloat("Temperature", &state->cfg.temperature, 0.0f, 2.0f, "%.2f");
-    ImGui::SliderFloat("Top P", &state->cfg.top_p, 0.0f, 1.0f, "%.2f");
-    ImGui::SliderInt("Max Tokens", &state->cfg.n_predict, 16, 4096);
-    ImGui::SliderInt("Context", &state->cfg.context_size, 512, 32768);
-    ImGui::SliderInt("GPU Layers", &state->cfg.n_gpu_layers, 0, 99);
-    ImGui::SliderInt("Threads", &state->cfg.n_threads, 1, 64);
-    ImGui::PopItemWidth();
-    ImGui::TextDisabled("Settings apply when a model is loaded.");
-    ImGui::TextDisabled("%s", status.c_str());
+    set_status_text(combined);
 }
 
-void DrawChatPanel(GuiStatePtr state) {
-    std::vector<ChatMessage> messages;
+void update_generation_view(GuiStatePtr state) {
     std::string stream;
-    std::string worker_error;
-    std::string status;
-    char draft_input[8192] = {};
-    const bool loaded = state->loaded.load();
-    const bool generating = state->generating.load();
-    const bool busy = generating || state->loading.load();
-    const bool can_exit = true;
+    std::string shown;
     {
         std::lock_guard<std::mutex> guard(state->mutex);
-        messages = state->messages;
         stream = state->stream;
-        worker_error = state->worker_error;
-        status = state->status;
-        std::snprintf(draft_input, sizeof(draft_input), "%s", state->draft.c_str());
+        shown = state->shown_stream;
     }
-
-    ImGui::BeginChild("chat_history", ImVec2(0.0f, -96.0f), false,
-                      ImGuiWindowFlags_HorizontalScrollbar);
-    ImGui::PushTextWrapPos(ImGui::GetContentRegionAvail().x - 8.0f);
-    if (messages.empty() && !generating) {
-        ImGui::TextColored(ImVec4(0.62f, 0.68f, 0.78f, 1.0f),
-                           "Start a conversation. Select and load a model on the left.");
-    }
-    for (const ChatMessage& message : messages) {
-        ImGui::Spacing();
-        if (message.role == "user") {
-            ImGui::TextColored(ImVec4(0.42f, 0.72f, 1.0f, 1.0f), "You");
-            ImGui::TextWrapped("%s", message.content.c_str());
-        } else {
-            ImGui::TextColored(ImVec4(0.42f, 0.86f, 0.55f, 1.0f), "SkiffLLM");
-            ImGui::TextWrapped("%s", message.content.c_str());
+    if (shown != stream) {
+        const size_t prefix = shown.size();
+        if (prefix < stream.size()) {
+            append_chat(stream.substr(prefix));
+        }
+        {
+            std::lock_guard<std::mutex> guard(state->mutex);
+            state->shown_stream = stream;
         }
     }
-    if (generating) {
-        ImGui::Spacing();
-        ImGui::TextColored(ImVec4(0.42f, 0.72f, 1.0f, 1.0f), "SkiffLLM");
-        ImGui::TextWrapped("%s", stream.c_str());
-    }
-    if (!worker_error.empty()) {
-        ImGui::Spacing();
-        ImGui::TextColored(ImVec4(0.95f, 0.52f, 0.52f, 1.0f), "%s", worker_error.c_str());
-    }
-    ImGui::PopTextWrapPos();
-    if (generating) {
-        ImGui::SetScrollHereY(1.0f);
-    }
-    ImGui::EndChild();
-
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.09f, 0.11f, 0.17f, 1.0f));
-    ImGui::BeginChild("input_area", ImVec2(0.0f, 0.0f), false,
-                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-    ImGui::TextColored(ImVec4(0.62f, 0.68f, 0.78f, 1.0f), "Message");
-    ImGui::PushItemWidth(-100.0f);
-    const bool submit =
-        ImGui::InputText("##message", draft_input, sizeof(draft_input),
-                         ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
-    ImGui::PopItemWidth();
-    state->draft = draft_input;
-    ImGui::SameLine();
-    ImGui::BeginDisabled(!loaded || generating);
-    if (ImGui::Button("Send", ImVec2(0.0f, 0.0f)) || submit) {
-        start_generate(state);
-    }
-    ImGui::EndDisabled();
-    ImGui::SameLine();
-    if (generating) {
-        if (ImGui::Button("Stop")) {
-            stop_generation(state);
-        }
-    } else {
-        ImGui::BeginDisabled(state->draft.empty());
-        if (ImGui::Button("Clear")) {
-            clear_chat(state);
-        }
-        ImGui::EndDisabled();
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Help")) {
-        state->status = "Commands: /exit or /quit to close, /clear to clear, /help for help.";
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Exit")) {
-        PostQuitMessage(0);
-    }
-    ImGui::PopStyleColor();
-    ImGui::EndChild();
-
-    ImGui::TextDisabled("%s", status.c_str());
 }
 
-void RenderApp(GuiStatePtr state) {
-    const ImGuiIO& io = ImGui::GetIO();
-    ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
-    ImGui::SetNextWindowSize(io.DisplaySize);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 8.0f));
-    ImGui::Begin("SkiffLLM", nullptr,
-                 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
-                     ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBringToFrontOnFocus);
-    ImGui::PopStyleVar(3);
+void create_controls(HWND hwnd) {
+    CreateWindowExW(0, L"STATIC", L"SkiffLLM", WS_CHILD | WS_VISIBLE | SS_LEFT, 0, 0, 0, 0, hwnd,
+                    reinterpret_cast<HMENU>(kCtlTitle), nullptr, nullptr);
+    CreateWindowExW(0, L"STATIC", L"", WS_CHILD | WS_VISIBLE | SS_LEFT, 0, 0, 0, 0, hwnd,
+                    reinterpret_cast<HMENU>(kCtlModelDir), nullptr, nullptr);
+    CreateWindowExW(0, L"LISTBOX", L"", WS_CHILD | WS_VISIBLE | WS_BORDER | LBS_NOTIFY | WS_VSCROLL,
+                    0, 0, 0, 0, hwnd, reinterpret_cast<HMENU>(kCtlModels), nullptr, nullptr);
+    CreateWindowExW(0, L"BUTTON", L"Refresh", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0, 0, 0,
+                    hwnd, reinterpret_cast<HMENU>(kCtlRefresh), nullptr, nullptr);
+    CreateWindowExW(0, L"BUTTON", L"Load Model", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0, 0, 0,
+                    hwnd, reinterpret_cast<HMENU>(kCtlLoad), nullptr, nullptr);
+    CreateWindowExW(0, L"BUTTON", L"Unload", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0, 0, 0,
+                    hwnd, reinterpret_cast<HMENU>(kCtlUnload), nullptr, nullptr);
+    CreateWindowExW(0, L"BUTTON", L"Browse...", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0, 0, 0,
+                    hwnd, reinterpret_cast<HMENU>(kCtlBrowse), nullptr, nullptr);
+    CreateWindowExW(0, L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL, 0, 0, 0, 0,
+                    hwnd, reinterpret_cast<HMENU>(kCtlModelPath), nullptr, nullptr);
 
-    ImGui::BeginChild("sidebar", ImVec2(320.0f, 0.0f), true);
-    DrawModelPanel(state);
-    ImGui::EndChild();
+    CreateWindowExW(0, L"STATIC", L"Generation Settings", WS_CHILD | WS_VISIBLE | SS_LEFT, 0, 0, 0,
+                    0, hwnd, reinterpret_cast<HMENU>(kCtlSettings), nullptr, nullptr);
 
-    ImGui::SameLine();
-    ImGui::BeginChild("main", ImVec2(0.0f, 0.0f), false, ImGuiWindowFlags_NoScrollWithMouse);
-    DrawChatPanel(state);
-    ImGui::EndChild();
+    const int slider_ids[] = {kCtlTemp, kCtlTopP, kCtlTokens, kCtlContext, kCtlThreads};
+    const int value_ids[] = {kCtlTempVal, kCtlTopPVal, kCtlTokensVal, kCtlContextVal,
+                             kCtlThreadsVal};
+    for (int i = 0; i < 5; ++i) {
+        CreateWindowExW(0, L"msctls_trackbar32", L"", WS_CHILD | WS_VISIBLE | TBS_AUTOTICKS, 0, 0,
+                        0, 0, hwnd, reinterpret_cast<HMENU>(slider_ids[i]), nullptr, nullptr);
+        CreateWindowExW(0, L"STATIC", L"", WS_CHILD | WS_VISIBLE | SS_RIGHT, 0, 0, 0, 0, hwnd,
+                        reinterpret_cast<HMENU>(value_ids[i]), nullptr, nullptr);
+    }
 
-    ImGui::End();
+    CreateWindowExW(0, L"EDIT", L"",
+                    WS_CHILD | WS_VISIBLE | WS_BORDER | WS_VSCROLL | ES_MULTILINE | ES_READONLY, 0,
+                    0, 0, 0, hwnd, reinterpret_cast<HMENU>(kCtlChat), nullptr, nullptr);
+    CreateWindowExW(0, L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL, 0, 0, 0, 0,
+                    hwnd, reinterpret_cast<HMENU>(kCtlInput), nullptr, nullptr);
+    CreateWindowExW(0, L"BUTTON", L"Send", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0, 0, 0, hwnd,
+                    reinterpret_cast<HMENU>(kCtlSend), nullptr, nullptr);
+    CreateWindowExW(0, L"BUTTON", L"Stop", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0, 0, 0, hwnd,
+                    reinterpret_cast<HMENU>(kCtlStop), nullptr, nullptr);
+    CreateWindowExW(0, L"BUTTON", L"Clear", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0, 0, 0, hwnd,
+                    reinterpret_cast<HMENU>(kCtlClear), nullptr, nullptr);
+    CreateWindowExW(0, L"BUTTON", L"Help", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0, 0, 0, hwnd,
+                    reinterpret_cast<HMENU>(kCtlHelp), nullptr, nullptr);
+    CreateWindowExW(0, L"BUTTON", L"Exit", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON, 0, 0, 0, 0, hwnd,
+                    reinterpret_cast<HMENU>(kCtlExit), nullptr, nullptr);
+    CreateWindowExW(0, L"STATIC", L"", WS_CHILD | WS_VISIBLE | SS_LEFT, 0, 0, 0, 0, hwnd,
+                    reinterpret_cast<HMENU>(kCtlStatus), nullptr, nullptr);
+
+    {
+        const int ranges[][3] = {
+            {kCtlTemp, 0, 200},        {kCtlTopP, 0, 100},   {kCtlTokens, 16, 4096},
+            {kCtlContext, 512, 32768}, {kCtlThreads, 1, 64},
+        };
+        for (const auto& range : ranges) {
+            SendMessageW(GetDlgItem(hwnd, range[0]), TBM_SETRANGE, TRUE,
+                         MAKELPARAM(range[1], range[2]));
+            SendMessageW(GetDlgItem(hwnd, range[0]), TBM_SETPAGESIZE, 0, 1);
+        }
+        SendMessageW(GetDlgItem(hwnd, kCtlTemp), TBM_SETPOS, TRUE, 70);
+        SendMessageW(GetDlgItem(hwnd, kCtlTopP), TBM_SETPOS, TRUE, 95);
+        SendMessageW(GetDlgItem(hwnd, kCtlTokens), TBM_SETPOS, TRUE, 512);
+        SendMessageW(GetDlgItem(hwnd, kCtlContext), TBM_SETPOS, TRUE, 4096);
+        SendMessageW(GetDlgItem(hwnd, kCtlThreads), TBM_SETPOS, TRUE, 8);
+    }
 }
 
-}  // namespace
+void layout_controls(HWND hwnd) {
+    RECT client;
+    GetClientRect(hwnd, &client);
+    const int width = client.right - client.left;
+    const int height = client.bottom - client.top;
+    const int sidebar = std::max(320, width / 4);
+    const int margin = 12;
+    int y = margin;
 
-extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+    HWND title = GetDlgItem(hwnd, kCtlTitle);
+    SetWindowPos(title, nullptr, margin, y, sidebar - 2 * margin, 32, SWP_NOZORDER);
+    y += 36;
 
-LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam)) {
-        return true;
+    HWND dir = GetDlgItem(hwnd, kCtlModelDir);
+    SetWindowPos(dir, nullptr, margin, y, sidebar - 2 * margin, 22, SWP_NOZORDER);
+    y += 26;
+
+    HWND models = GetDlgItem(hwnd, kCtlModels);
+    SetWindowPos(models, nullptr, margin, y, sidebar - 2 * margin, 120, SWP_NOZORDER);
+    y += 126;
+
+    HWND browse = GetDlgItem(hwnd, kCtlBrowse);
+    HWND refresh = GetDlgItem(hwnd, kCtlRefresh);
+    HWND load = GetDlgItem(hwnd, kCtlLoad);
+    HWND unload = GetDlgItem(hwnd, kCtlUnload);
+    const int btn_w = (sidebar - 2 * margin - 12) / 3;
+    SetWindowPos(refresh, nullptr, margin, y, btn_w, 32, SWP_NOZORDER);
+    SetWindowPos(browse, nullptr, margin + btn_w + 6, y, btn_w, 32, SWP_NOZORDER);
+    SetWindowPos(load, nullptr, margin + 2 * (btn_w + 6), y, btn_w, 32, SWP_NOZORDER);
+    y += 38;
+    SetWindowPos(unload, nullptr, margin, y, sidebar - 2 * margin, 32, SWP_NOZORDER);
+    y += 38;
+
+    HWND model_path = GetDlgItem(hwnd, kCtlModelPath);
+    SetWindowPos(model_path, nullptr, margin, y, sidebar - 2 * margin, 28, SWP_NOZORDER);
+    y += 34;
+
+    HWND settings = GetDlgItem(hwnd, kCtlSettings);
+    SetWindowPos(settings, nullptr, margin, y, sidebar - 2 * margin, 24, SWP_NOZORDER);
+    y += 28;
+
+    const int slider_ids[] = {kCtlTemp, kCtlTopP, kCtlTokens, kCtlContext, kCtlThreads};
+    const int value_ids[] = {kCtlTempVal, kCtlTopPVal, kCtlTokensVal, kCtlContextVal,
+                             kCtlThreadsVal};
+    for (int i = 0; i < 5; ++i) {
+        HWND val = GetDlgItem(hwnd, value_ids[i]);
+        SetWindowPos(val, nullptr, margin, y, 72, 24, SWP_NOZORDER);
+        HWND slider = GetDlgItem(hwnd, slider_ids[i]);
+        SetWindowPos(slider, nullptr, margin + 78, y, sidebar - 2 * margin - 84, 24, SWP_NOZORDER);
+        y += 30;
     }
-    switch (msg) {
-        case WM_CLOSE:
-            DestroyWindow(hWnd);
-            return 0;
-        case WM_SIZE:
-            if (wParam == SIZE_MINIMIZED) {
-                return 0;
-            }
-            g_ResizeWidth = LOWORD(lParam);
-            g_ResizeHeight = HIWORD(lParam);
-            return 0;
-        case WM_SYSCOMMAND:
-            if ((wParam & 0xfff0) == SC_KEYMENU) {
-                return 0;
-            }
-            break;
-        case WM_DESTROY:
-            PostQuitMessage(0);
-            return 0;
-        default:
-            break;
+
+    const int right = sidebar + 12;
+    const int right_w = width - right - margin;
+    const int chat_h = std::max(220, height - 170);
+    HWND chat = GetDlgItem(hwnd, kCtlChat);
+    SetWindowPos(chat, nullptr, right, margin, right_w, chat_h, SWP_NOZORDER);
+
+    const int input_y = margin + chat_h + 8;
+    HWND input = GetDlgItem(hwnd, kCtlInput);
+    SetWindowPos(input, nullptr, right, input_y, right_w - 420, 36, SWP_NOZORDER);
+    const int action_y = input_y;
+    const int len = std::min(80, (right_w - 420 - 12) / 5);
+    HWND send = GetDlgItem(hwnd, kCtlSend);
+    HWND stop = GetDlgItem(hwnd, kCtlStop);
+    HWND clear = GetDlgItem(hwnd, kCtlClear);
+    HWND help = GetDlgItem(hwnd, kCtlHelp);
+    HWND exit = GetDlgItem(hwnd, kCtlExit);
+    int x = right + (right_w - 420) + 12;
+    SetWindowPos(send, nullptr, x, action_y, len, 36, SWP_NOZORDER);
+    x += len + 6;
+    SetWindowPos(stop, nullptr, x, action_y, len, 36, SWP_NOZORDER);
+    x += len + 6;
+    SetWindowPos(clear, nullptr, x, action_y, len, 36, SWP_NOZORDER);
+    x += len + 6;
+    SetWindowPos(help, nullptr, x, action_y, len, 36, SWP_NOZORDER);
+    x += len + 6;
+    SetWindowPos(exit, nullptr, x, action_y, len, 36, SWP_NOZORDER);
+
+    HWND status = GetDlgItem(hwnd, kCtlStatus);
+    SetWindowPos(status, nullptr, right, input_y + 44, right_w, 28, SWP_NOZORDER);
+
+    set_text(dir, utf8_to_wide(state_cached_model_dir));
+}
+
+void update_slider_labels() {
+    HWND temp = GetDlgItem(g_window, kCtlTemp);
+    HWND topp = GetDlgItem(g_window, kCtlTopP);
+    HWND tokens = GetDlgItem(g_window, kCtlTokens);
+    HWND context = GetDlgItem(g_window, kCtlContext);
+    HWND threads = GetDlgItem(g_window, kCtlThreads);
+    set_text(GetDlgItem(g_window, kCtlTempVal),
+             format_slider_value("Temperature",
+                                 static_cast<int>(SendMessageW(temp, TBM_GETPOS, 0, 0)), 100));
+    set_text(GetDlgItem(g_window, kCtlTopPVal),
+             format_slider_value("Top P", static_cast<int>(SendMessageW(topp, TBM_GETPOS, 0, 0)),
+                                 100));
+    set_text(GetDlgItem(g_window, kCtlTokensVal),
+             format_value("Tokens", static_cast<int>(SendMessageW(tokens, TBM_GETPOS, 0, 0))));
+    set_text(GetDlgItem(g_window, kCtlContextVal),
+             format_value("Context", static_cast<int>(SendMessageW(context, TBM_GETPOS, 0, 0))));
+    set_text(GetDlgItem(g_window, kCtlThreadsVal),
+             format_value("Threads", static_cast<int>(SendMessageW(threads, TBM_GETPOS, 0, 0))));
+}
+
+void browse_for_model() {
+    wchar_t path[MAX_PATH] = {};
+    OPENFILENAMEW ofn = {};
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner = g_window;
+    ofn.lpstrFilter = L"GGUF Models\0*.gguf\0All Files\0*.*\0";
+    ofn.lpstrFile = path;
+    ofn.nMaxFile = MAX_PATH;
+    ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
+    if (GetOpenFileNameW(&ofn)) {
+        set_text(GetDlgItem(g_window, kCtlModelPath), path);
     }
-    return DefWindowProcW(hWnd, msg, wParam, lParam);
+}
+
+void show_help() {
+    std::string text;
+    text += "Welcome to SkiffLLM.\r\n\r\n";
+    text += "1. Pick a GGUF model or type its path.\r\n";
+    text += "2. Click Load Model and wait for Ready.\r\n";
+    text += "3. Type a message and press Send.\r\n";
+    text += "Use Stop to interrupt generation, Clear to reset the chat.\r\n";
+    text += "Click Exit or the X button to close.\r\n";
+    append_chat(text);
+}
+
+void apply_font_to_children(HWND hwnd) {
+    HWND child = nullptr;
+    while ((child = FindWindowExW(hwnd, child, nullptr, nullptr)) != nullptr) {
+        const int id = GetDlgCtrlID(child);
+        const HFONT font = id == kCtlTitle ? g_title_font : g_font;
+        SendMessageW(child, WM_SETFONT, reinterpret_cast<WPARAM>(font), TRUE);
+    }
+}
+
+}
+
+LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    GuiStatePtr state = g_state;
+    if (msg == WM_CREATE) {
+        g_window = hwnd;
+        create_controls(hwnd);
+        apply_font_to_children(hwnd);
+        layout_controls(hwnd);
+        update_slider_labels();
+        SetTimer(hwnd, kRefreshTimer, 40, nullptr);
+        return 0;
+    }
+    if (state) {
+        switch (msg) {
+            case WM_SIZE:
+                layout_controls(hwnd);
+                return 0;
+            case WM_TIMER:
+                if (wParam == kRefreshTimer) {
+                    update_slider_labels();
+                    if (state->dirty.exchange(false)) {
+                        update_status_from_state(state);
+                    }
+                    update_generation_view(state);
+                }
+                return 0;
+            case WM_COMMAND: {
+                const int id = LOWORD(wParam);
+                const int code = HIWORD(wParam);
+                if (id == kCtlRefresh) {
+                    refresh_models(state);
+                    return 0;
+                }
+                if (id == kCtlLoad) {
+                    start_load(state);
+                    return 0;
+                }
+                if (id == kCtlUnload) {
+                    unload_model(state);
+                    return 0;
+                }
+                if (id == kCtlBrowse) {
+                    browse_for_model();
+                    return 0;
+                }
+                if (id == kCtlSend) {
+                    start_generate(state);
+                    return 0;
+                }
+                if (id == kCtlStop) {
+                    stop_generation(state);
+                    return 0;
+                }
+                if (id == kCtlClear) {
+                    clear_chat(state);
+                    return 0;
+                }
+                if (id == kCtlHelp) {
+                    show_help();
+                    return 0;
+                }
+                if (id == kCtlExit) {
+                    DestroyWindow(hwnd);
+                    return 0;
+                }
+                if (id == kCtlModels && code == LBN_SELCHANGE) {
+                    const int index = static_cast<int>(
+                        SendMessageW(GetDlgItem(hwnd, kCtlModels), LB_GETCURSEL, 0, 0));
+                    {
+                        std::lock_guard<std::mutex> guard(state->mutex);
+                        state->selected_model = index;
+                    }
+                    return 0;
+                }
+                if (id == kCtlModels && code == LBN_DBLCLK) {
+                    start_load(state);
+                    return 0;
+                }
+                break;
+            }
+            case WM_CTLCOLORSTATIC: {
+                HDC dc = reinterpret_cast<HDC>(wParam);
+                SetBkColor(dc, g_background_color);
+                SetTextColor(dc, g_text_color);
+                const HWND control = reinterpret_cast<HWND>(lParam);
+                const int id = GetDlgCtrlID(control);
+                if (id == kCtlTitle) {
+                    SetTextColor(dc, g_accent_color);
+                }
+                return reinterpret_cast<LRESULT>(g_background);
+            }
+            case WM_CTLCOLOREDIT:
+            case WM_CTLCOLORLISTBOX: {
+                HDC dc = reinterpret_cast<HDC>(wParam);
+                SetBkColor(dc, g_edit_color);
+                SetTextColor(dc, g_text_color);
+                return reinterpret_cast<LRESULT>(g_edit_background);
+            }
+            case WM_CTLCOLORBTN: {
+                HDC dc = reinterpret_cast<HDC>(wParam);
+                SetBkColor(dc, g_panel_color);
+                return reinterpret_cast<LRESULT>(g_panel);
+            }
+            case kModelMessage:
+                update_status_from_state(state);
+                if (wParam) {
+                    append_chat_line("Info", "Model loaded.");
+                } else {
+                    append_chat_line("Error", state->load_error.empty() ? "Model load failed."
+                                                                        : state->load_error);
+                }
+                return 0;
+            case kGenerationDone: {
+                std::string error;
+                {
+                    std::lock_guard<std::mutex> guard(state->mutex);
+                    error = state->worker_error;
+                    state->worker_error.clear();
+                    state->stream.clear();
+                }
+                if (!error.empty()) {
+                    append_chat_line("Error", error);
+                }
+                update_status_from_state(state);
+                update_generation_view(state);
+            }
+                return 0;
+            case WM_CLOSE:
+                DestroyWindow(hwnd);
+                return 0;
+            case WM_DESTROY:
+                KillTimer(hwnd, kRefreshTimer);
+                if (state) {
+                    state->stop_requested.store(true);
+                    state->engine.reset();
+                    state->engine_cfg.reset();
+                }
+                PostQuitMessage(0);
+                return 0;
+            default:
+                break;
+        }
+    }
+    return DefWindowProcW(hwnd, msg, wParam, lParam);
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR cmd_line, int) {
@@ -636,9 +783,42 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR cmd_line, int) {
         return 0;
     }
 
+    INITCOMMONCONTROLSEX init = {};
+    init.dwSize = sizeof(init);
+    init.dwICC = ICC_BAR_CLASSES | ICC_LISTVIEW_CLASSES;
+    InitCommonControlsEx(&init);
+
+    g_font = CreateFontW(-16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+                         OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                         DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+    g_title_font = CreateFontW(-24, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+                               OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+                               DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+    g_background = CreateSolidBrush(g_background_color);
+    g_panel = CreateSolidBrush(g_panel_color);
+    g_edit_background = CreateSolidBrush(g_edit_color);
+
+    GuiStatePtr state = std::make_shared<GuiState>();
+    state->cfg = skiffllm::default_config();
+    skiffllm::apply_environment(state->cfg);
+    {
+        const char* appdata = std::getenv("LOCALAPPDATA");
+        if (!appdata || !*appdata) {
+            const char* userprofile = std::getenv("USERPROFILE");
+            appdata = userprofile ? userprofile : "";
+        }
+        if (appdata && *appdata) {
+            state->cfg.model_dir = std::filesystem::path(appdata) / "SkiffLLM" / "models";
+        }
+    }
+    std::error_code ec;
+    std::filesystem::create_directories(state->cfg.model_dir, ec);
+    state_cached_model_dir = state->cfg.model_dir.string();
+    g_state = state;
+    llama_backend_init();
+
     WNDCLASSEXW wc = {};
     wc.cbSize = sizeof(wc);
-    wc.style = CS_CLASSDC;
     wc.lpfnWndProc = WndProc;
     wc.hInstance = hInstance;
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
@@ -651,43 +831,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR cmd_line, int) {
     if (!hwnd) {
         return 1;
     }
-
     ShowWindow(hwnd, SW_MAXIMIZE);
     UpdateWindow(hwnd);
-
-    if (!CreateDeviceD3D(hwnd)) {
-        CleanupDeviceD3D();
-        UnregisterClassW(wc.lpszClassName, wc.hInstance);
-        return 1;
-    }
-
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
-    io.IniFilename = nullptr;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-    ImGui::StyleColorsDark();
-    ApplyStyle();
-    ImGui_ImplWin32_Init(hwnd);
-    ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
-    LoadFonts();
-
-    GuiStatePtr state = std::make_shared<GuiState>();
-    state->cfg = skiffllm::default_config();
-    skiffllm::apply_environment(state->cfg);
-    {
-        const char* appdata = std::getenv("LOCALAPPDATA");
-        if (appdata && *appdata) {
-            state->cfg.model_dir = std::filesystem::path(appdata) / "SkiffLLM" / "models";
-        }
-    }
     refresh_models(state);
-    llama_backend_init();
 
     bool done = false;
     while (!done) {
         MSG msg;
-        while (PeekMessage(&msg, nullptr, 0U, 0U, PM_REMOVE)) {
+        while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
             if (msg.message == WM_QUIT) {
@@ -697,42 +848,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR cmd_line, int) {
         if (done) {
             break;
         }
-
-        if (g_SwapChainOccluded &&
-            g_pSwapChain->Present(0, DXGI_PRESENT_TEST) == DXGI_STATUS_OCCLUDED) {
-            Sleep(10);
-            continue;
-        }
-        g_SwapChainOccluded = false;
-
-        if (g_ResizeWidth != 0 && g_ResizeHeight != 0) {
-            CleanupRenderTarget();
-            g_pSwapChain->ResizeBuffers(0, g_ResizeWidth, g_ResizeHeight, DXGI_FORMAT_UNKNOWN, 0);
-            g_ResizeWidth = 0;
-            g_ResizeHeight = 0;
-            CreateRenderTarget();
-        }
-
-        ImGui_ImplDX11_NewFrame();
-        ImGui_ImplWin32_NewFrame();
-        ImGui::NewFrame();
-        RenderApp(state);
-        ImGui::Render();
-
-        const float clear_color[4] = {0.06f, 0.08f, 0.13f, 1.0f};
-        g_pd3dDeviceContext->OMSetRenderTargets(1, &g_mainRenderTargetView, nullptr);
-        g_pd3dDeviceContext->ClearRenderTargetView(g_mainRenderTargetView, clear_color);
-        ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-
-        const HRESULT hr = g_pSwapChain->Present(1, 0);
-        g_SwapChainOccluded = (hr == DXGI_STATUS_OCCLUDED);
+        Sleep(10);
     }
 
-    ImGui_ImplDX11_Shutdown();
-    ImGui_ImplWin32_Shutdown();
-    ImGui::DestroyContext();
-    CleanupDeviceD3D();
-    DestroyWindow(hwnd);
+    state->stop_requested.store(true);
+    state->engine.reset();
+    state->engine_cfg.reset();
+    DeleteObject(g_font);
+    DeleteObject(g_title_font);
+    DeleteObject(g_background);
+    DeleteObject(g_panel);
+    DeleteObject(g_edit_background);
     UnregisterClassW(wc.lpszClassName, wc.hInstance);
     return 0;
 }
