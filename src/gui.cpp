@@ -220,7 +220,7 @@ void start_generate(GuiStatePtr state) {
         GenerationResult result;
         std::string error;
         const bool ok = engine->generate(
-            ask, options, [shared]() { return shared->stop_requested.load(); }, error);
+            ask, options, result, [shared]() { return shared->stop_requested.load(); }, error);
         {
             std::lock_guard<std::mutex> guard(shared->mutex);
             if (ok && !result.text.empty()) {
@@ -382,11 +382,13 @@ void DrawModelPanel(GuiStatePtr state) {
     std::shared_ptr<SkiffEngine> engine;
     std::string load_error;
     std::string status;
+    char custom_input[1024] = {};
     {
         std::lock_guard<std::mutex> guard(state->mutex);
         engine = state->engine;
         load_error = state->load_error;
         status = state->status;
+        std::snprintf(custom_input, sizeof(custom_input), "%s", state->custom_model.c_str());
     }
     ImGui::TextColored(ImVec4(0.42f, 0.72f, 1.0f, 1.0f), "SkiffLLM");
     ImGui::TextDisabled("Offline LLM Desktop");
@@ -422,8 +424,9 @@ void DrawModelPanel(GuiStatePtr state) {
     ImGui::Spacing();
     ImGui::Text("Custom path");
     ImGui::PushItemWidth(-1.0f);
-    ImGui::InputText("##custommodel", &state->custom_model);
+    ImGui::InputText("##custommodel", custom_input, IM_ARRAYSIZE(custom_input));
     ImGui::PopItemWidth();
+    state->custom_model = custom_input;
 
     if (state->loading.load()) {
         ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.30f, 1.0f), "Loading model...");
@@ -480,6 +483,7 @@ void DrawChatPanel(GuiStatePtr state) {
     std::string stream;
     std::string worker_error;
     std::string status;
+    char draft_input[8192] = {};
     const bool loaded = state->loaded.load();
     const bool generating = state->generating.load();
     {
@@ -488,6 +492,7 @@ void DrawChatPanel(GuiStatePtr state) {
         stream = state->stream;
         worker_error = state->worker_error;
         status = state->status;
+        std::snprintf(draft_input, sizeof(draft_input), "%s", state->draft.c_str());
     }
 
     ImGui::BeginChild("chat_history", ImVec2(0.0f, -96.0f), false,
@@ -528,9 +533,10 @@ void DrawChatPanel(GuiStatePtr state) {
     ImGui::TextColored(ImVec4(0.62f, 0.68f, 0.78f, 1.0f), "Message");
     ImGui::PushItemWidth(-100.0f);
     const bool submit =
-        ImGui::InputText("##message", &state->draft,
+        ImGui::InputText("##message", draft_input, sizeof(draft_input),
                          ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll);
     ImGui::PopItemWidth();
+    state->draft = draft_input;
     ImGui::SameLine();
     ImGui::BeginDisabled(!loaded || generating);
     if (ImGui::Button("Send", ImVec2(0.0f, 0.0f)) || submit) {
@@ -556,10 +562,9 @@ void DrawChatPanel(GuiStatePtr state) {
 }
 
 void RenderApp(GuiStatePtr state) {
-    ImGuiViewport* viewport = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(viewport->WorkPos);
-    ImGui::SetNextWindowSize(viewport->WorkSize);
-    ImGui::SetNextWindowViewport(viewport->ID);
+    const ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f));
+    ImGui::SetNextWindowSize(io.DisplaySize);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(8.0f, 8.0f));
@@ -582,6 +587,8 @@ void RenderApp(GuiStatePtr state) {
 
 }  // namespace
 
+extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam)) {
         return true;
@@ -602,14 +609,6 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         case WM_DESTROY:
             PostQuitMessage(0);
             return 0;
-        case WM_DPICHANGED:
-            if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_DpiEnableScaleViewports) {
-                const RECT* suggested = reinterpret_cast<const RECT*>(lParam);
-                SetWindowPos(hWnd, nullptr, suggested->left, suggested->top,
-                             suggested->right - suggested->left, suggested->bottom - suggested->top,
-                             SWP_NOZORDER | SWP_NOACTIVATE);
-            }
-            break;
         default:
             break;
     }
