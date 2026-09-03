@@ -21,7 +21,6 @@
 #include <io.h>
 #include <process.h>
 #include <sys/stat.h>
-#include <unistd.h>
 #else
 #include <unistd.h>
 #ifndef _POSIX_VERSION

@@ -72,7 +72,7 @@ bool LlmEngine::load(std::string& error) {
         }
     }
 
-    model_ = llama_model_load_from_file(config_.model_path.c_str(), model_params);
+    model_ = llama_model_load_from_file(config_.model_path.string().c_str(), model_params);
     if (model_ == nullptr) {
         error = "failed to load model from " + config_.model_path.string();
         return false;
