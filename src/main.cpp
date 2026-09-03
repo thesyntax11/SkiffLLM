@@ -50,7 +50,7 @@ void signal_handler(int) {
 
 bool keep_open_on_no_arguments() {
 #ifdef _WIN32
-    return GetConsoleWindow() != nullptr || _isatty(_fileno(stdin)) != 0;
+    return true;
 #else
     return false;
 #endif
@@ -75,6 +75,7 @@ class KeepConsoleOpen {
             return;
         }
         std::cout << "\nPress Enter to close...\n";
+        std::cout.flush();
         wait_for_enter();
     }
 
