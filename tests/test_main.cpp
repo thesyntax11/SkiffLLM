@@ -512,7 +512,7 @@ void test_session_resolution() {
 
 void test_cli_utils() {
     bool ok = false;
-    check(skiffllm::cli::parse_double("0.42", ok) == 0.42f,
+    check(approx(static_cast<float>(skiffllm::cli::parse_double("0.42", ok)), 0.42f),
           "parse_double should parse valid values");
     check(ok, "parse_double should report success");
     skiffllm::cli::parse_double("abc", ok);

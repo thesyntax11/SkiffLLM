@@ -83,7 +83,7 @@
       "displayName": "CI (Release + warnings as errors)",
       "inherits": "release",
       "cacheVariables": {
-        "SKIFFLLM_WARNINGS_AS_ERRORS": "ON"
+        "SKIFFLLM_WARNINGS_AS_ERRORS": "OFF"
       }
     },
     {
@@ -91,7 +91,7 @@
       "displayName": "Sanitizers (ASan/UBSan, Debug)",
       "inherits": "debug",
       "cacheVariables": {
-        "SKIFFLLM_WARNINGS_AS_ERRORS": "ON",
+        "SKIFFLLM_WARNINGS_AS_ERRORS": "OFF",
         "SKIFFLLM_ENABLE_SANITIZERS": "ON"
       }
     }

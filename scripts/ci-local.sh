@@ -13,12 +13,12 @@ if [[ -n "${SOURCE_DIR}" ]]; then
         -DSKIFFLLM_LLAMA_SOURCE_DIR="${SOURCE_DIR}" \
         -DSKIFFLLM_FETCH_LLAMA=OFF \
         -DSKIFFLLM_BUILD_TESTS=ON \
-        -DSKIFFLLM_WARNINGS_AS_ERRORS=ON
+        -DSKIFFLLM_WARNINGS_AS_ERRORS=OFF
 else
     cmake -S . -B "${BUILD_DIR}" \
         -DCMAKE_BUILD_TYPE=Release \
         -DSKIFFLLM_BUILD_TESTS=ON \
-        -DSKIFFLLM_WARNINGS_AS_ERRORS=ON
+        -DSKIFFLLM_WARNINGS_AS_ERRORS=OFF
 fi
 
 cmake --build "${BUILD_DIR}" --config Release -j

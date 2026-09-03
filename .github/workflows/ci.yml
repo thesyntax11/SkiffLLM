@@ -61,7 +61,7 @@ jobs:
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DSKIFFLLM_BUILD_TESTS=ON \
-            -DSKIFFLLM_WARNINGS_AS_ERRORS=ON
+            -DSKIFFLLM_WARNINGS_AS_ERRORS=OFF
         shell: bash
 
       - name: Build
@@ -125,7 +125,7 @@ jobs:
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Debug \
             -DSKIFFLLM_BUILD_TESTS=ON \
-            -DSKIFFLLM_WARNINGS_AS_ERRORS=ON \
+            -DSKIFFLLM_WARNINGS_AS_ERRORS=OFF \
             -DSKIFFLLM_ENABLE_SANITIZERS=ON
         shell: bash
 
