@@ -2,6 +2,10 @@ cmake_minimum_required(VERSION 3.20)
 
 project(SkiffLLM VERSION 1.6.0 LANGUAGES C CXX)
 
+if(WIN32)
+    add_compile_definitions(NOMINMAX)
+endif()
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
