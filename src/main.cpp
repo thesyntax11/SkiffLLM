@@ -16,6 +16,7 @@
 #include "skiffllm/tools.hpp"
 
 #ifdef _WIN32
+#include <conio.h>
 #include <io.h>
 #include <windows.h>
 #else
@@ -55,6 +56,17 @@ bool keep_open_on_no_arguments() {
 #endif
 }
 
+void wait_for_enter() {
+#ifdef _WIN32
+    int ch = _getch();
+    while (ch != '\r' && ch != '\n' && ch != EOF) {
+        ch = _getch();
+    }
+#else
+    std::cin.get();
+#endif
+}
+
 class KeepConsoleOpen {
    public:
     explicit KeepConsoleOpen(bool enabled) : enabled_(enabled) {}
@@ -63,7 +75,7 @@ class KeepConsoleOpen {
             return;
         }
         std::cout << "\nPress Enter to close...\n";
-        std::cin.get();
+        wait_for_enter();
     }
 
    private:
