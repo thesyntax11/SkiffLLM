@@ -1511,9 +1511,8 @@ int main(int argc, char** argv) {
         }
     }
 
-    if (cfg.model_path.empty() && cfg.model_dir.empty() &&
-        !cfg.list_models && !cfg.doctor && !cfg.model_info &&
-        cfg.tokenize_text.empty() && cfg.export_path.empty()) {
+    if (cfg.model_path.empty() && cfg.model_dir.empty() && !cfg.list_models && !cfg.doctor &&
+        !cfg.model_info && cfg.tokenize_text.empty() && cfg.export_path.empty()) {
         std::cerr << "No model configured. Use --model <path.gguf>.\n";
         std::cerr << "Run skiffllm --help to see all options.\n";
         return 2;
