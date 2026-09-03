@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="SkiffLLM">
+  <rect width="512" height="512" rx="112" fill="#0f172a"/>
+  <path d="M160 152 160 300 320 300 Z" fill="#38bdf8"/>
+  <rect x="150" y="140" width="12" height="190" rx="6" fill="#e2e8f0"/>
+  <path d="M118 344 C168 392 344 392 394 344 C394 326 118 326 118 344 Z" fill="#334155"/>
+  <path d="M128 368 C148 392 364 392 384 368" fill="none" stroke="#0ea5e9" stroke-width="12" stroke-linecap="round"/>
+  <path d="M118 356 L394 356" stroke="#475569" stroke-width="10" stroke-linecap="round"/>
+  <rect x="130" y="240" width="28" height="10" rx="5" fill="#38bdf8"/>
+  <rect x="170" y="240" width="10" height="10" rx="5" fill="#38bdf8"/>
+</svg>

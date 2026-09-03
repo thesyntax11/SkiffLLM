@@ -1,0 +1,285 @@
+.TH SKIFFLLM 1 "2026-09-01" "SkiffLLM 1.6.0" "User Commands"
+.SH NAME
+skifflm \- offline-first local LLM terminal assistant built on llama.cpp
+.SH SYNOPSIS
+.B skifflm
+[\fIOPTIONS\fR] [\fImodel.gguf\fR]
+.SH DESCRIPTION
+SkiffLLM runs a local GGUF language model entirely on your machine. It supports
+interactive chat, one-shot prompts, named sessions, JSON output, sampling
+profiles, stop sequences, and automatic context management.
+.SH OPTIONS
+.TP
+\fB\-\-model <path>\fR
+Path to a GGUF model file.
+.TP
+\fB\-\-model-dir <path>\fR
+Directory scanned for a GGUF model.
+.TP
+\fB\-\-list-models\fR
+Print discovered GGUF models.
+.TP
+\fB\-\-profile <name>\fR
+Use balanced, fast, creative, code, or precise sampling profile.
+.TP
+\fB\-\-session <name>\fR
+Use a named conversation.
+.TP
+\fB\-\-system <text> (alias: \-\-system-prompt)\fR
+Set the system prompt.
+.TP
+\fB\-\-project <dir>\fR
+Add a bounded project context block before a one-shot prompt.
+.TP
+\fB\-\-history <path>\fR
+Session/history file (default under ~/.local/share/skifflm).
+.TP
+\fB\-\-save / \-\-no-save\fR
+Enable or disable persisting the conversation. Saving is enabled by default.
+.TP
+\fB\-\-auto-trim / \-\-no-auto-trim\fR
+Trim old history when the context is full. Auto-trim is enabled by default.
+.TP
+\fB\-\-stop <text>\fR
+Add a stop sequence. May be repeated.
+.TP
+\fB\-\-attach <path>\fR
+Attach a file to the prompt. May be repeated.
+.TP
+\fB\-\-file <path>\fR
+Alias for --attach.
+.TP
+\fB\-\-chat-template <name>\fR
+Override the model chat template.
+.TP
+\fB\-\-export <path>\fR
+Export the loaded conversation as Markdown.
+.TP
+\fB\-\-warmup\fR
+Warm the model before the first answer.
+.TP
+\fB\-\-summarize <file>\fR
+Summarize a file as a one-shot document task.
+.TP
+\fB\-\-remember <text>\fR
+Save a persistent memory line for future sessions.
+.TP
+\fB\-\-forget <text>\fR
+Remove matching persistent memory lines.
+.TP
+\fB\-\-code\fR
+Propose concrete unified-diff edits without modifying files.
+.TP
+\fB\-\-network\fR
+With --doctor, print network/privacy facts.
+.TP
+\fB\-\-serve\fR
+Serve a local OpenAI-compatible HTTP API.
+.TP
+\fB\-\-host <addr>\fR
+Local server bind address. Default is 127.0.0.1.
+.TP
+\fB\-\-port <n>\fR
+Local server port. Default is 8080.
+.TP
+\fB\-\-api-key <key>\fR
+Require Authorization: Bearer <key> on /v1/models and
+/v1/chat/completions. /health, /version, and / stay public.
+.TP
+\fB\-\-benchmark <runs>\fR
+Run a real generation benchmark with the given number of runs.
+.TP
+\fB\-\-ctx <n>\fR
+Context size. Default is 4096.
+.TP
+\fB\-\-batch <n>\fR
+Batch size. Default is 512.
+.TP
+\fB\-\-ubatch <n>\fR
+Physical batch size.
+.TP
+\fB\-\-threads <n>\fR
+CPU threads. Zero means auto.
+.TP
+\fB\-\-gpu-layers <n>\fR
+GPU layers to offload. Negative means all.
+.TP
+\fB\-\-mmap / \-\-no-mmap\fR
+Enable or disable mmap.
+.TP
+\fB\-\-mlock\fR
+Lock model memory into RAM.
+.TP
+\fB\-\-flash-attn / \-\-no-flash-attn\fR
+Enable or disable flash attention.
+.TP
+\fB\-\-numa\fR
+Initialize NUMA optimization.
+.TP
+\fB\-\-kv-offload / \-\-no-kv-offload\fR
+Control KV cache offloading.
+.TP
+\fB\-\-temp <t> (alias: \-\-temperature)\fR
+Sampling temperature.
+.TP
+\fB\-\-top-p <p>\fR
+Nucleus sampling probability.
+.TP
+\fB\-\-top-k <n>\fR
+Top-k sampling value.
+.TP
+\fB\-\-min-p <p>\fR
+Minimum probability filter.
+.TP
+\fB\-\-typical <p>\fR
+Locally typical sampling value.
+.TP
+\fB\-\-repeat-penalty <p>\fR
+Repeat penalty.
+.TP
+\fB\-\-repeat-last-n <n>\fR
+Repeat penalty window.
+.TP
+\fB\-\-n-predict <n> (alias: \-\-n)\fR
+Maximum generated tokens.
+.TP
+\fB\-\-seed <n|random>\fR
+Sampling seed.
+.TP
+\fB\-\-prompt <text>\fR
+Run a single prompt.
+.TP
+\fB\-\-prompt-file <path>\fR
+Read the prompt from a file.
+.TP
+\fB\-\-stdin\fR
+Read the prompt from stdin.
+.TP
+\fB\-\-json\fR
+Emit machine-readable JSON output.
+.TP
+\fB\-\-output <path>\fR
+Write the answer to a file.
+.TP
+\fB\-\-model-info\fR
+Print model metadata and exit.
+.TP
+\fB\-\-smoke\fR
+Run a quick generation smoke test.
+.TP
+\fB\-\-tokenize <text>\fR
+Tokenize text and print token counts.
+.TP
+\fB\-\-doctor\fR
+Print system diagnostics.
+.TP
+\fB\-\-config <path>\fR
+Use the given config file.
+.TP
+\fB\-\-show-config\fR
+Print the effective configuration. With \fB\-\-json\fR, emit JSON.
+.TP
+\fB\-\-context-bar / \-\-no-context-bar\fR
+Enable or disable the live context usage bar. Enabled by default.
+.TP
+\fB\-\-backend-info\fR
+Print the llama.cpp backends linked into this build and exit.
+.TP
+\fB\-\-help\fR
+Show help.
+.TP
+\fB\-\-version\fR
+Show version.
+.SH SUBCOMMANDS
+.TP
+.B skifflm run [prompt] [options]
+Run a one-shot prompt, e.g. skifflm run "Merhaba" --ctx 2048 --temp 0.3.
+.TP
+.B skifflm model list|info|install|remove|verify
+Manage the local model catalog and verify downloaded GGUF files.
+.TP
+.B skifflm chat-template list|detect|info
+List known chat templates or detect the template embedded in a model.
+.TP
+.B skifflm openai [prompt] [options]
+Send a prompt to a local OpenAI-compatible server, e.g. skifflm openai "Hi" --base-url http://127.0.0.1:8080. This is an explicit network client; it transmits the prompt to the server you choose.
+.TP
+.B skifflm config path|show|init
+Print, inspect, or write the configuration file.
+.TP
+.B skifflm server health [--json]
+Check a running local server.
+.TP
+.B skifflm session list|show|rename|remove
+Manage named conversations.
+.SH ENVIRONMENT
+.TP
+\fBSKIFFLLM_MODEL\fR
+Default model path.
+.TP
+\fBSKIFFLLM_MODEL_DIR\fR
+Default model directory.
+.TP
+\fBSKIFFLLM_CONFIG\fR
+Config file path.
+.TP
+\fBSKIFFLLM_HISTORY\fR
+History file path.
+.TP
+\fBSKIFFLLM_SYSTEM\fR
+Default system prompt.
+.TP
+\fBSKIFFLLM_PROFILE\fR
+Default sampling profile.
+.TP
+\fBSKIFFLLM_API_KEY\fR
+Bearer token for --serve.
+.SH FILES
+.TP
+\fB~/.config/skifflm/config\fR
+Default configuration file.
+.TP
+\fB~/.local/share/skifflm/models/\fR
+Default model directory.
+.TP
+\fB~/.local/share/skifflm/history.skif\fR
+Default session history.
+.SH SERVER
+.TP
+The server binds to localhost by default and exposes /health, /v1/models, and
+/v1/chat/completions. Fast endpoints answer while generation is serialized.
+With --api-key, /v1/* requires Authorization: Bearer <key>; /health,
+/version, and / stay public.
+.SH INTERACTIVE COMMANDS
+.TP
+.B /help, /info, /history
+Show help, session details, or the current conversation.
+.TP
+.B /remember <fact>, /forget <text>
+Persist or remove a user memory. /memories lists; /clear-memories clears.
+.TP
+.B /file <path>, /clear-attach
+Attach a file or clear attached files.
+.TP
+.B /export <path>
+Export the conversation as Markdown.
+.TP
+.B /tokenize <text>
+Show the token count for the text.
+.TP
+.B /settings, /profile, /stop
+Show or change sampling settings.
+.TP
+.B /temp, /top-p, /top-k, /min-p, /typical, /n, /ctx
+Change sampling and context values.
+.TP
+.B /save, /clear, /reset, /system, /model
+Manage the session and model.
+.TP
+.B /exit or /quit
+Exit SkiffLLM.
+.SH EXIT STATUS
+0 on success. Non-zero on configuration or inference errors.
+.SH SEE ALSO
+.BR llama.cpp
+local inference documentation, and the project README for full usage.

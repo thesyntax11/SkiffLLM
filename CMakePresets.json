@@ -1,0 +1,123 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "release",
+      "displayName": "Release",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "SKIFFLLM_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "debug",
+      "displayName": "Debug",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "SKIFFLLM_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "default",
+      "displayName": "Default (Debug)",
+      "inherits": "debug"
+    },
+    {
+      "name": "clang",
+      "displayName": "Clang (Debug)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "SKIFFLLM_BUILD_TESTS": "ON"
+      }
+    },
+    {
+      "name": "release-cuda",
+      "displayName": "Release + CUDA",
+      "inherits": "release",
+      "cacheVariables": {
+        "SKIFFLLM_LLAMA_BACKEND": "cuda"
+      }
+    },
+    {
+      "name": "release-vulkan",
+      "displayName": "Release + Vulkan",
+      "inherits": "release",
+      "cacheVariables": {
+        "SKIFFLLM_LLAMA_BACKEND": "vulkan"
+      }
+    },
+    {
+      "name": "release-metal",
+      "displayName": "Release + Metal (macOS)",
+      "inherits": "release",
+      "cacheVariables": {
+        "SKIFFLLM_LLAMA_BACKEND": "metal"
+      }
+    },
+    {
+      "name": "release-opencl",
+      "displayName": "Release + OpenCL",
+      "inherits": "release",
+      "cacheVariables": {
+        "SKIFFLLM_LLAMA_BACKEND": "opencl"
+      }
+    },
+    {
+      "name": "release-blas",
+      "displayName": "Release + BLAS",
+      "inherits": "release",
+      "cacheVariables": {
+        "SKIFFLLM_LLAMA_BACKEND": "blas"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "release",
+      "configurePreset": "release"
+    },
+    {
+      "name": "debug",
+      "configurePreset": "debug"
+    },
+    {
+      "name": "default",
+      "configurePreset": "default"
+    },
+    {
+      "name": "clang",
+      "configurePreset": "clang"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "release",
+      "configurePreset": "release",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "debug",
+      "configurePreset": "debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "default",
+      "configurePreset": "default",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

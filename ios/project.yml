@@ -1,0 +1,64 @@
+name: SkiffLLM
+options:
+  bundleIdPrefix: com.skifflm
+  deploymentTarget:
+    iOS: "16.4"
+  createIntermediateGroups: true
+  xcodeVersion: "15.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+targets:
+  SkiffLLM:
+    type: application
+    platform: iOS
+    sources:
+      - path: SkiffLLM
+        excludes:
+          - "Info.plist"
+          - "*.entitlements"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.skifflm.app
+        PRODUCT_NAME: SkiffLLM
+        INFOPLIST_FILE: SkiffLLM/Info.plist
+        CODE_SIGN_ENTITLEMENTS: SkiffLLM/SkiffLLM.entitlements
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: ""
+        CLANG_ENABLE_MODULES: YES
+        CLANG_CXX_LANGUAGE_STANDARD: c++17
+        SWIFT_OBJC_BRIDGING_HEADER: SkiffLLM/SkiffLLM-Bridging-Header.h
+        HEADER_SEARCH_PATHS:
+          - $(SRCROOT)/third_party/llama/build-apple/llama.xcframework/ios-arm64/llama.framework/Headers
+          - $(SRCROOT)/third_party/llama/build-apple/llama.xcframework/ios-arm64_x86_64-simulator/llama.framework/Headers
+    dependencies:
+      - framework: third_party/llama/build-apple/llama.xcframework
+        embed: true
+        link: true
+      - sdk: Metal.framework
+        link: true
+      - sdk: Accelerate.framework
+        link: true
+      - target: SkiffLLMShare
+        embed: true
+  SkiffLLMShare:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: SkiffLLMShare
+        excludes:
+          - "Info.plist"
+          - "*.entitlements"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.skifflm.app.share
+        PRODUCT_NAME: SkiffLLMShare
+        INFOPLIST_FILE: SkiffLLMShare/Info.plist
+        CODE_SIGN_ENTITLEMENTS: SkiffLLMShare/SkiffLLMShare.entitlements
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: ""
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+        SWIFT_VERSION: "5.0"

@@ -1,0 +1,142 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Package ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x86_64
+            os: ubuntu-latest
+          - name: macos-arm64
+            os: macos-14
+          - name: windows-x86_64
+            os: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ccache (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ccache
+
+      - name: Cache ccache (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/cache@v4
+        with:
+          path: .ccache
+          key: release-ccache-${{ runner.os }}-${{ runner.arch }}-cmake-v1
+
+      - name: Configure
+        run: |
+          export CCACHE_DIR="${{ github.workspace }}/.ccache"
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            export CC="ccache gcc"
+            export CXX="ccache g++"
+          fi
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DSKIFFLLM_BUILD_TESTS=ON
+        shell: bash
+
+      - name: Build
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cmake --build build --config Release
+          else
+            cmake --build build --config Release -j 4
+          fi
+        shell: bash
+
+      - name: Test
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            ctest --test-dir build --build-config Release --output-on-failure
+          else
+            ctest --test-dir build --output-on-failure
+          fi
+        shell: bash
+
+      - name: Create release archive
+        run: bash scripts/release.sh --build-dir build --output-dir artifacts
+        shell: bash
+
+      - name: Upload archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: artifacts/*
+          if-no-files-found: error
+
+  apk:
+    name: Package Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Accept licenses and install CMake/NDK
+        run: |
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager "cmake;3.22.1" "platforms;android-34" "build-tools;34.0.0" "ndk;26.3.11579264"
+
+      - name: Build debug APK
+        run: |
+          cd android
+          ./gradlew --no-daemon --stacktrace assembleDebug
+        shell: bash
+
+      - name: Rename APK for release
+        run: |
+          VERSION="$(sed -n 's/project(SkiffLLM VERSION \([0-9][0-9.]*\).*/\1/p' CMakeLists.txt)"
+          cp android/app/build/outputs/apk/debug/app-debug.apk \
+            "SkiffLLM-${VERSION}-Android.apk"
+        shell: bash
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: SkiffLLM-*-Android.apk
+          if-no-files-found: error
+
+  publish:
+    name: Create GitHub Release
+    needs: [build, apk]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true
