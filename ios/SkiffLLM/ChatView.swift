@@ -156,7 +156,7 @@ final class AppState: ObservableObject {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
             var error: NSError?
-            let ok = self.engine.warmup(error: &error)
+            let ok = self.engine.warmup(&error)
             DispatchQueue.main.async {
                 self.warmingUp = false
                 if ok {
@@ -312,7 +312,7 @@ final class AppState: ObservableObject {
             if ok {
                 description = self.engine.modelDescription()
                 var warmError: NSError?
-                _ = self.engine.warmup(error: &warmError)
+                _ = self.engine.warmup(&warmError)
             }
             DispatchQueue.main.async {
                 self.loadingModel = false
