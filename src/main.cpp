@@ -58,6 +58,13 @@ bool keep_open_on_no_arguments() {
 
 void wait_for_enter() {
 #ifdef _WIN32
+    HANDLE input = GetStdHandle(STD_INPUT_HANDLE);
+    if (input != nullptr && input != INVALID_HANDLE_VALUE) {
+        DWORD mode = 0;
+        if (GetConsoleMode(input, &mode) != 0) {
+            FlushConsoleInputBuffer(input);
+        }
+    }
     int ch = _getch();
     while (ch != '\r' && ch != '\n' && ch != EOF) {
         ch = _getch();
