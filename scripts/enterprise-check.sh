@@ -16,15 +16,15 @@ usage() {
 Usage: scripts/enterprise-check.sh [--bin PATH] [--model FILE] [--config FILE]
 
 Options:
-  --bin PATH      Path to the skifflm binary (default: auto-detect).
+  --bin PATH      Path to the llm binary (default: auto-detect).
   --model FILE    GGUF model to check (default: env/config/model-dir).
   --config FILE   Config file to validate with --show-config.
 EOF
 }
 
-BIN="${SKIFFLLM_BIN:-}"
-MODEL="${SKIFFLLM_MODEL:-}"
-CONFIG="${SKIFFLLM_CONFIG:-}"
+BIN="${LLM_BIN:-}"
+MODEL="${LLM_MODEL:-}"
+CONFIG="${LLM_CONFIG:-}"
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -50,19 +50,19 @@ section() { echo; echo "== $1 =="; }
 section "Binary"
 if [ -z "$BIN" ]; then
     for candidate in \
-        ./build/release/skifflm \
-        ./build/skifflm \
-        "$HOME/.local/bin/skifflm" \
-        /usr/local/bin/skifflm; do
+        ./build/release/llm \
+        ./build/llm \
+        "$HOME/.local/bin/llm" \
+        /usr/local/bin/llm; do
         if [ -x "$candidate" ]; then BIN="$candidate"; break; fi
     done
 fi
-if [ -z "$BIN" ] && command -v skifflm >/dev/null 2>&1; then
-    BIN="$(command -v skifflm)"
+if [ -z "$BIN" ] && command -v llm >/dev/null 2>&1; then
+    BIN="$(command -v llm)"
 fi
 
 if [ -z "$BIN" ]; then
-    fail "skifflm binary not found (set SKIFFLLM_BIN or pass --bin)"
+    fail "llm binary not found (set LLM_BIN or pass --bin)"
 else
     pass "binary found: $BIN"
     if ! "$BIN" --version >/dev/null 2>&1; then
@@ -75,8 +75,8 @@ fi
 
 # ---- Model --------------------------------------------------------------
 section "Model"
-if [ -z "$MODEL" ] && [ -n "${SKIFFLLM_MODEL_DIR:-}" ]; then
-    for f in "$SKIFFLLM_MODEL_DIR"/*.gguf; do
+if [ -z "$MODEL" ] && [ -n "${LLM_MODEL_DIR:-}" ]; then
+    for f in "$LLM_MODEL_DIR"/*.gguf; do
         [ -f "$f" ] && MODEL="$f" && break
     done
 fi
@@ -92,10 +92,10 @@ if [ -z "$MODEL" ]; then
             warning_hint="$(echo "$listed" | grep '\.gguf' | head -n1)"
             warn "model not specified; examples found: $warning_hint"
         else
-            warn "no model specified and none found (pass --model or set SKIFFLLM_MODEL)"
+            warn "no model specified and none found (pass --model or set LLM_MODEL)"
         fi
     else
-        warn "no model specified (pass --model or set SKIFFLLM_MODEL)"
+        warn "no model specified (pass --model or set LLM_MODEL)"
     fi
 else
     if [ ! -f "$MODEL" ]; then
@@ -115,8 +115,8 @@ fi
 
 # ---- Config --------------------------------------------------------------
 section "Config"
-if [ -z "$CONFIG" ] && [ -r "$HOME/.config/skifflm/config" ]; then
-    CONFIG="$HOME/.config/skifflm/config"
+if [ -z "$CONFIG" ] && [ -r "$HOME/.config/llm/config" ]; then
+    CONFIG="$HOME/.config/llm/config"
 fi
 if [ -z "$CONFIG" ]; then
     warn "no config file given; defaults will be used"

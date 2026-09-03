@@ -1,4 +1,4 @@
-package com.skifflm.app
+package com.llm.app
 
 import android.content.Intent
 import android.net.Uri

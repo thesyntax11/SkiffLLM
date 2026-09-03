@@ -96,7 +96,7 @@ Downloads are auto-loaded after validation.
 
 - GPU acceleration uses Metal. To offload layers to the Apple GPU, set
   `GPU layers` in `Settings` (default `0` = CPU-only).
-- The Share Extension and the app use the app group `group.com.skifflm.app`.
+- The Share Extension and the app use the app group `group.com.llm.app`.
   For device builds set your Development Team in Xcode so the group can be
   provisioned; the simulator usually works with a team signed to the group.
 - The app requests no telemetry and sends no analytics. The only outgoing

@@ -1,4 +1,4 @@
-package com.skifflm.app
+package com.llm.app
 
 import android.content.Intent
 import android.os.Bundle
@@ -974,7 +974,7 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
             },
             onExport = {
                 showConversations = false
-                conversationExportLauncher.launch("skifflm-conversation.json")
+                conversationExportLauncher.launch("llm-conversation.json")
             },
             onImport = {
                 showConversations = false

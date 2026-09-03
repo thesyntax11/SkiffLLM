@@ -346,7 +346,7 @@ struct ConversationSnapshot {
 }
 
 enum SkiffLLMAppGroup {
-    static let identifier = "group.com.skifflm.app"
+    static let identifier = "group.com.llm.app"
 }
 
 final class SharedTextStore {
@@ -561,7 +561,7 @@ final class ConversationStore {
                     sampling: SamplingParams?,
                     codeMode: Bool?) -> String? {
         var payload: [String: Any] = [
-            "format": "skifflm-conversation",
+            "format": "llm-conversation",
             "version": 1,
             "system_prompt": systemPrompt,
             "messages": messages.map { ["role": $0.role, "content": $0.content] },
@@ -593,7 +593,7 @@ final class ConversationStore {
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return nil
         }
-        guard json["format"] as? String == "skifflm-conversation" || json["messages"] != nil else {
+        guard json["format"] as? String == "llm-conversation" || json["messages"] != nil else {
             return nil
         }
         let system = (json["system_prompt"] as? String).flatMap { $0.isEmpty ? nil : $0 }

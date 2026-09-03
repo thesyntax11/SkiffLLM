@@ -7,13 +7,13 @@ aucun démon.
 ## 1. Installer une archive précompilée
 
 Lorsqu'une version est publiée, elle inclut des archives de plateforme nommées
-`skifflm-<version>-<os>-<arch>.tar.gz` (ou `.zip` sous Windows) ainsi que
+`llm-<version>-<os>-<arch>.tar.gz` (ou `.zip` sous Windows) ainsi que
 `checksums.txt`.
 
 ```bash
 # Linux / macOS
-tar -xzf skifflm-v1.6.0-linux-x86_64.tar.gz
-sudo install -m 0755 bin/skifflm /usr/local/bin/skifflm
+tar -xzf llm-v1.6.0-linux-x86_64.tar.gz
+sudo install -m 0755 bin/llm /usr/local/bin/llm
 ```
 
 Un script d'aide prêt à l'emploi est inclus :
@@ -36,7 +36,7 @@ git clone https://github.com/thesyntax11/SkiffLLM.git
 cd SkiffLLM
 bash scripts/install.sh --prefix "$HOME/.local"
 export PATH="$HOME/.local/bin:$PATH"
-skifflm --version
+llm --version
 ```
 
 Options utiles :
@@ -75,8 +75,8 @@ Si vous possédez déjà une copie de llama.cpp compilée et installée :
 
 ```bash
 cmake -S . -B build \
-  -DSKIFFLLM_FETCH_LLAMA=OFF \
-  -DSKIFFLLM_LLAMA_SOURCE_DIR=/path/to/llama.cpp \
+  -DLLM_FETCH_LLAMA=OFF \
+  -DLLM_LLAMA_SOURCE_DIR=/path/to/llama.cpp \
   -DCMAKE_BUILD_TYPE=Release
 ```
 
@@ -89,7 +89,7 @@ python3 scripts/model_fetch.py --list
 python3 scripts/model_fetch.py --model qwen2.5-0.5b
 ```
 
-Les fichiers sont enregistrés par défaut dans `~/.local/share/skifflm/models`.
+Les fichiers sont enregistrés par défaut dans `~/.local/share/llm/models`.
 Vous pouvez aussi pointer `--model` vers n'importe quel `.gguf` existant.
 
 ## 5. Complétion du shell
@@ -98,13 +98,13 @@ Chargez ou copiez les fichiers générés :
 
 ```bash
 # bash
-source scripts/completions/skifflm.bash
+source scripts/completions/llm.bash
 
 # zsh
-cp scripts/completions/skifflm.zsh ~/.zsh_functions/
+cp scripts/completions/llm.zsh ~/.zsh_functions/
 
 # fish (répertoire des complétions)
-cp scripts/completions/skifflm.fish ~/.config/fish/completions/
+cp scripts/completions/llm.fish ~/.config/fish/completions/
 ```
 
 ## 6. macOS / iOS
@@ -126,5 +126,5 @@ pour produire un enregistrement de terminal honnête. Le script ne crée jamais 
 sortie factice.
 
 ```bash
-bash scripts/demo-capture.sh ./build/release/skifflm /chemin/model.gguf
+bash scripts/demo-capture.sh ./build/release/llm /chemin/model.gguf
 ```

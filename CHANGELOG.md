@@ -7,7 +7,7 @@
 - Added standalone native binaries alongside archives in `scripts/release.sh`
   and included them in the checksum file.
 - Added CI artifacts for desktop executables and the iOS simulator app.
-- Added a release iOS job that packages `SkiffLLM-<version>-iOS.ipa` with an
+- Added a release iOS job that packages `llm-<version>-iOS.ipa` with an
   unsigned container by default and a signed IPA when Apple signing secrets are
   configured.
 - Added `scripts/package-ios.sh` so an iOS build can be packaged locally or in
@@ -22,7 +22,13 @@
 ### Code quality
 
 - Split CLI helpers from `src/main.cpp` into `src/cli_utils.cpp` behind a small
-  `skifflm/cli_utils.hpp` API and added unit coverage.
+  `llm/cli_utils.hpp` API and added unit coverage.
+- Renamed the shipped command to `llm` across the CMake target, installers,
+  completions, release assets, docs, and mobile bundle identifiers.
+- Added a Windows icon (`packaging/windows/llm.ico`) and an `.rc` resource so
+  the compiled `llm.exe` shows the project icon and version metadata.
+- On Windows, launching `llm.exe` with no arguments keeps the console open
+  until the user presses Enter instead of closing immediately.
 
 ### Tooling and developer experience
 
@@ -72,21 +78,21 @@
 
 ### Desktop
 
-- Added `skifflm run "<prompt>" [--ctx N --temp T --threads N]` as the primary
+- Added `llm run "<prompt>" [--ctx N --temp T --threads N]` as the primary
   one-shot CLI entry point.
 - Added `--context-bar` / `--no-context-bar` and a live context-usage progress
   bar after each interactive generation.
-- Added `--backend-info` and `-DSKIFFLLM_LLAMA_BACKEND=cuda|metal|vulkan|opencl|blas`
+- Added `--backend-info` and `-DLLM_LLAMA_BACKEND=cuda|metal|vulkan|opencl|blas`
   so hardware acceleration is explicitly opt-in and observable.
-- Added `skifflm chat-template list|detect|info` for automatic template
-  discovery and `skifflm model verify <id> [--update]` for GGUF size/header and
+- Added `llm chat-template list|detect|info` for automatic template
+  discovery and `llm model verify <id> [--update]` for GGUF size/header and
   SHA-256 integrity checks.
 - `model_fetch.py` now writes a `.gguf.sha256` sidecar and supports
   `--verify` and `--checksum`.
 - Random sampling seeds are resolved per generation when `--seed random`.
 - Added `release-cuda|vulkan|metal|opencl|blas` CMake presets and backward
-  Android `-Pskifflm.backend=` GPU builds.
-- Added `skifflm openai "..."` as a zero-dependency OpenAI-compatible client
+  Android `-Pllm.backend=` GPU builds.
+- Added `llm openai "..."` as a zero-dependency OpenAI-compatible client
   with `--stream`, `--no-json`, `--temp`, and `--max-tokens`.
 - Android: multi-conversation management (create/open/delete from `Chats`).
 - Unified model catalog IDs across the desktop catalog, `model_fetch.py`, and
@@ -119,11 +125,11 @@
   positional instruction, or the prompt itself when no instruction is given.
 - Added `--project <dir>` project intelligence with a bounded file index and
   source/config slice.
-- Added `skifflm model list/info/install/remove`, `skifflm git
-  diff/review/explain/commit/log/status`, and `skifflm --doctor --network`.
+- Added `llm model list/info/install/remove`, `llm git
+  diff/review/explain/commit/log/status`, and `llm --doctor --network`.
 - Added `scripts/install.sh`, `docs/GOOD_FIRST_ISSUES.md`, and removed the
   duplicate lowercase `docs/architecture.md`.
-- Added `skifflm session list/show/use/remove`, persistent local memory
+- Added `llm session list/show/use/remove`, persistent local memory
   (`--remember`, `--forget`, `/remember`, `/forget`, `/memories`,
   `/clear-memories`), and a `--summarize <file>` shortcut.
 - Made the local server concurrent: fast endpoints answer while a chat
@@ -162,7 +168,7 @@
   claiming files were changed, and applying the proposal stays manual.
 - Android model downloads now verify the expected catalog size, validate the
   GGUF header, and write/delete a `.gguf.sha256` sidecar, so both mobile
-  clients (and `skifflm model verify`) use the same local integrity convention
+  clients (and `llm model verify`) use the same local integrity convention
   as the desktop CLI.
 - Android and iOS add a re-run warm-up action (`Warm up model`), a 3-round
   measured benchmark (`Run 3-round benchmark`) matching the desktop
@@ -180,7 +186,7 @@
   Regenerate action to Android and iOS. All three clients remove the previous
   assistant response and re-run the last user message with the current
   sampling settings.
-- Added `skifflm session rename <old> <new>` on desktop and conversation rename
+- Added `llm session rename <old> <new>` on desktop and conversation rename
   on Android and iOS, so all three clients can keep named conversations tidy
   instead of only creating and deleting them.
 - Android and iOS conversations now store their own sampling settings and

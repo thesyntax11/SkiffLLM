@@ -6,10 +6,10 @@ SkiffLLM, tüp aracılığıyla gelen stdin'i otomatik algılar; böylece model 
 akışının bir parçası olur:
 
 ```bash
-git diff | skifflm "review these changes"
-cat error.log | skifflm "find the root cause"
-cat README.md | skifflm "summarize this"
-skifflm --project . "where is authentication handled?"
+git diff | llm "review these changes"
+cat error.log | llm "find the root cause"
+cat README.md | llm "summarize this"
+llm --project . "where is authentication handled?"
 ```
 
 Talimat argümanı yoksa tüpten gelen metnin kendisi istemdir. Talimat argümanı
@@ -18,7 +18,7 @@ varsa tüpten gelen metin `<context>` olur.
 ## Proje bağlamı
 
 ```bash
-skifflm --project . "where is authentication handled?"
+llm --project . "where is authentication handled?"
 ```
 
 `--project <dir>` üretimden önce sınırlı bir dosya indeksi artı kaynak/yapılandırma
@@ -28,13 +28,13 @@ satıcı bağımlılıklarını atlar.
 ## Oturumlar ve bellek
 
 ```bash
-skifflm session list
-skifflm session show coding
-skifflm session rename coding writing
-skifflm session remove old-draft
+llm session list
+llm session show coding
+llm session rename coding writing
+llm session remove old-draft
 
-skifflm --remember "the user prefers concise answers"
-skifflm --forget concise
+llm --remember "the user prefers concise answers"
+llm --forget concise
 ```
 
 Etkileşimli kabuk komutları: `/remember <fact>`, `/forget <text>`,
@@ -45,19 +45,19 @@ koruyarak madde özetine sıkıştırır) ve `/regenerate` veya `/retry`
 ## Özetleme kısayolu
 
 ```bash
-skifflm --summarize README.md
-skifflm --summarize error.log --model qwen2.5-0.5b.gguf
+llm --summarize README.md
+llm --summarize error.log --model qwen2.5-0.5b.gguf
 ```
 
 ## Model yöneticisi
 
 ```bash
-skifflm model list
-skifflm model info qwen2.5-0.5b
-skifflm model install qwen2.5-0.5b
-skifflm model verify qwen2.5-0.5b
-skifflm model verify qwen2.5-0.5b --update
-skifflm model remove qwen2.5-0.5b --force
+llm model list
+llm model info qwen2.5-0.5b
+llm model install qwen2.5-0.5b
+llm model verify qwen2.5-0.5b
+llm model verify qwen2.5-0.5b --update
+llm model remove qwen2.5-0.5b --force
 ```
 
 `model verify`, GGUF sihirli başlığını ve varsa SHA-256 yan dosyasını denetler.
@@ -72,25 +72,25 @@ HTTPS üzerinden çalıştırır.
 ## Tek seferlik çalıştırma ve sohbet şablonları
 
 ```bash
-skifflm run "Hello" --ctx 2048 --temp 0.3 --threads 4
-skifflm chat-template list
-skifflm chat-template detect --model model.gguf
+llm run "Hello" --ctx 2048 --temp 0.3 --threads 4
+llm chat-template list
+llm chat-template detect --model model.gguf
 ```
 
 ## OpenAI istemcisi
 
 ```bash
-skifflm openai "Merhaba" --base-url http://127.0.0.1:8080
-skifflm openai "Merhaba" --base-url http://127.0.0.1:8080 --stream
-skifflm openai "Merhaba" --base-url http://127.0.0.1:8080 --no-json
+llm openai "Merhaba" --base-url http://127.0.0.1:8080
+llm openai "Merhaba" --base-url http://127.0.0.1:8080 --stream
+llm openai "Merhaba" --base-url http://127.0.0.1:8080 --no-json
 ```
 
 ## Donanım hızlandırma
 
 ```bash
-skifflm --backend-info
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DSKIFFLLM_LLAMA_BACKEND=cuda
-./build/skifflm --model model.gguf --gpu-layers -1 --flash-attn
+llm --backend-info
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DLLM_LLAMA_BACKEND=cuda
+./build/llm --model model.gguf --gpu-layers -1 --flash-attn
 ```
 
 Arka uçlar derleme sırasında seçilir; `--backend-info` gerçekte bağlı olanı raporlar.
@@ -98,17 +98,17 @@ Arka uçlar derleme sırasında seçilir; `--backend-info` gerçekte bağlı ola
 ## Git entegrasyonu
 
 ```bash
-skifflm git review --cached
-skifflm git explain
-skifflm git commit --cached
-skifflm git log
-skifflm git status
+llm git review --cached
+llm git explain
+llm git commit --cached
+llm git log
+llm git status
 ```
 
 ## Güvenli kod modu
 
 ```bash
-skifflm --code --project . "fix the bug in src/server.cpp"
+llm --code --project . "fix the bug in src/server.cpp"
 ```
 
 `--code` birleşik diff önerisi üretir ve dosyayı kendisi asla düzenlemez.
@@ -116,7 +116,7 @@ skifflm --code --project . "fix the bug in src/server.cpp"
 ## Etkileşimli mod
 
 ```bash
-skifflm --model ~/models/model-q4_k_m.gguf
+llm --model ~/models/model-q4_k_m.gguf
 ```
 
 Arayüz `you>` adıyla bir istemdir. Bir mesaj yazın ve Enter'a basın. Metin
@@ -125,14 +125,14 @@ Arayüz `you>` adıyla bir istemdir. Bir mesaj yazın ve Enter'a basın. Metin
 ## Tek seferlik mod
 
 ```bash
-skifflm --model model.gguf --prompt "What is recursion?"
+llm --model model.gguf --prompt "What is recursion?"
 ```
 
 ## Adlandırılmış oturumlar
 
 ```bash
-skifflm --model model.gguf --session writing
-skifflm --model model.gguf --session coding
+llm --model model.gguf --session writing
+llm --model model.gguf --session coding
 ```
 
 Her adlandırılmış oturum kendi geçmiş dosyasını alır.
@@ -140,13 +140,13 @@ Her adlandırılmış oturum kendi geçmiş dosyasını alır.
 ## Sistem istemi
 
 ```bash
-skifflm --model model.gguf --system "You are a patient Python tutor."
+llm --model model.gguf --system "You are a patient Python tutor."
 ```
 
 ## Profiller
 
 ```bash
-skifflm --model model.gguf --profile code
+llm --model model.gguf --profile code
 ```
 
 Kullanılabilir profiller: `balanced`, `fast`, `creative`, `code`, `precise`.
@@ -154,8 +154,8 @@ Kullanılabilir profiller: `balanced`, `fast`, `creative`, `code`, `precise`.
 ## Dosya bağlamı
 
 ```bash
-skifflm --model model.gguf --attach notes.txt --prompt "Summarize these notes."
-skifflm --model model.gguf --prompt "Read @notes.txt and list the tasks."
+llm --model model.gguf --attach notes.txt --prompt "Summarize these notes."
+llm --model model.gguf --prompt "Read @notes.txt and list the tasks."
 ```
 
 `--attach` tekrarlayın, istemde `@path` kullanın veya kabuk içinde `/file` ve
@@ -164,7 +164,7 @@ skifflm --model model.gguf --prompt "Read @notes.txt and list the tasks."
 ## Konuşma dışa aktarma
 
 ```bash
-skifflm --export conversation.md
+llm --export conversation.md
 ```
 
 Yüklü oturumu dışa aktarmak model gerektirmez ve Markdown yazar. Kabuk içinde
@@ -173,8 +173,8 @@ Yüklü oturumu dışa aktarmak model gerektirmez ve Markdown yazar. Kabuk için
 ## Sohbet şablonu ve ısındırma
 
 ```bash
-skifflm --model model.gguf --chat-template chatml
-skifflm --model model.gguf --warmup
+llm --model model.gguf --chat-template chatml
+llm --model model.gguf --warmup
 ```
 
 `--chat-template`, modelin yerleşik istem biçimi adını geçersiz kılar.
@@ -190,7 +190,7 @@ Akış çıktısı, etkileşimli terminallerde canlı token sayacı da gösterir
 ## Durdurma dizileri
 
 ```bash
-skifflm --model model.gguf --stop "END" --stop "STOP"
+llm --model model.gguf --stop "END" --stop "STOP"
 ```
 
 Üretim, yapılandırılan ilk dizide durur.
@@ -198,7 +198,7 @@ skifflm --model model.gguf --stop "END" --stop "STOP"
 ## JSON modu
 
 ```bash
-skifflm --model model.gguf --prompt "Say hello" --json
+llm --model model.gguf --prompt "Say hello" --json
 ```
 
 Bu, etkileşimli kabuğu kapatır ve stdout'a tek bir JSON nesnesi yazar.
@@ -206,20 +206,20 @@ Bu, etkileşimli kabuğu kapatır ve stdout'a tek bir JSON nesnesi yazar.
 ## Tüp kullanımı
 
 ```bash
-cat prompt.txt | skifflm --model model.gguf
-printf 'Explain this command.' | skifflm --model model.gguf --prompt-file /dev/stdin
+cat prompt.txt | llm --model model.gguf
+printf 'Explain this command.' | llm --model model.gguf --prompt-file /dev/stdin
 ```
 
 ## Çıktı dosyaları
 
 ```bash
-skifflm --model model.gguf --prompt-file input.txt --output output.md
+llm --model model.gguf --prompt-file input.txt --output output.md
 ```
 
 ## Yapılandırma dosyası
 
 ```bash
-skifflm --config ~/.config/skifflm/config
+llm --config ~/.config/llm/config
 ```
 
 Varsa varsayılan konum otomatik kullanılır.
@@ -227,20 +227,20 @@ Varsa varsayılan konum otomatik kullanılır.
 ## Tanılama
 
 ```bash
-skifflm --doctor
-skifflm --model model.gguf --model-info
-skifflm --model model.gguf --smoke
-skifflm --model model.gguf --tokenize "hello world"
+llm --doctor
+llm --model model.gguf --model-info
+llm --model model.gguf --smoke
+llm --model model.gguf --tokenize "hello world"
 ```
 
 ## Yerel API sunucusu
 
 ```bash
 # yalnızca yerel
-skifflm --model model.gguf --serve --host 127.0.0.1 --port 8080
+llm --model model.gguf --serve --host 127.0.0.1 --port 8080
 
 # korumalı yerel olmayan dinleyici
-skifflm --model model.gguf --serve --host 0.0.0.0 --port 8080 --api-key "$SKIFFLLM_SERVER_KEY"
+llm --model model.gguf --serve --host 0.0.0.0 --port 8080 --api-key "$LLM_SERVER_KEY"
 ```
 
 Uç noktalar:
@@ -261,14 +261,14 @@ Hızlı bir istemci dahildir:
 
 ```bash
 python3 scripts/api_client.py http://127.0.0.1:8080 "Say hello."
-python3 scripts/api_client.py http://127.0.0.1:8080 --api-key "$SKIFFLLM_SERVER_KEY" "Say hello."
+python3 scripts/api_client.py http://127.0.0.1:8080 --api-key "$LLM_SERVER_KEY" "Say hello."
 ```
 
 ## Benchmark
 
 ```bash
-skifflm --model model.gguf --benchmark 3
-skifflm --model model.gguf --benchmark 3 --json
+llm --model model.gguf --benchmark 3
+llm --model model.gguf --benchmark 3 --json
 ```
 
 Gerçek bir üretim çalıştırır ve ölçülen istem süresini, üretim süresini ve
@@ -282,7 +282,7 @@ CUDA'lı bir makinede:
 ```bash
 cmake -S . -B build -DGGML_CUDA=ON
 cmake --build build -j
-skifflm --model model.gguf --gpu-layers -1
+llm --model model.gguf --gpu-layers -1
 ```
 
 macOS'ta Metal arka ucu varsayılan olarak kullanılabilir.
@@ -290,5 +290,5 @@ macOS'ta Metal arka ucu varsayılan olarak kullanılabilir.
 ## Model listeleme
 
 ```bash
-skifflm --model-dir ~/models --list-models
+llm --model-dir ~/models --list-models
 ```

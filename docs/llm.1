@@ -1,8 +1,8 @@
 .TH SKIFFLLM 1 "2026-09-01" "SkiffLLM 1.6.0" "User Commands"
 .SH NAME
-skifflm \- offline-first local LLM terminal assistant built on llama.cpp
+llm \- offline-first local LLM terminal assistant built on llama.cpp
 .SH SYNOPSIS
-.B skifflm
+.B llm
 [\fIOPTIONS\fR] [\fImodel.gguf\fR]
 .SH DESCRIPTION
 SkiffLLM runs a local GGUF language model entirely on your machine. It supports
@@ -32,7 +32,7 @@ Set the system prompt.
 Add a bounded project context block before a one-shot prompt.
 .TP
 \fB\-\-history <path>\fR
-Session/history file (default under ~/.local/share/skifflm).
+Session/history file (default under ~/.local/share/llm).
 .TP
 \fB\-\-save / \-\-no-save\fR
 Enable or disable persisting the conversation. Saving is enabled by default.
@@ -192,57 +192,57 @@ Show help.
 Show version.
 .SH SUBCOMMANDS
 .TP
-.B skifflm run [prompt] [options]
-Run a one-shot prompt, e.g. skifflm run "Merhaba" --ctx 2048 --temp 0.3.
+.B llm run [prompt] [options]
+Run a one-shot prompt, e.g. llm run "Merhaba" --ctx 2048 --temp 0.3.
 .TP
-.B skifflm model list|info|install|remove|verify
+.B llm model list|info|install|remove|verify
 Manage the local model catalog and verify downloaded GGUF files.
 .TP
-.B skifflm chat-template list|detect|info
+.B llm chat-template list|detect|info
 List known chat templates or detect the template embedded in a model.
 .TP
-.B skifflm openai [prompt] [options]
-Send a prompt to a local OpenAI-compatible server, e.g. skifflm openai "Hi" --base-url http://127.0.0.1:8080. This is an explicit network client; it transmits the prompt to the server you choose.
+.B llm openai [prompt] [options]
+Send a prompt to a local OpenAI-compatible server, e.g. llm openai "Hi" --base-url http://127.0.0.1:8080. This is an explicit network client; it transmits the prompt to the server you choose.
 .TP
-.B skifflm config path|show|init
+.B llm config path|show|init
 Print, inspect, or write the configuration file.
 .TP
-.B skifflm server health [--json]
+.B llm server health [--json]
 Check a running local server.
 .TP
-.B skifflm session list|show|rename|remove
+.B llm session list|show|rename|remove
 Manage named conversations.
 .SH ENVIRONMENT
 .TP
-\fBSKIFFLLM_MODEL\fR
+\fBLLM_MODEL\fR
 Default model path.
 .TP
-\fBSKIFFLLM_MODEL_DIR\fR
+\fBLLM_MODEL_DIR\fR
 Default model directory.
 .TP
-\fBSKIFFLLM_CONFIG\fR
+\fBLLM_CONFIG\fR
 Config file path.
 .TP
-\fBSKIFFLLM_HISTORY\fR
+\fBLLM_HISTORY\fR
 History file path.
 .TP
-\fBSKIFFLLM_SYSTEM\fR
+\fBLLM_SYSTEM\fR
 Default system prompt.
 .TP
-\fBSKIFFLLM_PROFILE\fR
+\fBLLM_PROFILE\fR
 Default sampling profile.
 .TP
-\fBSKIFFLLM_API_KEY\fR
+\fBLLM_API_KEY\fR
 Bearer token for --serve.
 .SH FILES
 .TP
-\fB~/.config/skifflm/config\fR
+\fB~/.config/llm/config\fR
 Default configuration file.
 .TP
-\fB~/.local/share/skifflm/models/\fR
+\fB~/.local/share/llm/models/\fR
 Default model directory.
 .TP
-\fB~/.local/share/skifflm/history.skif\fR
+\fB~/.local/share/llm/history.skif\fR
 Default session history.
 .SH SERVER
 .TP

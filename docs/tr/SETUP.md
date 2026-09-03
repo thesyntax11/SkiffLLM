@@ -27,7 +27,7 @@ bash scripts/install.sh                            # CPU / platform varsayılan�
 BACKEND=cuda bash scripts/install.sh               # CUDA
 BACKEND=vulkan bash scripts/install.sh             # Vulkan
 BACKEND=metal bash scripts/install.sh              # macOS Metal
-./build/skifflm --backend-info                     # bağlı arka uçları görüntüle
+./build/llm --backend-info                     # bağlı arka uçları görüntüle
 ```
 
 İsteğe bağlı yapılandırma sırasındaki indirmeyi önlemek için mevcut bir llama.cpp
@@ -55,14 +55,14 @@ python3 scripts/model_fetch.py --list
 python3 scripts/model_fetch.py --model qwen2.5-0.5b
 ```
 
-Yardımcı, dosyayı `~/.local/share/skifflm/models` dizinine kaydeder. Çıkarım
+Yardımcı, dosyayı `~/.local/share/llm/models` dizinine kaydeder. Çıkarım
 tamamen çevrimdışı kalır.
 
 Ya da kendiniz kopyalayın:
 
 ```bash
-mkdir -p ~/.local/share/skifflm/models
-cp /path/to/model-q4_k_m.gguf ~/.local/share/skifflm/models/
+mkdir -p ~/.local/share/llm/models
+cp /path/to/model-q4_k_m.gguf ~/.local/share/llm/models/
 ```
 
 Hızlı ve yalnızca CPU ile başlamak için önerilen küçük modeller:
@@ -76,9 +76,9 @@ Hızlı ve yalnızca CPU ile başlamak için önerilen küçük modeller:
 ## İlk çalıştırma
 
 ```bash
-./build/skifflm --doctor
-./build/skifflm --model ~/.local/share/skifflm/models/model-q4_k_m.gguf --model-info
-./build/skifflm --model ~/.local/share/skifflm/models/model-q4_k_m.gguf
+./build/llm --doctor
+./build/llm --model ~/.local/share/llm/models/model-q4_k_m.gguf --model-info
+./build/llm --model ~/.local/share/llm/models/model-q4_k_m.gguf
 ```
 
 ## Testleri çalıştırma
@@ -95,8 +95,8 @@ scripts/ci-local.sh
 
 ## Yapılandırma
 
-Varsayılan yapılandırma dosyası `~/.config/skifflm/config` yolundadır. Tam bir
-örnek `configs/skifflm.example.conf` dosyasındadır. Komut satırı seçenekleri
+Varsayılan yapılandırma dosyası `~/.config/llm/config` yolundadır. Tam bir
+örnek `configs/llm.example.conf` dosyasındadır. Komut satırı seçenekleri
 yapılandırma dosyasını geçersiz kılar.
 
 ## Sorun giderme
@@ -104,6 +104,6 @@ yapılandırma dosyasını geçersiz kılar.
 - Model bulunamazsa `--list-models` çalıştırın veya `--model` verin.
 - Üretim bağlam sınırında duruyorsa `--ctx` değerini artırın veya konuşmayı
   kısaltın.
-- Hazır llama.cpp varsa `SKIFFLLM_LLAMA_SOURCE_DIR` değişkenini ayarlayın.
+- Hazır llama.cpp varsa `LLM_LLAMA_SOURCE_DIR` değişkenini ayarlayın.
 - Çok soketli sistemlerde `--numa` deneyin.
 - Daha hızlı CPU çıkarımı için `--profile fast` ve örnek bir model kullanın.

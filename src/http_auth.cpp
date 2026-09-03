@@ -1,10 +1,10 @@
-#include "skifflm/http_auth.hpp"
+#include "llm/http_auth.hpp"
 
 #include <cctype>
 
-#include "skifflm/config.hpp"
+#include "llm/config.hpp"
 
-namespace skifflm {
+namespace llm {
 
 namespace {
 
@@ -54,4 +54,4 @@ bool bearer_token_matches(const std::string& authorization, const std::string& a
     return constant_time_equal(api_key, token);
 }
 
-}  // namespace skifflm
+}  // namespace llm

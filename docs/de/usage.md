@@ -6,10 +6,10 @@ SkiffLLM erkennt gepipelten stdin automatisch, sodass das Modell Teil eines
 Shell-Workflows wird:
 
 ```bash
-git diff | skifflm "review these changes"
-cat error.log | skifflm "find the root cause"
-cat README.md | skifflm "summarize this"
-skifflm --project . "where is authentication handled?"
+git diff | llm "review these changes"
+cat error.log | llm "find the root cause"
+cat README.md | llm "summarize this"
+llm --project . "where is authentication handled?"
 ```
 
 Ohne Anweisungsargument ist der gepipelte Text selbst der Prompt. Mit einem
@@ -18,7 +18,7 @@ Anweisungsargument wird der gepipelte Text zu `<context>`.
 ## Projektkontext
 
 ```bash
-skifflm --project . "where is authentication handled?"
+llm --project . "where is authentication handled?"
 ```
 
 `--project <dir>` erstellt vor der Generierung einen begrenzten Dateiindex plus
@@ -28,13 +28,13 @@ Build-Verzeichnisse, Caches und eingecheckte Abhängigkeiten.
 ## Sitzungen und Gedächtnis
 
 ```bash
-skifflm session list
-skifflm session show coding
-skifflm session rename coding writing
-skifflm session remove old-draft
+llm session list
+llm session show coding
+llm session rename coding writing
+llm session remove old-draft
 
-skifflm --remember "the user prefers concise answers"
-skifflm --forget concise
+llm --remember "the user prefers concise answers"
+llm --forget concise
 ```
 
 Interaktive Shell-Befehle: `/remember <fact>`, `/forget <text>`,
@@ -46,19 +46,19 @@ Sampling-Einstellungen erneut ausführen).
 ## Zusammenfassungs-Kurzbefehl
 
 ```bash
-skifflm --summarize README.md
-skifflm --summarize error.log --model qwen2.5-0.5b.gguf
+llm --summarize README.md
+llm --summarize error.log --model qwen2.5-0.5b.gguf
 ```
 
 ## Modellverwaltung
 
 ```bash
-skifflm model list
-skifflm model info qwen2.5-0.5b
-skifflm model install qwen2.5-0.5b
-skifflm model verify qwen2.5-0.5b
-skifflm model verify qwen2.5-0.5b --update
-skifflm model remove qwen2.5-0.5b --force
+llm model list
+llm model info qwen2.5-0.5b
+llm model install qwen2.5-0.5b
+llm model verify qwen2.5-0.5b
+llm model verify qwen2.5-0.5b --update
+llm model remove qwen2.5-0.5b --force
 ```
 
 `model verify` prüft den GGUF-Magic-Header und, falls vorhanden, die
@@ -75,25 +75,25 @@ Die Inferenz bleibt offline. `model install` führt das explizite
 ## Einmaliger Lauf und Chat-Vorlagen
 
 ```bash
-skifflm run "Hello" --ctx 2048 --temp 0.3 --threads 4
-skifflm chat-template list
-skifflm chat-template detect --model model.gguf
+llm run "Hello" --ctx 2048 --temp 0.3 --threads 4
+llm chat-template list
+llm chat-template detect --model model.gguf
 ```
 
 ## OpenAI-Client
 
 ```bash
-skifflm openai "Merhaba" --base-url http://127.0.0.1:8080
-skifflm openai "Merhaba" --base-url http://127.0.0.1:8080 --stream
-skifflm openai "Merhaba" --base-url http://127.0.0.1:8080 --no-json
+llm openai "Merhaba" --base-url http://127.0.0.1:8080
+llm openai "Merhaba" --base-url http://127.0.0.1:8080 --stream
+llm openai "Merhaba" --base-url http://127.0.0.1:8080 --no-json
 ```
 
 ## Hardwarebeschleunigung
 
 ```bash
-skifflm --backend-info
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DSKIFFLLM_LLAMA_BACKEND=cuda
-./build/skifflm --model model.gguf --gpu-layers -1 --flash-attn
+llm --backend-info
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DLLM_LLAMA_BACKEND=cuda
+./build/llm --model model.gguf --gpu-layers -1 --flash-attn
 ```
 
 Backends werden zur Buildzeit gewählt; `--backend-info` zeigt, was tatsächlich
@@ -102,17 +102,17 @@ verknüpft ist.
 ## Git-Integration
 
 ```bash
-skifflm git review --cached
-skifflm git explain
-skifflm git commit --cached
-skifflm git log
-skifflm git status
+llm git review --cached
+llm git explain
+llm git commit --cached
+llm git log
+llm git status
 ```
 
 ## Sicherer Codemodus
 
 ```bash
-skifflm --code --project . "fix the bug in src/server.cpp"
+llm --code --project . "fix the bug in src/server.cpp"
 ```
 
 `--code` erzeugt einen Unified-Diff-Vorschlag und bearbeitet selbst niemals eine
@@ -121,7 +121,7 @@ Datei.
 ## Interaktiver Modus
 
 ```bash
-skifflm --model ~/models/model-q4_k_m.gguf
+llm --model ~/models/model-q4_k_m.gguf
 ```
 
 Die Oberfläche ist ein Prompt namens `you>`. Geben Sie eine Nachricht ein und
@@ -130,14 +130,14 @@ drücken Sie Enter. Der Text wird gestreamt, während er generiert wird.
 ## Einmalmodus
 
 ```bash
-skifflm --model model.gguf --prompt "What is recursion?"
+llm --model model.gguf --prompt "What is recursion?"
 ```
 
 ## Benannte Sitzungen
 
 ```bash
-skifflm --model model.gguf --session writing
-skifflm --model model.gguf --session coding
+llm --model model.gguf --session writing
+llm --model model.gguf --session coding
 ```
 
 Jede benannte Sitzung erhält eine eigene Verlaufsdatei.
@@ -145,13 +145,13 @@ Jede benannte Sitzung erhält eine eigene Verlaufsdatei.
 ## Systemprompt
 
 ```bash
-skifflm --model model.gguf --system "You are a patient Python tutor."
+llm --model model.gguf --system "You are a patient Python tutor."
 ```
 
 ## Profile
 
 ```bash
-skifflm --model model.gguf --profile code
+llm --model model.gguf --profile code
 ```
 
 Verfügbare Profile: `balanced`, `fast`, `creative`, `code`, `precise`.
@@ -159,8 +159,8 @@ Verfügbare Profile: `balanced`, `fast`, `creative`, `code`, `precise`.
 ## Dateikontext
 
 ```bash
-skifflm --model model.gguf --attach notes.txt --prompt "Summarize these notes."
-skifflm --model model.gguf --prompt "Read @notes.txt and list the tasks."
+llm --model model.gguf --attach notes.txt --prompt "Summarize these notes."
+llm --model model.gguf --prompt "Read @notes.txt and list the tasks."
 ```
 
 Wiederholen Sie `--attach`, verwenden Sie `@path` im Prompt oder verwalten Sie
@@ -169,7 +169,7 @@ Anhänge in der Shell mit `/file` und `/clear-attach`.
 ## Konversation exportieren
 
 ```bash
-skifflm --export conversation.md
+llm --export conversation.md
 ```
 
 Das Exportieren der geladenen Sitzung benötigt kein Modell und schreibt
@@ -178,8 +178,8 @@ Markdown. In der Shell verwenden Sie `/export <path>`.
 ## Chat-Vorlage und Warmup
 
 ```bash
-skifflm --model model.gguf --chat-template chatml
-skifflm --model model.gguf --warmup
+llm --model model.gguf --chat-template chatml
+llm --model model.gguf --warmup
 ```
 
 `--chat-template` überschreibt den eingebauten Prompt-Formatnamen des Modells.
@@ -197,7 +197,7 @@ Terminals einen Live-Token-Zähler.
 ## Stoppsequenzen
 
 ```bash
-skifflm --model model.gguf --stop "END" --stop "STOP"
+llm --model model.gguf --stop "END" --stop "STOP"
 ```
 
 Die Generierung stoppt bei der ersten konfigurierten Sequenz.
@@ -205,7 +205,7 @@ Die Generierung stoppt bei der ersten konfigurierten Sequenz.
 ## JSON-Modus
 
 ```bash
-skifflm --model model.gguf --prompt "Say hello" --json
+llm --model model.gguf --prompt "Say hello" --json
 ```
 
 Dies deaktiviert die interaktive Shell und schreibt ein einzelnes
@@ -214,20 +214,20 @@ JSON-Objekt nach stdout.
 ## Piping
 
 ```bash
-cat prompt.txt | skifflm --model model.gguf
-printf 'Explain this command.' | skifflm --model model.gguf --prompt-file /dev/stdin
+cat prompt.txt | llm --model model.gguf
+printf 'Explain this command.' | llm --model model.gguf --prompt-file /dev/stdin
 ```
 
 ## Ausgabedateien
 
 ```bash
-skifflm --model model.gguf --prompt-file input.txt --output output.md
+llm --model model.gguf --prompt-file input.txt --output output.md
 ```
 
 ## Konfigurationsdatei
 
 ```bash
-skifflm --config ~/.config/skifflm/config
+llm --config ~/.config/llm/config
 ```
 
 Der Standardspeicherort wird verwendet, wenn er vorhanden ist.
@@ -235,20 +235,20 @@ Der Standardspeicherort wird verwendet, wenn er vorhanden ist.
 ## Diagnose
 
 ```bash
-skifflm --doctor
-skifflm --model model.gguf --model-info
-skifflm --model model.gguf --smoke
-skifflm --model model.gguf --tokenize "hello world"
+llm --doctor
+llm --model model.gguf --model-info
+llm --model model.gguf --smoke
+llm --model model.gguf --tokenize "hello world"
 ```
 
 ## Lokaler API-Server
 
 ```bash
 # nur lokal
-skifflm --model model.gguf --serve --host 127.0.0.1 --port 8080
+llm --model model.gguf --serve --host 127.0.0.1 --port 8080
 
 # geschützter Nicht-Loopback-Listener
-skifflm --model model.gguf --serve --host 0.0.0.0 --port 8080 --api-key "$SKIFFLLM_SERVER_KEY"
+llm --model model.gguf --serve --host 0.0.0.0 --port 8080 --api-key "$LLM_SERVER_KEY"
 ```
 
 Endpunkte:
@@ -269,14 +269,14 @@ Ein schneller Client ist enthalten:
 
 ```bash
 python3 scripts/api_client.py http://127.0.0.1:8080 "Say hello."
-python3 scripts/api_client.py http://127.0.0.1:8080 --api-key "$SKIFFLLM_SERVER_KEY" "Say hello."
+python3 scripts/api_client.py http://127.0.0.1:8080 --api-key "$LLM_SERVER_KEY" "Say hello."
 ```
 
 ## Benchmark
 
 ```bash
-skifflm --model model.gguf --benchmark 3
-skifflm --model model.gguf --benchmark 3 --json
+llm --model model.gguf --benchmark 3
+llm --model model.gguf --benchmark 3 --json
 ```
 
 Führt eine echte Generierung aus und meldet gemessene Prompt-Zeit,
@@ -290,7 +290,7 @@ Auf einer CUDA-Maschine:
 ```bash
 cmake -S . -B build -DGGML_CUDA=ON
 cmake --build build -j
-skifflm --model model.gguf --gpu-layers -1
+llm --model model.gguf --gpu-layers -1
 ```
 
 Unter macOS ist das Metal-Backend standardmäßig verfügbar.
@@ -298,5 +298,5 @@ Unter macOS ist das Metal-Backend standardmäßig verfügbar.
 ## Modellauflistung
 
 ```bash
-skifflm --model-dir ~/models --list-models
+llm --model-dir ~/models --list-models
 ```

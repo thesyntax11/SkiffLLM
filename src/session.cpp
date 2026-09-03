@@ -1,11 +1,11 @@
-#include "skifflm/session.hpp"
+#include "llm/session.hpp"
 
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <utility>
 
-namespace skifflm {
+namespace llm {
 namespace {
 
 constexpr uint32_t kMagic = 0x534B4946u;
@@ -202,4 +202,4 @@ const Config& Session::config() const {
     return config_;
 }
 
-}  // namespace skifflm
+}  // namespace llm

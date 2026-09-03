@@ -50,7 +50,7 @@ def main() -> int:
     parser.add_argument("--api-key", help="Bearer token required by the server")
     parser.add_argument("--stream", action="store_true", help="stream tokens as SSE")
     parser.add_argument("--prompt", help="prompt text (falls back to positional text)")
-    parser.add_argument("--model", default="skifflm", help="model id")
+    parser.add_argument("--model", default="llm", help="model id")
     parser.add_argument("--temperature", type=float, default=0.2, help="sampling temperature")
     parser.add_argument("--max-tokens", type=int, default=256, help="maximum generated tokens")
     parser.add_argument("text", nargs="*", help="prompt text")
@@ -61,8 +61,8 @@ def main() -> int:
     args.text = list(args.text) + list(extras)
 
     # Fall back to the same env names the desktop binary accepts, so the docs'
-    # `SKIFFLLM_SERVER_KEY` example works verbatim.
-    api_key = args.api_key or os.environ.get("SKIFFLLM_API_KEY") or os.environ.get("SKIFFLLM_SERVER_KEY") or None
+    # `LLM_SERVER_KEY` example works verbatim.
+    api_key = args.api_key or os.environ.get("LLM_API_KEY") or os.environ.get("LLM_SERVER_KEY") or None
 
     base = args.base.rstrip("/")
 

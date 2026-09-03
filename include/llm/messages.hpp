@@ -3,11 +3,11 @@
 #include <string>
 #include <vector>
 
-namespace skifflm {
+namespace llm {
 
 struct ChatMessage {
     std::string role;
     std::string content;
 };
 
-}  // namespace skifflm
+}  // namespace llm

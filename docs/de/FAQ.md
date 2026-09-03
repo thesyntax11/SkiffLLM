@@ -37,17 +37,17 @@ nach dem Laden automatisch auf.
 ## Wo werden Sitzungen gespeichert?
 
 Desktop: das Sitzungsverzeichnis aus `--session`/`--history` (standardmäßig unter
-`~/.local/share/skifflm`). Android: `conversation.json` im App-internen Speicher;
+`~/.local/share/llm`). Android: `conversation.json` im App-internen Speicher;
 das Löschen der App-Daten entfernt sie.
 
 ## Wie stelle ich die lokale API bereit?
 
 ```bash
 # nur lokal
-skifflm --model model.gguf --serve --host 127.0.0.1 --port 8080
+llm --model model.gguf --serve --host 127.0.0.1 --port 8080
 
 # von einer anderen Maschine erreichbar, durch gemeinsamen Token geschützt
-skifflm --model model.gguf --serve --host 0.0.0.0 --port 8080 --api-key "local-token"
+llm --model model.gguf --serve --host 0.0.0.0 --port 8080 --api-key "local-token"
 ```
 
 Mit `--api-key` erfordern `/v1/models` und `/v1/chat/completions`

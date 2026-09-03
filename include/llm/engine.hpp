@@ -7,10 +7,10 @@
 #include <string>
 #include <vector>
 
-#include "skifflm/config.hpp"
-#include "skifflm/messages.hpp"
+#include "llm/config.hpp"
+#include "llm/messages.hpp"
 
-namespace skifflm {
+namespace llm {
 
 struct ModelInfo {
     std::string description;
@@ -88,4 +88,4 @@ class LlmEngine {
     std::string error_;
 };
 
-}  // namespace skifflm
+}  // namespace llm

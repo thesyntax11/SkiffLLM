@@ -1,10 +1,10 @@
-package com.skifflm.app
+package com.llm.app
 
 import android.content.Context
 
 class SettingsStore(private val appContext: Context) {
 
-    private val prefs = appContext.getSharedPreferences("skifflm_settings", Context.MODE_PRIVATE)
+    private val prefs = appContext.getSharedPreferences("llm_settings", Context.MODE_PRIVATE)
 
     fun loadLoadParams(defaultThreads: Int): LoadParams = LoadParams(
         contextSize = prefs.getInt(KEY_CONTEXT, 2048),

@@ -8,11 +8,11 @@
 #   docker compose up -d --build
 
 services:
-  skifflm:
+  llm:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    image: skifflm:local
+    image: llm:local
     restart: unless-stopped
     # Bind to host loopback only. Change to "8080:8080" only if you truly need
     # listener access from the network (and then protect it with --api-key).
@@ -20,10 +20,10 @@ services:
       - "127.0.0.1:8080:8080"
     environment:
       # Read at runtime; never commit a real key.
-      SKIFFLLM_SERVER_KEY: "${SKIFFLLM_SERVER_KEY:?set SKIFFLLM_SERVER_KEY in the environment or .env}"
+      LLM_SERVER_KEY: "${LLM_SERVER_KEY:?set LLM_SERVER_KEY in the environment or .env}"
     volumes:
       - ./models:/models:ro
-      - skifflm-sessions:/srv/skifflm/sessions
+      - llm-sessions:/srv/llm/sessions
     command:
       - --model
       - /models/model-q4_k_m.gguf
@@ -33,9 +33,9 @@ services:
       - --port
       - 8080
       - --api-key
-      - "${SKIFFLLM_SERVER_KEY}"
+      - "${LLM_SERVER_KEY}"
       - --history
-      - /srv/skifflm/sessions
+      - /srv/llm/sessions
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/version"]
       interval: 30s
@@ -44,4 +44,4 @@ services:
       start_period: 15s
 
 volumes:
-  skifflm-sessions:
+  llm-sessions:

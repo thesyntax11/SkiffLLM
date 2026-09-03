@@ -1,4 +1,4 @@
-#include "skifflm/config.hpp"
+#include "llm/config.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -10,7 +10,7 @@
 #include <iostream>
 #include <sstream>
 
-namespace skifflm {
+namespace llm {
 namespace {
 
 std::string home_directory() {
@@ -156,7 +156,7 @@ std::filesystem::path resolve_session_path(const std::string& name,
     std::filesystem::path base = parent;
     if (base.empty()) {
         const std::string home = home_directory();
-        base = std::filesystem::path(home) / ".local/share/skifflm";
+        base = std::filesystem::path(home) / ".local/share/llm";
     }
     return base / (sanitize_session(name) + ".skif");
 }
@@ -166,10 +166,10 @@ std::filesystem::path resolve_session_path(const std::string& name,
 Config default_config() {
     Config cfg;
     const std::string home = home_directory();
-    cfg.model_dir = expand_path(home + "/.local/share/skifflm/models");
-    cfg.config_path = expand_path(home + "/.config/skifflm/config");
-    cfg.history_path = expand_path(home + "/.local/share/skifflm/history.skif");
-    cfg.memory_path = expand_path(home + "/.local/share/skifflm/memories.txt");
+    cfg.model_dir = expand_path(home + "/.local/share/llm/models");
+    cfg.config_path = expand_path(home + "/.config/llm/config");
+    cfg.history_path = expand_path(home + "/.local/share/llm/history.skif");
+    cfg.memory_path = expand_path(home + "/.local/share/llm/memories.txt");
     return cfg;
 }
 
@@ -793,8 +793,8 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
         }
         if (!starts_with(arg, "--")) {
             // Tolerant, Unix-style argument handling:
-            //   skifflm model.gguf              -> model path
-            //   skifflm "explain this code"     -> one-shot prompt
+            //   llm model.gguf              -> model path
+            //   llm "explain this code"     -> one-shot prompt
             if (cfg.model_path.empty() && looks_like_model_path(arg)) {
                 cfg.model_path = expand_path(arg);
                 continue;
@@ -876,7 +876,7 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
             continue;
         }
 
-        // Flags consumed by the `skifflm openai` subcommand are accepted here
+        // Flags consumed by the `llm openai` subcommand are accepted here
         // so that `parse_args` does not reject them before dispatch.
         if (key == "base-url" || key == "base" || key == "max-tokens") {
             if (!has_value) {
@@ -898,28 +898,28 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
 }
 
 void apply_environment(Config& cfg) {
-    if (const char* value = std::getenv("SKIFFLLM_MODEL")) {
+    if (const char* value = std::getenv("LLM_MODEL")) {
         cfg.model_path = expand_path(value);
     }
-    if (const char* value = std::getenv("SKIFFLLM_MODEL_DIR")) {
+    if (const char* value = std::getenv("LLM_MODEL_DIR")) {
         cfg.model_dir = expand_path(value);
     }
-    if (const char* value = std::getenv("SKIFFLLM_CONFIG")) {
+    if (const char* value = std::getenv("LLM_CONFIG")) {
         cfg.config_path = expand_path(value);
     }
-    if (const char* value = std::getenv("SKIFFLLM_HISTORY")) {
+    if (const char* value = std::getenv("LLM_HISTORY")) {
         cfg.history_path = expand_path(value);
     }
-    if (const char* value = std::getenv("SKIFFLLM_SYSTEM")) {
+    if (const char* value = std::getenv("LLM_SYSTEM")) {
         cfg.system_prompt = value;
     }
-    if (const char* value = std::getenv("SKIFFLLM_PROFILE")) {
+    if (const char* value = std::getenv("LLM_PROFILE")) {
         std::string error;
         apply_profile(cfg, value, error);
     }
-    if (const char* value = std::getenv("SKIFFLLM_API_KEY")) {
+    if (const char* value = std::getenv("LLM_API_KEY")) {
         cfg.api_key = value;
-    } else if (const char* value = std::getenv("SKIFFLLM_SERVER_KEY")) {
+    } else if (const char* value = std::getenv("LLM_SERVER_KEY")) {
         // Alias used throughout the docs. The longer name wins so both are
         // supported without surprising anyone who sets the old one.
         cfg.api_key = value;
@@ -1014,7 +1014,7 @@ std::string usage(const std::string& program) {
     out << "  --help                        Show this help\n";
     out << "  --version                     Show the version\n";
     out << "\nSubcommands:\n";
-    out << "  run [prompt] [opts]        One-shot prompt (e.g. `skifflm run \"Merhaba\" --ctx 2048 "
+    out << "  run [prompt] [opts]        One-shot prompt (e.g. `llm run \"Merhaba\" --ctx 2048 "
            "--temp 0.3 --threads 4`)\n";
     out << "  model list|info|install|remove|verify\n";
     out << "  chat-template list|detect|info\n";
@@ -1192,4 +1192,4 @@ void print_config(const Config& cfg, bool as_json) {
     std::cout << "\n";
 }
 
-}  // namespace skifflm
+}  // namespace llm

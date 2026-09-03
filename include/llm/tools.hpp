@@ -5,9 +5,9 @@
 #include <string>
 #include <vector>
 
-#include "skifflm/config.hpp"
+#include "llm/config.hpp"
 
-namespace skifflm {
+namespace llm {
 
 struct CatalogModel {
     std::string id;
@@ -70,4 +70,4 @@ bool clear_memories(const Config& cfg, std::string& error);
 bool is_stdin_tty();
 std::string read_stdin_all();
 
-}  // namespace skifflm
+}  // namespace llm

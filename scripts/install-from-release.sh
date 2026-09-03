@@ -87,11 +87,11 @@ fi
 ASSET_VERSION="${VERSION#v}"
 
 case "${OS}-${ARCH}" in
-    linux-x86_64)  ASSET="skifflm-${ASSET_VERSION}-linux-x86_64.tar.gz";;
-    linux-aarch64|linux-arm64) ASSET="skifflm-${ASSET_VERSION}-linux-aarch64.tar.gz";;
-    darwin-x86_64) ASSET="skifflm-${ASSET_VERSION}-macos-x86_64.tar.gz";;
-    darwin-arm64)  ASSET="skifflm-${ASSET_VERSION}-macos-arm64.tar.gz";;
-    windows-x86_64) ASSET="skifflm-${ASSET_VERSION}-windows-x86_64.zip";;
+    linux-x86_64)  ASSET="llm-${ASSET_VERSION}-linux-x86_64.tar.gz";;
+    linux-aarch64|linux-arm64) ASSET="llm-${ASSET_VERSION}-linux-aarch64.tar.gz";;
+    darwin-x86_64) ASSET="llm-${ASSET_VERSION}-macos-x86_64.tar.gz";;
+    darwin-arm64)  ASSET="llm-${ASSET_VERSION}-macos-arm64.tar.gz";;
+    windows-x86_64) ASSET="llm-${ASSET_VERSION}-windows-x86_64.zip";;
     *)
         echo "error: no release asset mapping for ${OS}-${ARCH}" >&2
         exit 2
@@ -108,7 +108,7 @@ curl -fsSL --retry 3 -o "${TMP}/${ASSET}" "${URL}"
 case "${ASSET}" in
     *.zip)
         # Extract into the same directory used for tar.gz so the binary is
-        # always found at ${TMP}/bin/skifflm.
+        # always found at ${TMP}/bin/llm.
         command -v unzip >/dev/null 2>&1 || { echo "unzip is required" >&2; exit 2; }
         unzip -q "${TMP}/${ASSET}" -d "${TMP}"
         ;;
@@ -117,9 +117,9 @@ case "${ASSET}" in
         ;;
 esac
 
-BIN="${TMP}/bin/skifflm"
+BIN="${TMP}/bin/llm"
 if [[ "${OS}" == "windows" ]]; then
-    BIN="${TMP}/bin/skifflm.exe"
+    BIN="${TMP}/bin/llm.exe"
 fi
 if [[ ! -f "${BIN}" ]]; then
     echo "error: binary not found in the release archive" >&2
@@ -127,5 +127,5 @@ if [[ ! -f "${BIN}" ]]; then
 fi
 
 install -d "${PREFIX}/bin"
-install -m 0755 "${BIN}" "${PREFIX}/bin/skifflm"
-echo "Installed ${PREFIX}/bin/skifflm"
+install -m 0755 "${BIN}" "${PREFIX}/bin/llm"
+echo "Installed ${PREFIX}/bin/llm"

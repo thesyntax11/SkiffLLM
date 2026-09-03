@@ -40,10 +40,10 @@ Ollama sunucu önceliklidir: bir hizmet çalıştırır ve HTTP API'siyle konuş
 SkiffLLM ise CLI önceliklidir:
 
 ```bash
-git diff | skifflm "review these changes"
-cat error.log | skifflm "find the root cause"
-skifflm --project . "where is authentication handled?"
-skifflm --code --project . "propose a fix for src/server.cpp"
+git diff | llm "review these changes"
+cat error.log | llm "find the root cause"
+llm --project . "where is authentication handled?"
+llm --code --project . "propose a fix for src/server.cpp"
 ```
 
 Arka plan süreci, yönetilecek bir port veya kalıcılık kontrolü taşıyan konteyner
@@ -59,14 +59,14 @@ ile "ağı kapattıktan sonra çalışır" arasındaki fark.
 ### 3. Çıkarım motoru üzerinde kontrol istiyorsunuz
 
 SkiffLLM, seçtiğiniz llama.cpp sürümüne karşı derlenir. Arka uç
-`SKIFFLLM_LLAMA_SOURCE_DIR` ve derleme arka uç bayrağıyla belirlenir;
+`LLM_LLAMA_SOURCE_DIR` ve derleme arka uç bayrağıyla belirlenir;
 `--backend-info` gerçekte neyin bağlandığını söyler. Derleyiciye, arka uca ve
 binary'ye siz sahip olursunuz. Ollama bunu sizin için paketler ve yönetir; bu
 kullanışlı ama daha az şeffaftır.
 
 ### 4. Tedarik zinciri kanıtı istiyorsunuz
 
-`skifflm model verify`, GGUF sihirli başlığını ve SHA-256 yan dosyasını denetler.
+`llm model verify`, GGUF sihirli başlığını ve SHA-256 yan dosyasını denetler.
 Katalog boyutu yalnızca bilgilendiricidir; yeni bir üst sürüm eski bayt sayısı
 yüzünden reddedilmez. `model_fetch.py --checksum` yan dosyayı kaydeder ve
 `--verify` yeniden indirmeden mevcut indirilen dosyayı kontrol eder. Bu,

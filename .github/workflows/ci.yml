@@ -60,7 +60,7 @@ jobs:
           fi
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DSKIFFLLM_BUILD_TESTS=ON
+            -DLLM_BUILD_TESTS=ON
         shell: bash
 
       - name: Build
@@ -84,11 +84,11 @@ jobs:
       - name: Smoke test
         run: |
           if [ "$RUNNER_OS" = "Windows" ]; then
-            ./build/Release/skifflm --version
-            ./build/Release/skifflm --doctor
+            ./build/Release/llm --version
+            ./build/Release/llm --doctor
           else
-            ./build/skifflm --version
-            ./build/skifflm --doctor
+            ./build/llm --version
+            ./build/llm --doctor
           fi
         shell: bash
 
@@ -98,9 +98,9 @@ jobs:
         run: |
           mkdir -p distribution
           if [ "$RUNNER_OS" = "Windows" ]; then
-            cp build/Release/skifflm.exe distribution/skifflm.exe
+            cp build/Release/llm.exe distribution/llm.exe
           else
-            cp build/skifflm distribution/skifflm
+            cp build/llm distribution/llm
           fi
 
       - name: Upload desktop artifact
@@ -108,7 +108,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ matrix.name }}
-          path: distribution/skifflm*
+          path: distribution/llm*
           retention-days: 7
           if-no-files-found: error
 
@@ -216,8 +216,8 @@ jobs:
         run: |
           EXPECTED_VERSION="$(sed -n 's/project(SkiffLLM VERSION \([0-9][0-9.]*\).*/\1/p' CMakeLists.txt)"
           test -n "${EXPECTED_VERSION}"
-          grep -q "SKIFFLLM_VERSION \"${EXPECTED_VERSION}\"" src/main.cpp
-          grep -q "SkiffLLM ${EXPECTED_VERSION}" docs/skifflm.1
+          grep -q "LLM_VERSION \"${EXPECTED_VERSION}\"" src/main.cpp
+          grep -q "SkiffLLM ${EXPECTED_VERSION}" docs/llm.1
           grep -q "versionName = \"${EXPECTED_VERSION}\"" android/app/build.gradle.kts
           echo "Version ${EXPECTED_VERSION} is consistent."
         shell: bash

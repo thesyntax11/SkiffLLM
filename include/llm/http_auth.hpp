@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace skifflm {
+namespace llm {
 
 // Returns true when `authorization` carries a valid
 // `Authorization: Bearer <api_key>` value for the configured server key.
@@ -10,4 +10,4 @@ namespace skifflm {
 // working, matching the `--serve` default.
 bool bearer_token_matches(const std::string& authorization, const std::string& api_key);
 
-}  // namespace skifflm
+}  // namespace llm

@@ -39,10 +39,10 @@ Ollama es server-first: ejecutas un servicio y hablas con una API HTTP. SkiffLLM
 es CLI-first:
 
 ```bash
-git diff | skifflm "review these changes"
-cat error.log | skifflm "find the root cause"
-skifflm --project . "where is authentication handled?"
-skifflm --code --project . "propose a fix for src/server.cpp"
+git diff | llm "review these changes"
+cat error.log | llm "find the root cause"
+llm --project . "where is authentication handled?"
+llm --code --project . "propose a fix for src/server.cpp"
 ```
 
 No hay proceso en segundo plano, puerto que gestionar ni contenedor con control
@@ -59,14 +59,14 @@ debas recordar. Para redes restringidas o aisladas es la diferencia entre
 ### 3. Necesitas control sobre el motor de inferencia
 
 SkiffLLM se compila contra el llama.cpp que elijas. El backend se decide al
-configurar `SKIFFLLM_LLAMA_SOURCE_DIR` y el flag de backend de build;
+configurar `LLM_LLAMA_SOURCE_DIR` y el flag de backend de build;
 `--backend-info` te dice qué está realmente enlazado. Tú posees el compilador,
 el backend y el binario. Ollama empaqueta y gestiona su runtime; cómodo pero
 menos transparente.
 
 ### 4. Quieres evidencia de la cadena de suministro
 
-`skifflm model verify` comprueba la cabecera mágica GGUF y el sidecar SHA-256.
+`llm model verify` comprueba la cabecera mágica GGUF y el sidecar SHA-256.
 El tamaño del catálogo es orientativo, para que una revisión upstream más nueva
 no se rechace por un recuento de bytes desactualizado. `model_fetch.py --checksum` registra el sidecar y `--verify`
 comprueba una descarga existente sin volver a descargar. Es el tipo de evidencia

@@ -2,30 +2,30 @@
 
 ## Components
 
-- `include/skifflm/cli_utils.hpp` and `src/cli_utils.cpp`
+- `include/llm/cli_utils.hpp` and `src/cli_utils.cpp`
   Shared CLI helpers for parsing numbers, reading files and stdin, expanding
   `@file` paths, building attach blocks, exporting Markdown, escaping JSON, and
   writing output files.
 
-- `include/skifflm/config.hpp` and `src/config.cpp`
+- `include/llm/config.hpp` and `src/config.cpp`
   Parse CLI flags, config files, environment variables, profiles, and model
   discovery.
 
-- `include/skifflm/http_auth.hpp` and `src/http_auth.cpp`
+- `include/llm/http_auth.hpp` and `src/http_auth.cpp`
   Small, testable HTTP Bearer-token matcher used to protect the local
   `/v1/*` endpoints when `--api-key` is configured.
 
-- `include/skifflm/engine.hpp` and `src/engine.cpp`
+- `include/llm/engine.hpp` and `src/engine.cpp`
   Own the llama.cpp model and context. Build chat prompts, tokenize, run the
   sampler chain, decode tokens, stop early, and report real timing.
 
-- `include/skifflm/session.hpp` and `src/session.cpp`
+- `include/llm/session.hpp` and `src/session.cpp`
   Manage the system prompt and conversation history with atomic local writes.
 
-- `include/skifflm/terminal.hpp` and `src/terminal.cpp`
+- `include/llm/terminal.hpp` and `src/terminal.cpp`
   Handle color output, streaming counters, readline input, help, and stats.
 
-- `include/skifflm/server.hpp` and `src/server.cpp`
+- `include/llm/server.hpp` and `src/server.cpp`
   Local HTTP endpoint with `/health`, `/version`, `/v1/models`, and
   `/v1/chat/completions`, including streamed responses, CORS support, and
   optional Bearer auth on `/v1/*`.
@@ -34,7 +34,7 @@
   CLI entry point: dispatch diagnostics, export, one-shot, interactive,
   benchmark, and server modes.
 
-- `android/app/src/main/java/com/skifflm/app/`
+- `android/app/src/main/java/com/llm/app/`
   Android UI and application logic: Compose chat, conversation persistence,
   model catalog, downloader, and the JNI bridge.
 

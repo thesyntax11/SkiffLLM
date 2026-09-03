@@ -1,8 +1,8 @@
-package com.skifflm.app
+package com.llm.app
 
 object SkiffNative {
     init {
-        System.loadLibrary("skifflm")
+        System.loadLibrary("llm")
     }
 
     external fun create(

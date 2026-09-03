@@ -1,4 +1,4 @@
-_skifflm_complete() {
+_llm_complete() {
     local cur prev
     COMPREPLY=()
     cur="${COMP_WORDS[COMP_CWORD]}"
@@ -86,4 +86,4 @@ _skifflm_complete() {
     COMPREPLY=( $(compgen -f -- "${cur}") )
 }
 
-complete -F _skifflm_complete skifflm
+complete -F _llm_complete llm

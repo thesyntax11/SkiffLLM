@@ -3,10 +3,10 @@
 #include <string>
 #include <vector>
 
-#include "skifflm/config.hpp"
-#include "skifflm/messages.hpp"
+#include "llm/config.hpp"
+#include "llm/messages.hpp"
 
-namespace skifflm {
+namespace llm {
 
 class Session {
    public:
@@ -31,4 +31,4 @@ class Session {
     std::vector<ChatMessage> messages_;
 };
 
-}  // namespace skifflm
+}  // namespace llm

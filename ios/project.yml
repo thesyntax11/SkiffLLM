@@ -1,6 +1,6 @@
 name: SkiffLLM
 options:
-  bundleIdPrefix: com.skifflm
+  bundleIdPrefix: com.llm
   deploymentTarget:
     iOS: "16.4"
   createIntermediateGroups: true
@@ -19,7 +19,7 @@ targets:
           - "*.entitlements"
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.skifflm.app
+        PRODUCT_BUNDLE_IDENTIFIER: com.llm.app
         PRODUCT_NAME: SkiffLLM
         INFOPLIST_FILE: SkiffLLM/Info.plist
         CODE_SIGN_ENTITLEMENTS: SkiffLLM/SkiffLLM.entitlements
@@ -52,7 +52,7 @@ targets:
           - "*.entitlements"
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.skifflm.app.share
+        PRODUCT_BUNDLE_IDENTIFIER: com.llm.app.share
         PRODUCT_NAME: SkiffLLMShare
         INFOPLIST_FILE: SkiffLLMShare/Info.plist
         CODE_SIGN_ENTITLEMENTS: SkiffLLMShare/SkiffLLMShare.entitlements

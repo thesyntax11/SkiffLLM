@@ -1,7 +1,7 @@
 # Keep JNI entry points and their signatures so the native library can
-# resolve Java_com_skifflm_app_SkiffNative_* symbols after shrinking.
--keep class com.skifflm.app.SkiffNative {
+# resolve Java_com_llm_app_SkiffNative_* symbols after shrinking.
+-keep class com.llm.app.SkiffNative {
     native <methods>;
 }
--keep interface com.skifflm.app.SkiffNative$Callback { *; }
+-keep interface com.llm.app.SkiffNative$Callback { *; }
 -keepattributes Signature,InnerClasses,EnclosingMethod

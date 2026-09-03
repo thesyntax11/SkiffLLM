@@ -1,4 +1,4 @@
-#include "skifflm/cli_utils.hpp"
+#include "llm/cli_utils.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -7,9 +7,9 @@
 #include <iostream>
 #include <sstream>
 
-#include "skifflm/config.hpp"
+#include "llm/config.hpp"
 
-namespace skifflm::cli {
+namespace llm::cli {
 
 double parse_double(const std::string& text, bool& ok) {
     ok = false;
@@ -97,7 +97,7 @@ std::string expand_at_paths(const std::string& text, std::string& error) {
                                    raw_path.find('/') != std::string::npos ||
                                    raw_path.find('\\') != std::string::npos;
             std::error_code ec;
-            const std::filesystem::path path = skifflm::expand_path(raw_path);
+            const std::filesystem::path path = llm::expand_path(raw_path);
             if (std::filesystem::exists(path, ec) && std::filesystem::is_regular_file(path, ec)) {
                 const std::string content = read_file(path);
                 if (!content.empty()) {
@@ -212,4 +212,4 @@ bool write_text_file(const std::filesystem::path& path, const std::string& conte
     return true;
 }
 
-}  // namespace skifflm::cli
+}  // namespace llm::cli

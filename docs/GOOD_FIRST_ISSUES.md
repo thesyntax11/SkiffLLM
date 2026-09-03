@@ -19,7 +19,7 @@ changes that break the offline-first runtime.
    `scripts/completions/`.
 2. Add one more honest benchmark run to `docs/benchmarks.md` with the exact
    command, model hash, and machine details.
-3. Add a test that checks `skifflm model list` output contains the expected
+3. Add a test that checks `llm model list` output contains the expected
    catalog ids.
 4. Improve error handling in `src/server.cpp` when `Content-Length` is missing.
 5. Add a cross-platform `scripts/ci.ps1` that mirrors `scripts/ci-local.sh`.

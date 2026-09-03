@@ -73,8 +73,8 @@ else
     echo "Configuring Release build (backend: ${BACKEND})..."
     "${CMAKE}" -S . -B "${BUILD_DIR}" \
         -DCMAKE_BUILD_TYPE=Release \
-        -DSKIFFLLM_BUILD_TESTS=ON \
-        -DSKIFFLLM_LLAMA_BACKEND="${BACKEND}"
+        -DLLM_BUILD_TESTS=ON \
+        -DLLM_LLAMA_BACKEND="${BACKEND}"
 fi
 
 echo "Building (${BUILD_DIR})..."
@@ -86,26 +86,26 @@ if [[ "${SKIP_TESTS}" -eq 0 ]]; then
 fi
 
 BIN_DIR="${PREFIX}/bin"
-SHARE_DIR="${PREFIX}/share/skifflm"
+SHARE_DIR="${PREFIX}/share/llm"
 MAN_DIR="${PREFIX}/share/man/man1"
-DOC_DIR="${PREFIX}/share/doc/skifflm"
-COMPLETION_DIR="${PREFIX}/share/skifflm/completions"
+DOC_DIR="${PREFIX}/share/doc/llm"
+COMPLETION_DIR="${PREFIX}/share/llm/completions"
 
 install -d "${BIN_DIR}" "${SHARE_DIR}" "${MAN_DIR}" "${DOC_DIR}" "${COMPLETION_DIR}"
-install -m 0755 "${BUILD_DIR}/skifflm" "${BIN_DIR}/skifflm"
+install -m 0755 "${BUILD_DIR}/llm" "${BIN_DIR}/llm"
 install -m 0644 README.md LICENSE CHANGELOG.md SECURITY.md \
     "${DOC_DIR}/"
 install -m 0644 docs/*.md "${DOC_DIR}/"
-install -m 0644 docs/skifflm.1 "${MAN_DIR}/skifflm.1"
-install -m 0644 configs/skifflm.example.conf "${SHARE_DIR}/skifflm.example.conf"
+install -m 0644 docs/llm.1 "${MAN_DIR}/llm.1"
+install -m 0644 configs/llm.example.conf "${SHARE_DIR}/llm.example.conf"
 install -m 0644 scripts/completions/* "${COMPLETION_DIR}/"
 
 echo
 echo "Installed SkiffLLM:"
-echo "  Binary:       ${BIN_DIR}/skifflm"
-echo "  Man page:     ${MAN_DIR}/skifflm.1"
+echo "  Binary:       ${BIN_DIR}/llm"
+echo "  Man page:     ${MAN_DIR}/llm.1"
 echo "  Docs:         ${DOC_DIR}"
 echo "  Completions:  ${COMPLETION_DIR}"
 echo
 echo "Add ${BIN_DIR} to PATH to use it from any shell."
-echo "Try: ${BIN_DIR}/skifflm --version"
+echo "Try: ${BIN_DIR}/llm --version"

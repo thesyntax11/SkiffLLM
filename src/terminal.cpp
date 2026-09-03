@@ -1,4 +1,4 @@
-#include "skifflm/terminal.hpp"
+#include "llm/terminal.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -16,12 +16,12 @@
 #include <unistd.h>
 #endif
 
-#ifdef SKIFFLLM_HAVE_READLINE
+#ifdef LLM_HAVE_READLINE
 #include <readline/history.h>
 #include <readline/readline.h>
 #endif
 
-namespace skifflm {
+namespace llm {
 namespace {
 
 bool is_terminal(FILE* stream) {
@@ -111,7 +111,7 @@ Terminal::Terminal(const Config& config) : color_(config.color) {
     if (!is_terminal(stdout)) {
         color_ = false;
     }
-#ifdef SKIFFLLM_HAVE_READLINE
+#ifdef LLM_HAVE_READLINE
     if (!readline_history_path_.empty()) {
         read_history(readline_history_path_.c_str());
     }
@@ -119,7 +119,7 @@ Terminal::Terminal(const Config& config) : color_(config.color) {
 }
 
 Terminal::~Terminal() {
-#ifdef SKIFFLLM_HAVE_READLINE
+#ifdef LLM_HAVE_READLINE
     if (!readline_history_path_.empty()) {
         const std::filesystem::path path(readline_history_path_);
         std::error_code ec;
@@ -285,7 +285,7 @@ void Terminal::highlight(const std::string& text) const {
 
 bool Terminal::read_prompt(const std::string& prompt, std::string& output) {
     std::string line;
-#ifdef SKIFFLLM_HAVE_READLINE
+#ifdef LLM_HAVE_READLINE
     if (is_terminal(stdin)) {
         char* input = readline(prompt.c_str());
         if (input == nullptr) {
@@ -437,4 +437,4 @@ void Terminal::print_history(const std::vector<ChatMessage>& messages) const {
     }
 }
 
-}  // namespace skifflm
+}  // namespace llm

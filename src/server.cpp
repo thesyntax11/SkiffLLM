@@ -1,4 +1,4 @@
-#include "skifflm/server.hpp"
+#include "llm/server.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -18,24 +18,24 @@
 #include <utility>
 #include <vector>
 
-#include "skifflm/http_auth.hpp"
+#include "llm/http_auth.hpp"
 
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
-typedef SOCKET skifflm_socket_t;
-const skifflm_socket_t invalid_socket = INVALID_SOCKET;
+typedef SOCKET llm_socket_t;
+const llm_socket_t invalid_socket = INVALID_SOCKET;
 #else
 #include <netdb.h>
 #include <netinet/in.h>
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <unistd.h>
-typedef int skifflm_socket_t;
-const skifflm_socket_t invalid_socket = -1;
+typedef int llm_socket_t;
+const llm_socket_t invalid_socket = -1;
 #endif
 
-namespace skifflm {
+namespace llm {
 namespace {
 
 std::string socket_error() {
@@ -49,7 +49,7 @@ std::string socket_error() {
 #endif
 }
 
-void close_socket(skifflm_socket_t socket_fd) {
+void close_socket(llm_socket_t socket_fd) {
 #ifdef _WIN32
     closesocket(socket_fd);
 #else
@@ -57,7 +57,7 @@ void close_socket(skifflm_socket_t socket_fd) {
 #endif
 }
 
-bool set_socket_timeout(skifflm_socket_t socket_fd, int seconds, std::string& error) {
+bool set_socket_timeout(llm_socket_t socket_fd, int seconds, std::string& error) {
 #ifdef _WIN32
     const DWORD timeout = static_cast<DWORD>(seconds) * 1000;
     if (setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&timeout),
@@ -86,7 +86,7 @@ bool set_socket_timeout(skifflm_socket_t socket_fd, int seconds, std::string& er
     return true;
 }
 
-bool send_all(skifflm_socket_t socket_fd, const std::string& data, std::string& error) {
+bool send_all(llm_socket_t socket_fd, const std::string& data, std::string& error) {
     size_t offset = 0;
     while (offset < data.size()) {
         const int length = static_cast<int>(data.size() - offset);
@@ -121,7 +121,7 @@ std::string status_reason(int status) {
     }
 }
 
-bool send_response(skifflm_socket_t socket_fd, int status, const std::string& content_type,
+bool send_response(llm_socket_t socket_fd, int status, const std::string& content_type,
                    const std::string& body, std::string& error) {
     std::ostringstream headers;
     headers << "HTTP/1.1 " << status << " " << status_reason(status) << "\r\n";
@@ -137,7 +137,7 @@ bool send_response(skifflm_socket_t socket_fd, int status, const std::string& co
     return send_all(socket_fd, headers.str() + body, error);
 }
 
-bool send_stream_headers(skifflm_socket_t socket_fd, std::string& error) {
+bool send_stream_headers(llm_socket_t socket_fd, std::string& error) {
     std::ostringstream headers;
     headers << "HTTP/1.1 200 OK\r\n";
     headers << "Content-Type: text/event-stream\r\n";
@@ -152,7 +152,7 @@ bool send_stream_headers(skifflm_socket_t socket_fd, std::string& error) {
     return send_all(socket_fd, headers.str(), error);
 }
 
-bool create_listener(const std::string& host, int port, skifflm_socket_t& listener,
+bool create_listener(const std::string& host, int port, llm_socket_t& listener,
                      std::string& error) {
 #ifdef _WIN32
     WSADATA data;
@@ -183,7 +183,7 @@ bool create_listener(const std::string& host, int port, skifflm_socket_t& listen
         return false;
     }
 
-    skifflm_socket_t candidate = invalid_socket;
+    llm_socket_t candidate = invalid_socket;
     for (struct addrinfo* address = addresses; address != nullptr; address = address->ai_next) {
         candidate = socket(address->ai_family, address->ai_socktype, address->ai_protocol);
         if (candidate == invalid_socket) {
@@ -227,7 +227,7 @@ struct HttpRequest {
     std::map<std::string, std::string> headers;
 };
 
-bool read_http_request(skifflm_socket_t socket_fd, HttpRequest& request, std::string& error) {
+bool read_http_request(llm_socket_t socket_fd, HttpRequest& request, std::string& error) {
     std::string data;
     char buffer[4096] = {0};
     while (data.size() < 65536) {
@@ -741,7 +741,7 @@ std::string model_name(const Config& config) {
     const std::string path = config.model_path.string();
     const size_t slash = path.find_last_of("/\\");
     const std::string file = slash == std::string::npos ? path : path.substr(slash + 1);
-    return file.empty() ? "skifflm" : file;
+    return file.empty() ? "llm" : file;
 }
 
 bool request_messages(const Json& body, std::vector<ChatMessage>& messages, std::string& error) {
@@ -774,7 +774,7 @@ bool request_messages(const Json& body, std::vector<ChatMessage>& messages, std:
     return true;
 }
 
-void send_chat_error(skifflm_socket_t socket_fd, bool stream_started, const std::string& message,
+void send_chat_error(llm_socket_t socket_fd, bool stream_started, const std::string& message,
                      const std::string& request_id) {
     (void)request_id;
     std::string error;
@@ -792,7 +792,7 @@ void send_chat_error(skifflm_socket_t socket_fd, bool stream_started, const std:
     }
 }
 
-void handle_chat_completions(skifflm_socket_t socket_fd, const Config& config, LlmEngine& engine,
+void handle_chat_completions(llm_socket_t socket_fd, const Config& config, LlmEngine& engine,
                              const GenerationOptions& base_options, const HttpRequest& request,
                              const std::function<bool()>& interrupted,
                              const std::string& request_id) {
@@ -854,7 +854,7 @@ void handle_chat_completions(skifflm_socket_t socket_fd, const Config& config, L
 
     const Json* stream_value = json_find(body, "stream");
     const bool stream = json_bool(stream_value == nullptr ? Json{} : *stream_value, false);
-    const std::string model = config.model_path.empty() ? "skifflm" : model_name(config);
+    const std::string model = config.model_path.empty() ? "llm" : model_name(config);
     const long created = static_cast<long>(std::time(nullptr));
 
     std::shared_ptr<bool> write_ok = std::make_shared<bool>(true);
@@ -926,7 +926,7 @@ void handle_chat_completions(skifflm_socket_t socket_fd, const Config& config, L
     send_response(socket_fd, 200, "application/json", out.str(), error);
 }
 
-void handle_request(skifflm_socket_t socket_fd, const Config& config, LlmEngine& engine,
+void handle_request(llm_socket_t socket_fd, const Config& config, LlmEngine& engine,
                     const GenerationOptions& options, const HttpRequest& request,
                     const std::function<bool()>& interrupted, std::mutex& generation_mutex,
                     const std::string& request_id) {
@@ -943,9 +943,9 @@ void handle_request(skifflm_socket_t socket_fd, const Config& config, LlmEngine&
     }
     if (request.method == "GET" && request.target == "/version") {
         std::ostringstream out;
-        out << "{\"name\":\"skifflm\",\"version\":\"";
-#ifdef SKIFFLLM_VERSION
-        out << SKIFFLLM_VERSION;
+        out << "{\"name\":\"llm\",\"version\":\"";
+#ifdef LLM_VERSION
+        out << LLM_VERSION;
 #else
         out << "unknown";
 #endif
@@ -969,7 +969,7 @@ void handle_request(skifflm_socket_t socket_fd, const Config& config, LlmEngine&
         out << "{\"object\":\"list\",\"data\":[{\"id\":";
         out << json_escape(model_name(config))
             << ",\"object\":\"model\",\"created\":" << std::time(nullptr);
-        out << ",\"owned_by\":\"skifflm\"}]}\n";
+        out << ",\"owned_by\":\"llm\"}]}\n";
         send_response(socket_fd, 200, "application/json", out.str(), error);
         return;
     }
@@ -1004,7 +1004,7 @@ std::string make_request_id() {
 
 int run_server(Config& config, LlmEngine& engine, Terminal& terminal,
                const GenerationOptions& options, const std::function<bool()>& interrupted) {
-    skifflm_socket_t listener = invalid_socket;
+    llm_socket_t listener = invalid_socket;
     std::string error;
     if (!create_listener(config.server_host, config.server_port, listener, error)) {
         terminal.error(error);
@@ -1066,7 +1066,7 @@ int run_server(Config& config, LlmEngine& engine, Terminal& terminal,
 #else
         socklen_t address_length = sizeof(address);
 #endif
-        skifflm_socket_t client =
+        llm_socket_t client =
             accept(listener, reinterpret_cast<struct sockaddr*>(&address), &address_length);
         if (client == invalid_socket) {
 #ifdef _WIN32
@@ -1133,4 +1133,4 @@ int run_server(Config& config, LlmEngine& engine, Terminal& terminal,
     return 0;
 }
 
-}  // namespace skifflm
+}  // namespace llm
