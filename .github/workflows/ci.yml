@@ -109,6 +109,21 @@ jobs:
           fi
         shell: bash
 
+      - name: Keep console open (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          ./build/Release/skiffllm > keep-open.log 2>&1 &
+          pid=$!
+          sleep 2
+          if kill -0 "$pid" 2>/dev/null; then
+            kill "$pid"
+          else
+            echo "::error::skiffllm exited before waiting for Enter"
+            cat keep-open.log
+            exit 1
+          fi
+
       - name: Prepare desktop artifact
         if: always()
         shell: bash
