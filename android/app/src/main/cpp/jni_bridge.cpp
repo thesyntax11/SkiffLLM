@@ -1,8 +1,5 @@
 #include <jni.h>
 
-#include "skiffllm/config.hpp"
-#include "skiffllm/engine.hpp"
-
 #include <atomic>
 #include <memory>
 #include <sstream>
@@ -10,11 +7,14 @@
 #include <utility>
 #include <vector>
 
+#include "skiffllm/config.hpp"
+#include "skiffllm/engine.hpp"
+
 namespace {
 
 struct NativeState {
     skiffllm::Config config;
-    std::unique_ptr<skiffllm::LlmEngine> engine;
+    std::unique_ptr<skiffllm::SkiffEngine> engine;
     std::atomic<bool> stop_requested{false};
     std::string last_error;
 };
@@ -50,14 +50,8 @@ jstring to_jstring(JNIEnv* env, const std::string& value) {
 
 }
 
-extern "C" JNIEXPORT jlong JNICALL
-Java_com_skiffllm_app_SkiffNative_create(
-        JNIEnv* env,
-        jobject,
-        jint context_size,
-        jint threads,
-        jint gpu_layers,
-        jstring chat_template) {
+extern "C" JNIEXPORT jlong JNICALL Java_com_skiffllm_app_SkiffNative_create(
+    JNIEnv* env, jobject, jint context_size, jint threads, jint gpu_layers, jstring chat_template) {
     auto state = std::make_unique<NativeState>();
     state->config = skiffllm::default_config();
     state->config.model_path.clear();
@@ -69,17 +63,14 @@ Java_com_skiffllm_app_SkiffNative_create(
     return reinterpret_cast<jlong>(state.release());
 }
 
-extern "C" JNIEXPORT void JNICALL
-Java_com_skiffllm_app_SkiffNative_destroy(JNIEnv*, jobject, jlong handle) {
+extern "C" JNIEXPORT void JNICALL Java_com_skiffllm_app_SkiffNative_destroy(JNIEnv*, jobject,
+                                                                            jlong handle) {
     delete state_from(handle);
 }
 
-extern "C" JNIEXPORT jboolean JNICALL
-Java_com_skiffllm_app_SkiffNative_load(
-        JNIEnv* env,
-        jobject,
-        jlong handle,
-        jstring model_path) {
+extern "C" JNIEXPORT jboolean JNICALL Java_com_skiffllm_app_SkiffNative_load(JNIEnv* env, jobject,
+                                                                             jlong handle,
+                                                                             jstring model_path) {
     NativeState* state = state_from(handle);
     if (state == nullptr) {
         return JNI_FALSE;
@@ -87,7 +78,7 @@ Java_com_skiffllm_app_SkiffNative_load(
     state->config.model_path = to_string(env, model_path);
     state->stop_requested = false;
     state->last_error.clear();
-    auto engine = std::make_unique<skiffllm::LlmEngine>(state->config);
+    auto engine = std::make_unique<skiffllm::SkiffEngine>(state->config);
     std::string error;
     if (!engine->load(error)) {
         state->last_error = error;
@@ -97,8 +88,9 @@ Java_com_skiffllm_app_SkiffNative_load(
     return JNI_TRUE;
 }
 
-extern "C" JNIEXPORT jstring JNICALL
-Java_com_skiffllm_app_SkiffNative_loadError(JNIEnv* env, jobject, jlong handle) {
+extern "C" JNIEXPORT jstring JNICALL Java_com_skiffllm_app_SkiffNative_loadError(JNIEnv* env,
+                                                                                 jobject,
+                                                                                 jlong handle) {
     NativeState* state = state_from(handle);
     if (state == nullptr) {
         return to_jstring(env, "engine is not initialized");
@@ -112,8 +104,8 @@ Java_com_skiffllm_app_SkiffNative_loadError(JNIEnv* env, jobject, jlong handle) 
     return to_jstring(env, "model is not loaded");
 }
 
-extern "C" JNIEXPORT jboolean JNICALL
-Java_com_skiffllm_app_SkiffNative_warmup(JNIEnv*, jobject, jlong handle) {
+extern "C" JNIEXPORT jboolean JNICALL Java_com_skiffllm_app_SkiffNative_warmup(JNIEnv*, jobject,
+                                                                               jlong handle) {
     NativeState* state = state_from(handle);
     if (state == nullptr || state->engine == nullptr) {
         return JNI_FALSE;
@@ -126,8 +118,9 @@ Java_com_skiffllm_app_SkiffNative_warmup(JNIEnv*, jobject, jlong handle) {
     return JNI_TRUE;
 }
 
-extern "C" JNIEXPORT jstring JNICALL
-Java_com_skiffllm_app_SkiffNative_infoJson(JNIEnv* env, jobject, jlong handle) {
+extern "C" JNIEXPORT jstring JNICALL Java_com_skiffllm_app_SkiffNative_infoJson(JNIEnv* env,
+                                                                                jobject,
+                                                                                jlong handle) {
     NativeState* state = state_from(handle);
     if (state == nullptr || state->engine == nullptr) {
         return nullptr;
@@ -146,32 +139,19 @@ Java_com_skiffllm_app_SkiffNative_infoJson(JNIEnv* env, jobject, jlong handle) {
     return to_jstring(env, out.str());
 }
 
-extern "C" JNIEXPORT void JNICALL
-Java_com_skiffllm_app_SkiffNative_stop(JNIEnv*, jobject, jlong handle) {
+extern "C" JNIEXPORT void JNICALL Java_com_skiffllm_app_SkiffNative_stop(JNIEnv*, jobject,
+                                                                         jlong handle) {
     NativeState* state = state_from(handle);
     if (state != nullptr) {
         state->stop_requested = true;
     }
 }
 
-extern "C" JNIEXPORT jboolean JNICALL
-Java_com_skiffllm_app_SkiffNative_generate(
-        JNIEnv* env,
-        jobject,
-        jlong handle,
-        jobjectArray roles,
-        jobjectArray contents,
-        jfloat temperature,
-        jfloat top_p,
-        jint top_k,
-        jfloat min_p,
-        jfloat typical_p,
-        jfloat repeat_penalty,
-        jint repeat_last_n,
-        jint max_tokens,
-        jlong seed,
-        jobjectArray stop_sequences,
-        jobject callback) {
+extern "C" JNIEXPORT jboolean JNICALL Java_com_skiffllm_app_SkiffNative_generate(
+    JNIEnv* env, jobject, jlong handle, jobjectArray roles, jobjectArray contents,
+    jfloat temperature, jfloat top_p, jint top_k, jfloat min_p, jfloat typical_p,
+    jfloat repeat_penalty, jint repeat_last_n, jint max_tokens, jlong seed,
+    jobjectArray stop_sequences, jobject callback) {
     NativeState* state = state_from(handle);
 
     jclass callback_class = env->GetObjectClass(callback);
@@ -179,9 +159,7 @@ Java_com_skiffllm_app_SkiffNative_generate(
         return JNI_FALSE;
     }
     jmethodID on_token = env->GetMethodID(callback_class, "onToken", "(Ljava/lang/String;)V");
-    jmethodID on_done = env->GetMethodID(callback_class,
-                                         "onDone",
-                                         "(IIDDDZ)V");
+    jmethodID on_done = env->GetMethodID(callback_class, "onDone", "(IIDDDZ)V");
     jmethodID on_error = env->GetMethodID(callback_class, "onError", "(Ljava/lang/String;)V");
     if (on_token == nullptr || on_done == nullptr || on_error == nullptr) {
         env->DeleteLocalRef(callback_class);
@@ -189,11 +167,9 @@ Java_com_skiffllm_app_SkiffNative_generate(
     }
 
     if (state == nullptr || state->engine == nullptr || roles == nullptr || contents == nullptr) {
-        const char* message = state == nullptr
-                                  ? "engine is not initialized"
-                                  : state->engine == nullptr
-                                        ? "model is not loaded"
-                                        : "invalid generation arguments";
+        const char* message = state == nullptr           ? "engine is not initialized"
+                              : state->engine == nullptr ? "model is not loaded"
+                                                         : "invalid generation arguments";
         jstring text = env->NewStringUTF(message);
         if (text != nullptr) {
             env->CallVoidMethod(callback, on_error, text);
@@ -259,13 +235,7 @@ Java_com_skiffllm_app_SkiffNative_generate(
     skiffllm::GenerationResult result;
     std::string error;
     const bool ok = state->engine->generate(
-        messages,
-        options,
-        result,
-        [state]() {
-            return state->stop_requested.load();
-        },
-        error);
+        messages, options, result, [state]() { return state->stop_requested.load(); }, error);
     if (!ok) {
         jstring message = env->NewStringUTF(error.c_str());
         if (message != nullptr) {
@@ -276,9 +246,7 @@ Java_com_skiffllm_app_SkiffNative_generate(
         return JNI_FALSE;
     }
 
-    env->CallVoidMethod(callback,
-                        on_done,
-                        static_cast<jint>(result.prompt_tokens),
+    env->CallVoidMethod(callback, on_done, static_cast<jint>(result.prompt_tokens),
                         static_cast<jint>(result.generated_tokens),
                         static_cast<jdouble>(result.prompt_ms),
                         static_cast<jdouble>(result.generation_ms),

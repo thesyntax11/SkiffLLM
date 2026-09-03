@@ -7,4 +7,5 @@ SortIncludes: true
 AllowShortFunctionsOnASingleLine: Inline
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
+FixNamespaceComments: false
 PenaltyBreakBeforeFirstCallParameter: 100

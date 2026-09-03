@@ -20,9 +20,6 @@ double now_ms() {
 }
 
 uint32_t resolve_seed(uint32_t seed) {
-    // 0xFFFFFFFF is SkiffLLM's "random" marker. Resolve it to a fresh value
-    // per generation so repeated runs are actually varied unless a fixed
-    // --seed is explicitly requested.
     if (seed == 0xFFFFFFFFu) {
         std::random_device rd;
         const uint32_t value = rd();
@@ -31,15 +28,15 @@ uint32_t resolve_seed(uint32_t seed) {
     return seed;
 }
 
-}  // namespace
+}
 
-LlmEngine::LlmEngine(const Config& config) : config_(config) {}
+SkiffEngine::SkiffEngine(const Config& config) : config_(config) {}
 
-LlmEngine::~LlmEngine() {
+SkiffEngine::~SkiffEngine() {
     close();
 }
 
-bool LlmEngine::load(std::string& error) {
+bool SkiffEngine::load(std::string& error) {
     close();
     error.clear();
     error_.clear();
@@ -137,7 +134,7 @@ bool LlmEngine::load(std::string& error) {
     return true;
 }
 
-void LlmEngine::close() {
+void SkiffEngine::close() {
     if (sampler_ != nullptr) {
         llama_sampler_free(sampler_);
         sampler_ = nullptr;
@@ -154,15 +151,15 @@ void LlmEngine::close() {
     memory_ = nullptr;
 }
 
-const ModelInfo& LlmEngine::info() const {
+const ModelInfo& SkiffEngine::info() const {
     return info_;
 }
 
-uint32_t LlmEngine::context_capacity() const {
+uint32_t SkiffEngine::context_capacity() const {
     return ctx_ == nullptr ? 0 : llama_n_ctx(ctx_);
 }
 
-std::string LlmEngine::active_backends() const {
+std::string SkiffEngine::active_backends() const {
     std::ostringstream out;
     bool first = true;
     const auto add = [&](const char* name) {
@@ -200,8 +197,8 @@ std::string LlmEngine::active_backends() const {
     return out.str();
 }
 
-bool LlmEngine::tokenize(const std::string& text, std::vector<int32_t>& tokens,
-                         std::string& error) const {
+bool SkiffEngine::tokenize(const std::string& text, std::vector<int32_t>& tokens,
+                           std::string& error) const {
     const std::vector<llama_token> encoded = encode(text, error);
     if (encoded.empty()) {
         return false;
@@ -214,7 +211,7 @@ bool LlmEngine::tokenize(const std::string& text, std::vector<int32_t>& tokens,
     return true;
 }
 
-std::vector<llama_token> LlmEngine::encode(const std::string& text, std::string& error) const {
+std::vector<llama_token> SkiffEngine::encode(const std::string& text, std::string& error) const {
     if (vocab_ == nullptr) {
         error = "model vocabulary is unavailable";
         return {};
@@ -242,7 +239,7 @@ std::vector<llama_token> LlmEngine::encode(const std::string& text, std::string&
     return tokens;
 }
 
-std::string LlmEngine::token_to_piece(llama_token token) const {
+std::string SkiffEngine::token_to_piece(llama_token token) const {
     if (vocab_ == nullptr || token < 0) {
         return {};
     }
@@ -254,8 +251,8 @@ std::string LlmEngine::token_to_piece(llama_token token) const {
     return std::string(buffer, static_cast<size_t>(length));
 }
 
-std::string LlmEngine::build_prompt(const std::vector<ChatMessage>& messages,
-                                    std::string& error) const {
+std::string SkiffEngine::build_prompt(const std::vector<ChatMessage>& messages,
+                                      std::string& error) const {
     if (messages.empty()) {
         error = "no messages provided";
         return {};
@@ -302,7 +299,7 @@ std::string LlmEngine::build_prompt(const std::vector<ChatMessage>& messages,
     return prompt;
 }
 
-bool LlmEngine::build_sampler(const GenerationOptions& options, std::string& error) {
+bool SkiffEngine::build_sampler(const GenerationOptions& options, std::string& error) {
     if (vocab_ == nullptr) {
         error = "model vocabulary is unavailable";
         return false;
@@ -348,7 +345,7 @@ bool LlmEngine::build_sampler(const GenerationOptions& options, std::string& err
     return true;
 }
 
-bool LlmEngine::decode(const std::vector<llama_token>& tokens, std::string& error) {
+bool SkiffEngine::decode(const std::vector<llama_token>& tokens, std::string& error) {
     if (ctx_ == nullptr) {
         error = "inference context is not loaded";
         return false;
@@ -375,9 +372,9 @@ bool LlmEngine::decode(const std::vector<llama_token>& tokens, std::string& erro
     return true;
 }
 
-bool LlmEngine::generate(const std::vector<ChatMessage>& messages, const GenerationOptions& options,
-                         GenerationResult& result, const std::function<bool()>& should_stop,
-                         std::string& error) {
+bool SkiffEngine::generate(const std::vector<ChatMessage>& messages,
+                           const GenerationOptions& options, GenerationResult& result,
+                           const std::function<bool()>& should_stop, std::string& error) {
     error.clear();
     result = GenerationResult{};
 
@@ -541,7 +538,7 @@ bool LlmEngine::generate(const std::vector<ChatMessage>& messages, const Generat
     return true;
 }
 
-bool LlmEngine::warmup(std::string& error) {
+bool SkiffEngine::warmup(std::string& error) {
     if (model_ == nullptr || ctx_ == nullptr || vocab_ == nullptr) {
         error = "the model is not loaded";
         return false;
@@ -570,4 +567,4 @@ bool LlmEngine::warmup(std::string& error) {
         ask, warm, result, []() { return false; }, error);
 }
 
-}  // namespace skiffllm
+}

@@ -77,6 +77,23 @@
       "cacheVariables": {
         "SKIFFLLM_LLAMA_BACKEND": "blas"
       }
+    },
+    {
+      "name": "ci",
+      "displayName": "CI (Release + warnings as errors)",
+      "inherits": "release",
+      "cacheVariables": {
+        "SKIFFLLM_WARNINGS_AS_ERRORS": "ON"
+      }
+    },
+    {
+      "name": "sanitize",
+      "displayName": "Sanitizers (ASan/UBSan, Debug)",
+      "inherits": "debug",
+      "cacheVariables": {
+        "SKIFFLLM_WARNINGS_AS_ERRORS": "ON",
+        "SKIFFLLM_ENABLE_SANITIZERS": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -95,6 +112,14 @@
     {
       "name": "clang",
       "configurePreset": "clang"
+    },
+    {
+      "name": "ci",
+      "configurePreset": "ci"
+    },
+    {
+      "name": "sanitize",
+      "configurePreset": "sanitize"
     }
   ],
   "testPresets": [
@@ -115,6 +140,20 @@
     {
       "name": "default",
       "configurePreset": "default",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "ci",
+      "configurePreset": "ci",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "sanitize",
+      "configurePreset": "sanitize",
       "output": {
         "outputOnFailure": true
       }

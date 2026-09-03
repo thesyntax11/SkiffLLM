@@ -95,6 +95,7 @@ Every published release carries native artifacts with a stable naming scheme:
 | `skiffllm-<version>-Android.apk` | Android device or emulator |
 | `skiffllm-<version>-iOS.ipa` | iOS app container |
 | `checksums.txt` | SHA-256 for every asset above |
+| `<asset>.sha256` | Per-asset SHA-256 integrity file |
 
 On Linux and macOS, mark a standalone executable with `chmod +x` after
 downloading it. The iOS `.ipa` is produced as an unsigned app container unless

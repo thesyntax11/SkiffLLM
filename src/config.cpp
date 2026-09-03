@@ -161,7 +161,7 @@ std::filesystem::path resolve_session_path(const std::string& name,
     return base / (sanitize_session(name) + ".skif");
 }
 
-}  // namespace
+}
 
 Config default_config() {
     Config cfg;
@@ -792,9 +792,6 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
             continue;
         }
         if (!starts_with(arg, "--")) {
-            // Tolerant, Unix-style argument handling:
-            //   skiffllm model.gguf              -> model path
-            //   skiffllm "explain this code"     -> one-shot prompt
             if (cfg.model_path.empty() && looks_like_model_path(arg)) {
                 cfg.model_path = expand_path(arg);
                 continue;
@@ -876,8 +873,6 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
             continue;
         }
 
-        // Flags consumed by the `skiffllm openai` subcommand are accepted here
-        // so that `parse_args` does not reject them before dispatch.
         if (key == "base-url" || key == "base" || key == "max-tokens") {
             if (!has_value) {
                 const std::string value = option_value(i, argc, argv, "--" + key, error);
@@ -920,8 +915,6 @@ void apply_environment(Config& cfg) {
     if (const char* value = std::getenv("SKIFFLLM_API_KEY")) {
         cfg.api_key = value;
     } else if (const char* value = std::getenv("SKIFFLLM_SERVER_KEY")) {
-        // Alias used throughout the docs. The longer name wins so both are
-        // supported without surprising anyone who sets the old one.
         cfg.api_key = value;
     }
 }
@@ -1069,7 +1062,7 @@ std::string json_escape(const std::string& value) {
     return out;
 }
 
-}  // namespace
+}
 
 void print_config(const Config& cfg, bool as_json) {
     if (as_json) {
@@ -1193,4 +1186,4 @@ void print_config(const Config& cfg, bool as_json) {
     std::cout << "\n";
 }
 
-}  // namespace skiffllm
+}

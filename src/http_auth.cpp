@@ -34,7 +34,7 @@ bool constant_time_equal(const std::string& expected, const std::string& actual)
     return difference == 0;
 }
 
-}  // namespace
+}
 
 bool bearer_token_matches(const std::string& authorization, const std::string& api_key) {
     if (api_key.empty()) {
@@ -54,4 +54,4 @@ bool bearer_token_matches(const std::string& authorization, const std::string& a
     return constant_time_equal(api_key, token);
 }
 
-}  // namespace skiffllm
+}

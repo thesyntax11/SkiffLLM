@@ -20,6 +20,13 @@ third_party/
 staged/
 skiffllm-*.tar.gz
 skiffllm-*.zip
+skiffllm-*.sha256
+skiffllm-*-linux-*
+skiffllm-*-macos-*
+skiffllm-*-windows-*
+skiffllm-*-Android.apk
+skiffllm-*-iOS.ipa
+checksums.txt
 *.gguf
 *.bin
 *.skif

@@ -12,11 +12,13 @@ if [[ -n "${SOURCE_DIR}" ]]; then
         -DCMAKE_BUILD_TYPE=Release \
         -DSKIFFLLM_LLAMA_SOURCE_DIR="${SOURCE_DIR}" \
         -DSKIFFLLM_FETCH_LLAMA=OFF \
-        -DSKIFFLLM_BUILD_TESTS=ON
+        -DSKIFFLLM_BUILD_TESTS=ON \
+        -DSKIFFLLM_WARNINGS_AS_ERRORS=ON
 else
     cmake -S . -B "${BUILD_DIR}" \
         -DCMAKE_BUILD_TYPE=Release \
-        -DSKIFFLLM_BUILD_TESTS=ON
+        -DSKIFFLLM_BUILD_TESTS=ON \
+        -DSKIFFLLM_WARNINGS_AS_ERRORS=ON
 fi
 
 cmake --build "${BUILD_DIR}" --config Release -j
@@ -53,11 +55,14 @@ grep -q "SKIFFLLM_VERSION \"${EXPECTED_VERSION}\"" src/main.cpp
 grep -q "SkiffLLM ${EXPECTED_VERSION}" docs/skiffllm.1
 grep -q "versionName = \"${EXPECTED_VERSION}\"" android/app/build.gradle.kts
 
+bash scripts/check-naming.sh
+
 if command -v clang-format >/dev/null 2>&1; then
     clang-format --dry-run --Werror \
         include/skiffllm/*.hpp \
         src/*.cpp \
-        tests/test_main.cpp
+        tests/test_main.cpp \
+        tests/test_extra.cpp
 fi
 
 echo

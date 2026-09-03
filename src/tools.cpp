@@ -24,7 +24,6 @@
 #else
 #include <unistd.h>
 #ifndef _POSIX_VERSION
-// Minimal fallback for the rare non-POSIX Unix: still try fork/exec.
 #endif
 #include <sys/wait.h>
 #endif
@@ -32,9 +31,6 @@
 namespace skiffllm {
 namespace {
 
-// Run an external program without going through a shell. Arguments are passed
-// as an argv vector, so user-controlled values (hosts, URLs, model ids, API
-// keys) can never be interpreted as shell metacharacters.
 bool run_argv(const std::vector<std::string>& argv, bool capture_stdout, std::string& output,
               std::string& error) {
     output.clear();
@@ -51,9 +47,6 @@ bool run_argv(const std::vector<std::string>& argv, bool capture_stdout, std::st
     raw.push_back(nullptr);
 
 #ifdef _WIN32
-    // Windows has no fork; use _spawnvp with an argument vector (never a shell).
-    // For captured output we redirect the child's stdout to a temporary file,
-    // then read it back. This keeps arbitrary argv values out of any shell.
     std::filesystem::path capture_file;
     int saved_stdout = -1;
     if (capture_stdout) {
@@ -129,7 +122,6 @@ bool run_argv(const std::vector<std::string>& argv, bool capture_stdout, std::st
             close(pipe_fd[1]);
         }
         execvp(argv[0].c_str(), const_cast<char* const*>(raw.data()));
-        // exec failed; report by writing to stderr and exiting non-zero.
         const char msg[] = "failed to execute\n";
         write(STDERR_FILENO, msg, sizeof(msg) - 1);
         _exit(127);
@@ -271,7 +263,7 @@ std::filesystem::path session_dir_for(const Config& cfg) {
     return std::filesystem::path(".");
 }
 
-}  // namespace
+}
 
 bool load_usage_stats(const Config& cfg, UsageStats& stats, std::string& error) {
     std::ifstream input(metrics_path_for(cfg));
@@ -486,7 +478,7 @@ int handle_chat_template_command(Config& cfg, const std::vector<std::string>& ar
             return 2;
         }
         cfg.model_path = expand_path(model_path);
-        LlmEngine engine(cfg);
+        SkiffEngine engine(cfg);
         std::string load_error;
         if (!engine.load(load_error)) {
             error = "cannot load model to detect template: " + load_error;
@@ -730,7 +722,6 @@ int handle_openai_command(Config& cfg, const std::vector<std::string>& args, std
             return 1;
         }
     }
-    // Remove the request payload as soon as curl has consumed it.
     struct PayloadCleanup {
         std::filesystem::path path;
         ~PayloadCleanup() {
@@ -759,7 +750,6 @@ int handle_openai_command(Config& cfg, const std::vector<std::string>& args, std
     curl_argv.push_back("@" + payload_path.string());
 
     if (stream) {
-        // Let curl write directly to the terminal; capture nothing.
         std::string ignore;
         if (!run_argv(curl_argv, false, ignore, error)) {
             error = "request to " + endpoint + " failed: " + error;
@@ -830,8 +820,6 @@ void record_generation(const Config& cfg, int prompt_tokens, int generated_token
     if (!out.is_open()) {
         return;
     }
-    // One tab-separated line per generation. Kept plain-text so users can
-    // inspect and truncate it easily.
     out << std::time(nullptr) << "\t" << prompt_tokens << "\t" << generated_tokens << "\t"
         << prompt_ms << "\t" << generation_ms << "\t" << tokens_per_second << "\n";
     out.close();
@@ -944,7 +932,6 @@ std::string build_project_block(const std::filesystem::path& root, std::string& 
     }
     out << "</file-index>\n";
 
-    // Include a bounded slice of the most useful source and config files.
     const size_t max_included = 20;
     const size_t per_file_limit = 6000;
     const size_t total_limit = 60000;
@@ -1102,10 +1089,6 @@ bool verify_model_file(const std::filesystem::path& path, uint64_t expected_byte
         return false;
     }
     if (expected_bytes > 0 && size != expected_bytes) {
-        // The catalog records a snapshot at publish time. A model maintainer
-        // can legitimately re-upload a revision with a different size, so this
-        // is an advisory note rather than a corruption failure. The GGUF header
-        // and (when present) the SHA-256 sidecar remain the authority.
         detail += "size differs from the catalog snapshot (expected " +
                   std::to_string(expected_bytes) + " bytes, found " + std::to_string(size) +
                   " bytes); ";
@@ -1121,12 +1104,9 @@ bool verify_model_file(const std::filesystem::path& path, uint64_t expected_byte
         detail += "checksum sidecar written; ";
     } else if (!hash_matches_sidecar(path, checksum_error)) {
         if (sidecar_exists) {
-            // A present sidecar is authoritative: a mismatch means the model is
-            // corrupt or modified, and must not be silently accepted.
             detail = checksum_error;
             return false;
         }
-        // A missing sidecar is informational, not a corruption signal.
         detail += checksum_error + "; ";
     }
     return true;
@@ -1207,8 +1187,6 @@ int handle_model_command(Config& cfg, const std::vector<std::string>& args, std:
             return 0;
         }
 
-        // Find the fetch helper next to the installed binary or in the source
-        // checkout.
         const std::filesystem::path project_root = std::filesystem::current_path();
         std::vector<std::filesystem::path> candidates = {
             project_root / "scripts" / "model_fetch.py",
@@ -1242,7 +1220,6 @@ int handle_model_command(Config& cfg, const std::vector<std::string>& args, std:
             return 1;
         }
         std::cout << model->file << " installed in " << cfg.model_dir.string() << "\n";
-        // Validate the freshly downloaded file before accepting it as usable.
         std::string verify_detail;
         if (!verify_model_file(cfg.model_dir / model->file, model->bytes, false, verify_detail)) {
             std::cout << "Warning: " << verify_detail << "\n";
@@ -1347,7 +1324,7 @@ int handle_git_command(Config& cfg, const std::vector<std::string>& args, std::s
         std::string instruction = instruction_for_git(action);
         cfg.one_shot = instruction + "\n\n<git input>\n" + diff + "\n</git input>\n";
         cfg.interactive = false;
-        return -1;  // continue to generation
+        return -1;
     }
 
     if (action == "log") {
@@ -1473,7 +1450,6 @@ bool append_memory(const Config& cfg, const std::string& text, std::string& erro
         std::filesystem::file_size(cfg.memory_path, ec) > 0) {
         output << "\n";
     }
-    // Escape newlines so each memory is one persistent line.
     for (const char ch : value) {
         if (ch == '\n' || ch == '\r') {
             output << ' ';
@@ -1664,7 +1640,7 @@ int handle_session_command(Config& cfg, const std::vector<std::string>& args, st
         cfg.history_path = session_file_for(cfg, args[1]);
         cfg.one_shot.clear();
         cfg.interactive = true;
-        return -1;  // continue into the normal model path
+        return -1;
     }
 
     error = "unknown session action: " + action + " (use list, show, rename, remove or use)";
@@ -1685,4 +1661,4 @@ std::string read_stdin_all() {
     return buffer.str();
 }
 
-}  // namespace skiffllm
+}

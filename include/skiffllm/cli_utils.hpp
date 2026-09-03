@@ -22,4 +22,4 @@ std::string json_escape(const std::string& value);
 bool write_text_file(const std::filesystem::path& path, const std::string& content,
                      std::string& error);
 
-}  // namespace skiffllm::cli
+}

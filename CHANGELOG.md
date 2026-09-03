@@ -34,8 +34,16 @@
 
 - Split HTTP Bearer auth into a small, unit-tested `http_auth` module so the
   local server's token check can be verified without loading a real GGUF model.
-- Added a root `Makefile` with `release`, `debug`, `tests`, `check`, `format`,
-  `install`, and `clean` targets.
+- Added `scripts/check-naming.sh` to block legacy `llm` paths from re-entering
+  the repository, enforced in CI and local checks.
+- Added per-asset `.sha256` sidecars, a consolidated `checksums.txt`, and
+  automatic verification in `scripts/install-from-release.sh`.
+- Added `SKIFFLLM_WARNINGS_AS_ERRORS`, `SKIFFLLM_ENABLE_SANITIZERS`,
+  `SKIFFLLM_ENABLE_HARDENING`, and `SKIFFLLM_ENABLE_PIE` CMake options plus a
+  `sanitize` preset and `make sanitize` target.
+- Renamed the public C++ inference engine class to `SkiffEngine`.
+- Added a root `Makefile` with `release`, `debug`, `sanitize`, `tests`, `check`,
+  `format`, `install`, and `clean` targets.
 - Upgraded `scripts/install.sh` with `--prefix`, `--backend` and
   `--skip-tests`, prerequisite checks, and staged docs/man/completions/config
   install.

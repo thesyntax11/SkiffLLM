@@ -13,6 +13,7 @@ echo "Checking C++ formatting..."
 clang-format --dry-run --Werror \
     include/skiffllm/*.hpp \
     src/*.cpp \
-    tests/test_main.cpp
+    tests/test_main.cpp \
+    tests/test_extra.cpp
 
 echo "C++ formatting is clean."

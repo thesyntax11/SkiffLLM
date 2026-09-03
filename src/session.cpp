@@ -11,10 +11,7 @@ namespace {
 constexpr uint32_t kMagic = 0x534B4946u;
 constexpr uint32_t kVersion = 1u;
 
-// Hard caps so a corrupt or malicious history file cannot force an unbounded
-// allocation. A real conversation is far below these limits; they only guard
-// against files whose length/count fields are bogus.
-constexpr uint32_t kMaxStringBytes = 64u * 1024u * 1024u;  // 64 MiB per field
+constexpr uint32_t kMaxStringBytes = 64u * 1024u * 1024u;
 constexpr uint32_t kMaxMessages = 200000u;
 
 template <typename T>
@@ -48,7 +45,7 @@ bool read_string(std::istream& in, std::string& value) {
     return static_cast<bool>(in);
 }
 
-}  // namespace
+}
 
 Session::Session(const Config& config) : config_(config) {}
 
@@ -202,4 +199,4 @@ const Config& Session::config() const {
     return config_;
 }
 
-}  // namespace skiffllm
+}

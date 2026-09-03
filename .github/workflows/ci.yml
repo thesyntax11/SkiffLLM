@@ -60,7 +60,8 @@ jobs:
           fi
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DSKIFFLLM_BUILD_TESTS=ON
+            -DSKIFFLLM_BUILD_TESTS=ON \
+            -DSKIFFLLM_WARNINGS_AS_ERRORS=ON
         shell: bash
 
       - name: Build
@@ -111,6 +112,37 @@ jobs:
           path: distribution/skiffllm*
           retention-days: 7
           if-no-files-found: error
+
+  sanitize:
+    name: Sanitizers (ASan/UBSan)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure with sanitizers
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DSKIFFLLM_BUILD_TESTS=ON \
+            -DSKIFFLLM_WARNINGS_AS_ERRORS=ON \
+            -DSKIFFLLM_ENABLE_SANITIZERS=ON
+        shell: bash
+
+      - name: Build
+        run: cmake --build build --config Debug -j 4
+        shell: bash
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+        shell: bash
+
+      - name: Smoke test
+        run: |
+          ./build/skiffllm --version
+          ./build/skiffllm --doctor >/dev/null
+          ./build/skiffllm --backend-info >/dev/null
+        shell: bash
 
   android:
     name: Android (assembleDebug)
@@ -192,13 +224,20 @@ jobs:
       - name: Check relative Markdown links
         run: bash scripts/check-links.sh
 
+      - name: Check naming and release packaging
+        run: |
+          bash scripts/check-naming.sh
+          bash -n scripts/release.sh
+          bash -n scripts/check-naming.sh
+          bash -n scripts/package-ios.sh
+        shell: bash
+
       - name: Check shell and Python scripts
         run: |
-          bash -n scripts/release.sh
-          bash -n scripts/ci-local.sh
-          bash -n scripts/package-ios.sh
-          bash -n scripts/install-latest.sh
-          python3 -m py_compile scripts/model_fetch.py scripts/api_client.py
+          for script in scripts/*.sh; do
+            bash -n "${script}"
+          done
+          python3 -m py_compile scripts/api_client.py scripts/model_fetch.py
           python3 scripts/model_fetch.py --list >/dev/null
           python3 scripts/model_fetch.py --help >/dev/null
           python3 scripts/api_client.py --help >/dev/null
@@ -207,8 +246,6 @@ jobs:
       - name: Check C++ formatting
         run: |
           python3 -m pip install --break-system-packages "clang-format==17.0.6"
-          command -v clang-format
-          clang-format --version
           bash scripts/check-format.sh
         shell: bash
 

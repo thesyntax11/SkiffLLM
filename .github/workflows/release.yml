@@ -53,7 +53,8 @@ jobs:
           fi
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DSKIFFLLM_BUILD_TESTS=ON
+            -DSKIFFLLM_BUILD_TESTS=ON \
+            -DSKIFFLLM_WARNINGS_AS_ERRORS=ON
         shell: bash
 
       - name: Build
@@ -72,6 +73,19 @@ jobs:
           else
             ctest --test-dir build --output-on-failure
           fi
+        shell: bash
+
+      - name: Verify naming and version
+        run: |
+          bash scripts/check-naming.sh
+          EXPECTED_VERSION="$(sed -n 's/project(SkiffLLM VERSION \\([0-9][0-9.]*\\).*/\\1/p' CMakeLists.txt)"
+          test -n "${EXPECTED_VERSION}"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            BINARY="build/Release/skiffllm.exe"
+          else
+            BINARY="build/skiffllm"
+          fi
+          test "$("${BINARY}" --version 2>/dev/null | awk '{print $2}')" = "${EXPECTED_VERSION}"
         shell: bash
 
       - name: Create release archive
@@ -244,6 +258,41 @@ jobs:
         with:
           path: artifacts
           merge-multiple: true
+
+      - name: Generate consolidated checksums
+        run: |
+          python3 - <<'PY'
+          import glob
+          import hashlib
+          import os
+
+          root = "artifacts"
+          for name in glob.glob(os.path.join(root, "*.sha256")):
+              os.remove(name)
+          for name in glob.glob(os.path.join(root, "checksums.txt")):
+              os.remove(name)
+
+          files = []
+          for path in glob.glob(os.path.join(root, "**", "*"), recursive=True):
+              if not os.path.isfile(path):
+                  continue
+              if path.endswith(".sha256") or os.path.basename(path) == "checksums.txt":
+                  continue
+              files.append(path)
+
+          with open(os.path.join(root, "checksums.txt"), "w", encoding="utf-8") as out:
+              for path in sorted(files):
+                  digest = hashlib.sha256()
+                  with open(path, "rb") as fh:
+                      for chunk in iter(lambda: fh.read(1 << 20), b""):
+                          digest.update(chunk)
+                  name = os.path.basename(path)
+                  digest_hex = digest.hexdigest()
+                  out.write("%s  %s\n" % (digest_hex, name))
+                  with open(path + ".sha256", "w", encoding="utf-8") as sidecar:
+                      sidecar.write(digest_hex + "  " + name + "\n")
+          PY
+        shell: bash
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2

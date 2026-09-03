@@ -17,6 +17,8 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR=""
 OUTPUT_DIR=""
 VERSION=""
+VERIFY=0
+QUIET=0
 
 usage() {
     cat <<'EOF'
@@ -26,6 +28,8 @@ Options:
   --build-dir DIR   Path to the CMake build tree containing the binary
   --output-dir DIR  Directory for the generated archive and checksums
   --version VER     Override the version (default: from the binary)
+  --verify          Re-read every generated asset and repair checksums
+  --quiet           Print only the final asset paths
   --help            Show this help
 EOF
 }
@@ -43,6 +47,14 @@ while [[ $# -gt 0 ]]; do
         --version)
             VERSION="$2"
             shift 2
+            ;;
+        --verify)
+            VERIFY=1
+            shift
+            ;;
+        --quiet)
+            QUIET=1
+            shift
             ;;
         --help|-h)
             usage
@@ -92,6 +104,15 @@ fi
 if [[ -z "${VERSION}" ]]; then
     echo "error: could not determine version" >&2
     exit 2
+fi
+
+if [[ -f "${PROJECT_DIR}/CMakeLists.txt" ]]; then
+    CMAKE_VERSION="$(sed -n 's/project(SkiffLLM VERSION \([0-9][0-9.]*\).*/\1/p' "${PROJECT_DIR}/CMakeLists.txt")"
+    if [[ -n "${CMAKE_VERSION}" && "${CMAKE_VERSION}" != "${VERSION}" ]]; then
+        echo "error: release version ${VERSION} does not match CMakeLists.txt version ${CMAKE_VERSION}" >&2
+        echo "pass --version ${CMAKE_VERSION} if this is intentional" >&2
+        exit 2
+    fi
 fi
 
 STAGE="${OUTPUT_DIR}/staged"
@@ -209,6 +230,8 @@ for name in os.listdir(output_dir):
     path = os.path.join(output_dir, name)
     if not os.path.isfile(path):
         continue
+    if name.endswith(".sha256") or name == "checksums.txt":
+        continue
     if name.startswith(prefix) and (name.endswith(".tar.gz") or name.endswith(".zip") or
                                     "-linux-" in name or "-macos-" in name or "-windows-" in name):
         assets.append(path)
@@ -222,12 +245,33 @@ PY
 rm -f "${OUTPUT_DIR}/checksums.txt"
 while IFS= read -r asset; do
     sha256_of "${asset}" >> "${OUTPUT_DIR}/checksums.txt"
+    sha256_of "${asset}" > "${asset}.sha256"
 done < "${ASSET_LIST}"
+
+if [[ "${VERIFY}" -eq 1 ]]; then
+    rm -f "${OUTPUT_DIR}/checksums.txt"
+    while IFS= read -r asset; do
+        if [[ ! -f "${asset}" ]]; then
+            echo "error: release asset is missing: ${asset}" >&2
+            exit 2
+        fi
+        sha256_of "${asset}" >> "${OUTPUT_DIR}/checksums.txt"
+        sha256_of "${asset}" > "${asset}.sha256"
+    done < "${ASSET_LIST}"
+fi
 rm -f "${ASSET_LIST}"
 
-echo
-echo "Release archive: ${ARCHIVE}"
-echo "Direct binary:   ${BIN_ASSET}"
-echo "Platform:        ${PLATFORM}"
-echo "Checksums:       ${OUTPUT_DIR}/checksums.txt"
-echo "Use:             ${BIN_ASSET} --help"
+if [[ "${QUIET}" -eq 1 ]]; then
+    echo "${ARCHIVE}"
+    echo "${BIN_ASSET}"
+    if command -v "${PYTHON}" >/dev/null 2>&1; then
+        echo "${OUTPUT_DIR}/checksums.txt"
+    fi
+else
+    echo
+    echo "Release archive: ${ARCHIVE}"
+    echo "Direct binary:   ${BIN_ASSET}"
+    echo "Platform:        ${PLATFORM}"
+    echo "Checksums:       ${OUTPUT_DIR}/checksums.txt"
+    echo "Use:             ${BIN_ASSET} --help"
+fi

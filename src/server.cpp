@@ -792,7 +792,7 @@ void send_chat_error(skiffllm_socket_t socket_fd, bool stream_started, const std
     }
 }
 
-void handle_chat_completions(skiffllm_socket_t socket_fd, const Config& config, LlmEngine& engine,
+void handle_chat_completions(skiffllm_socket_t socket_fd, const Config& config, SkiffEngine& engine,
                              const GenerationOptions& base_options, const HttpRequest& request,
                              const std::function<bool()>& interrupted,
                              const std::string& request_id) {
@@ -876,7 +876,6 @@ void handle_chat_completions(skiffllm_socket_t socket_fd, const Config& config, 
             chunk << "\"choices\":[{\"index\":0,\"delta\":{\"content\":";
             chunk << json_escape(part);
             chunk << "},\"finish_reason\":null}]}\n\n";
-            *write_ok = send_all(socket_fd, chunk.str(), send_error);
         };
 
         GenerationResult result;
@@ -926,7 +925,7 @@ void handle_chat_completions(skiffllm_socket_t socket_fd, const Config& config, 
     send_response(socket_fd, 200, "application/json", out.str(), error);
 }
 
-void handle_request(skiffllm_socket_t socket_fd, const Config& config, LlmEngine& engine,
+void handle_request(skiffllm_socket_t socket_fd, const Config& config, SkiffEngine& engine,
                     const GenerationOptions& options, const HttpRequest& request,
                     const std::function<bool()>& interrupted, std::mutex& generation_mutex,
                     const std::string& request_id) {
@@ -982,9 +981,6 @@ void handle_request(skiffllm_socket_t socket_fd, const Config& config, LlmEngine
         return;
     }
     if (request.method == "POST" && request.target == "/v1/chat/completions") {
-        // The llama.cpp context is not thread-safe, so generation is
-        // serialized behind a mutex while the accept loop and the fast
-        // endpoints (health/models/version) keep serving other clients.
         std::lock_guard<std::mutex> lock(generation_mutex);
         handle_chat_completions(socket_fd, config, engine, options, request, interrupted,
                                 request_id);
@@ -1000,9 +996,9 @@ std::string make_request_id() {
     return out.str();
 }
 
-}  // namespace
+}
 
-int run_server(Config& config, LlmEngine& engine, Terminal& terminal,
+int run_server(Config& config, SkiffEngine& engine, Terminal& terminal,
                const GenerationOptions& options, const std::function<bool()>& interrupted) {
     skiffllm_socket_t listener = invalid_socket;
     std::string error;
@@ -1105,8 +1101,6 @@ int run_server(Config& config, LlmEngine& engine, Terminal& terminal,
                          }),
                          done});
 
-        // Reap only threads that already finished so the accept loop never
-        // blocks on a long generation; it keeps serving health/models/etc.
         for (auto it = workers.begin(); it != workers.end();) {
             if (it->done->load(std::memory_order_acquire) && it->thread.joinable()) {
                 it->thread.join();
@@ -1133,4 +1127,4 @@ int run_server(Config& config, LlmEngine& engine, Terminal& terminal,
     return 0;
 }
 
-}  // namespace skiffllm
+}

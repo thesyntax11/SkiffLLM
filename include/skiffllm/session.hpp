@@ -31,4 +31,4 @@ class Session {
     std::vector<ChatMessage> messages_;
 };
 
-}  // namespace skiffllm
+}

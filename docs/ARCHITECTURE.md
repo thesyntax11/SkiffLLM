@@ -39,7 +39,7 @@
   model catalog, downloader, and the JNI bridge.
 
 - `android/app/src/main/cpp/jni_bridge.cpp`
-  JNI surface for the desktop core's `LlmEngine`, exposed to Kotlin through
+  JNI surface for the desktop core's `SkiffEngine`, exposed to Kotlin through
   `SkiffNative`.
 
 - `scripts/model_fetch.py` and `scripts/api_client.py`
@@ -49,7 +49,7 @@
 Data flows:
 
 1. Parse configuration into `Config`.
-2. Load one GGUF model into `LlmEngine`.
+2. Load one GGUF model into `SkiffEngine`.
 3. Build messages into a chat prompt with a template.
 4. Run the sampler and decode token by token.
 5. Return text, timing, and token counts to the caller.
@@ -70,6 +70,6 @@ Data flows:
 ## Adding a feature
 
 Keep the public API small. Add behavior in `Config` when it affects parsing or
-routing. Keep inference in `LlmEngine`. Keep presentation in `Terminal`. Add a
+routing. Keep inference in `SkiffEngine`. Keep presentation in `Terminal`. Add a
 test in `tests/test_main.cpp` and a CTest entry in `CMakeLists.txt` for any
 new entry point.

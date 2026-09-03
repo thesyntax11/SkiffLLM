@@ -56,4 +56,4 @@ class Terminal {
     std::string readline_history_path_;
 };
 
-}  // namespace skiffllm
+}

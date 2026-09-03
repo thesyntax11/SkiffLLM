@@ -212,4 +212,4 @@ bool write_text_file(const std::filesystem::path& path, const std::string& conte
     return true;
 }
 
-}  // namespace skiffllm::cli
+}

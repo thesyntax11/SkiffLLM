@@ -26,6 +26,7 @@ case "${RAW_ARCH}" in
 esac
 PREFIX="${PREFIX:-${HOME}/.local}"
 REPO="thesyntax11/SkiffLLM"
+VERIFY_SHA=1
 
 usage() {
     cat <<'EOF'
@@ -37,6 +38,7 @@ Options:
   --arch NAME        x86_64, arm64, aarch64 (default: current arch)
   --prefix DIR       Install directory (default: $HOME/.local)
   --repo OWNER/NAME  GitHub repository (default: thesyntax11/SkiffLLM)
+  --no-checksum      Skip the .sha256 sidecar verification
   --help             Show this help
 EOF
 }
@@ -62,6 +64,10 @@ while [[ $# -gt 0 ]]; do
         --repo)
             REPO="$2"
             shift 2
+            ;;
+        --no-checksum)
+            VERIFY_SHA=0
+            shift
             ;;
         --help|-h)
             usage
@@ -104,6 +110,39 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "${TMP}"' EXIT
 
 curl -fsSL --retry 3 -o "${TMP}/${ASSET}" "${URL}"
+
+if [[ "${VERIFY_SHA}" -eq 1 ]]; then
+    SUM_URL="${URL}.sha256"
+    if curl -fsSL --retry 3 -o "${TMP}/${ASSET}.sha256" "${SUM_URL}"; then
+        PYTHON="python3"
+        command -v "${PYTHON}" >/dev/null 2>&1 || PYTHON="python"
+        if ! command -v "${PYTHON}" >/dev/null 2>&1; then
+            echo "warning: Python 3 not found; skipping checksum verification" >&2
+        else
+        "${PYTHON}" - "${TMP}/${ASSET}" "${TMP}/${ASSET}.sha256" <<'PY'
+import hashlib
+import sys
+
+asset = sys.argv[1]
+sidecar = sys.argv[2]
+expected = open(sidecar, encoding="utf-8").read().split()[0]
+digest = hashlib.sha256()
+with open(asset, "rb") as fh:
+    for chunk in iter(lambda: fh.read(1 << 20), b""):
+        digest.update(chunk)
+actual = digest.hexdigest()
+if actual != expected:
+    print("checksum mismatch", file=sys.stderr)
+    print("expected", expected, file=sys.stderr)
+    print("actual  ", actual, file=sys.stderr)
+    sys.exit(1)
+PY
+            echo "Checksum verified for ${ASSET}" >&2
+        fi
+    else
+        echo "warning: .sha256 sidecar not found; skipping verification" >&2
+    fi
+fi
 
 case "${ASSET}" in
     *.zip)

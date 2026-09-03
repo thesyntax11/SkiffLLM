@@ -91,7 +91,7 @@ bool is_balanced(const std::string& text) {
     return !single && !double_quote && round <= 0 && square <= 0 && curly <= 0;
 }
 
-}  // namespace
+}
 
 Terminal::Terminal(const Config& config) : color_(config.color) {
     if (!config.history_path.empty()) {
@@ -437,4 +437,4 @@ void Terminal::print_history(const std::vector<ChatMessage>& messages) const {
     }
 }
 
-}  // namespace skiffllm
+}

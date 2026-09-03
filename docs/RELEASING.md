@@ -17,13 +17,17 @@ scripts/ci-local.sh
 scripts/release.sh
 scripts/release.sh --help                          # all options
 scripts/release.sh --output-dir artifacts --version 1.6.0
+scripts/release.sh --output-dir artifacts --verify
 ```
 
 The script creates `skiffllm-<version>-<os>-<arch>.tar.gz` (for example
 `skiffllm-1.6.0-linux-x86_64.tar.gz`, with `macos-arm64` on Apple Silicon and
 `macos-x86_64` on Intel) containing the binary, licenses, docs, completions,
 example config, logo, and helper scripts. It also emits a standalone native
-binary named `skiffllm-<version>-<os>-<arch>[.exe]`, plus `checksums.txt`.
+binary named `skiffllm-<version>-<os>-<arch>[.exe]`, plus `checksums.txt` and a
+`<asset>.sha256` sidecar for every asset. The `--verify` flag re-reads every
+generated asset, repairs the checksum list and sidecars, and fails if an asset
+is missing.
 
 Once the archive is published as a GitHub release asset, users can install it
 with:
@@ -31,6 +35,9 @@ with:
 ```bash
 bash scripts/install-from-release.sh --version v1.6.0
 ```
+
+The installer downloads the matching `<asset>.sha256` sidecar and verifies the
+archive before extracting it. Pass `--no-checksum` to skip that verification.
 
 > Keep the release archive and the published asset name identical. The helper
 > maps `linux-x86_64`, `linux-aarch64`, `macos-x86_64`, `macos-arm64`, and
@@ -85,6 +92,7 @@ would break the installer's checksum/name contract.
 ## Release checklist
 
 - Run `scripts/ci-local.sh`.
+- Run `bash scripts/check-naming.sh`.
 - Confirm `--version` matches the release.
 - Verify `--doctor`, `--model-info`, `--smoke`, and a real generation on a
   local model.

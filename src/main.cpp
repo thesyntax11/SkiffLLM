@@ -96,7 +96,7 @@ int print_models(const skiffllm::Config& cfg) {
     return 0;
 }
 
-bool choose_model(skiffllm::Config& cfg, std::unique_ptr<skiffllm::LlmEngine>& engine,
+bool choose_model(skiffllm::Config& cfg, std::unique_ptr<skiffllm::SkiffEngine>& engine,
                   std::string& error);
 
 std::string platform_name() {
@@ -172,7 +172,7 @@ int run_doctor(const skiffllm::Config& cfg, const std::string& version) {
     return 0;
 }
 
-int print_model_info(skiffllm::Config& cfg, std::unique_ptr<skiffllm::LlmEngine>& engine,
+int print_model_info(skiffllm::Config& cfg, std::unique_ptr<skiffllm::SkiffEngine>& engine,
                      const skiffllm::Terminal& terminal) {
     std::string model_error;
     if (!choose_model(cfg, engine, model_error)) {
@@ -207,7 +207,7 @@ int print_model_info(skiffllm::Config& cfg, std::unique_ptr<skiffllm::LlmEngine>
     return 0;
 }
 
-int run_tokenize(skiffllm::Config& cfg, std::unique_ptr<skiffllm::LlmEngine>& engine,
+int run_tokenize(skiffllm::Config& cfg, std::unique_ptr<skiffllm::SkiffEngine>& engine,
                  const skiffllm::Terminal& terminal, const std::string& text) {
     std::string model_error;
     if (!choose_model(cfg, engine, model_error)) {
@@ -266,7 +266,7 @@ std::string command_argument(const std::string& command) {
     return stripped.substr(space + 1);
 }
 
-bool choose_model(skiffllm::Config& cfg, std::unique_ptr<skiffllm::LlmEngine>& engine,
+bool choose_model(skiffllm::Config& cfg, std::unique_ptr<skiffllm::SkiffEngine>& engine,
                   std::string& error) {
     error.clear();
     if (engine) {
@@ -288,7 +288,7 @@ bool choose_model(skiffllm::Config& cfg, std::unique_ptr<skiffllm::LlmEngine>& e
     }
 
     cfg.model_path = models.front();
-    engine = std::make_unique<skiffllm::LlmEngine>(cfg);
+    engine = std::make_unique<skiffllm::SkiffEngine>(cfg);
     if (!engine->load(error)) {
         engine.reset();
         return false;
@@ -296,7 +296,7 @@ bool choose_model(skiffllm::Config& cfg, std::unique_ptr<skiffllm::LlmEngine>& e
     return true;
 }
 
-void print_session_info(const skiffllm::LlmEngine& engine, const skiffllm::Session& session,
+void print_session_info(const skiffllm::SkiffEngine& engine, const skiffllm::Session& session,
                         const skiffllm::Terminal& terminal, const skiffllm::Config& cfg) {
     const auto& info = engine.info();
     terminal.highlight("Model");
@@ -322,12 +322,12 @@ void print_session_info(const skiffllm::LlmEngine& engine, const skiffllm::Sessi
                    " | Batch: " + std::to_string(cfg.batch_size) + "\n");
 }
 
-bool rebuild_engine(skiffllm::Config& cfg, std::unique_ptr<skiffllm::LlmEngine>& engine,
+bool rebuild_engine(skiffllm::Config& cfg, std::unique_ptr<skiffllm::SkiffEngine>& engine,
                     const std::string& model_path, const skiffllm::Terminal& terminal) {
     const std::string previous = cfg.model_path.string();
     cfg.model_path = std::filesystem::path(model_path);
 
-    auto candidate = std::make_unique<skiffllm::LlmEngine>(cfg);
+    auto candidate = std::make_unique<skiffllm::SkiffEngine>(cfg);
     std::string error;
     if (!candidate->load(error)) {
         cfg.model_path = previous;
@@ -399,7 +399,7 @@ class LiveStreamer {
     std::size_t tokens_ = 0;
 };
 
-bool warmup_model(skiffllm::LlmEngine& engine, const skiffllm::Terminal& terminal,
+bool warmup_model(skiffllm::SkiffEngine& engine, const skiffllm::Terminal& terminal,
                   bool quiet = false) {
     std::string error;
     const auto start = std::chrono::steady_clock::now();
@@ -418,7 +418,7 @@ bool warmup_model(skiffllm::LlmEngine& engine, const skiffllm::Terminal& termina
     return true;
 }
 
-bool ask_model(skiffllm::LlmEngine& engine, const skiffllm::GenerationOptions& options,
+bool ask_model(skiffllm::SkiffEngine& engine, const skiffllm::GenerationOptions& options,
                const std::vector<skiffllm::ChatMessage>& messages,
                skiffllm::GenerationResult& result, const skiffllm::Terminal& terminal,
                LiveStreamer& streamer) {
@@ -440,7 +440,7 @@ bool ask_model(skiffllm::LlmEngine& engine, const skiffllm::GenerationOptions& o
     return true;
 }
 
-bool compact_session(const skiffllm::Config& cfg, skiffllm::LlmEngine& engine,
+bool compact_session(const skiffllm::Config& cfg, skiffllm::SkiffEngine& engine,
                      skiffllm::Session& session, skiffllm::Terminal& terminal,
                      const skiffllm::GenerationOptions& options) {
     const auto conversation = session.conversation();
@@ -506,7 +506,7 @@ bool compact_session(const skiffllm::Config& cfg, skiffllm::LlmEngine& engine,
     return true;
 }
 
-bool regenerate_session(const skiffllm::Config& cfg, skiffllm::LlmEngine& engine,
+bool regenerate_session(const skiffllm::Config& cfg, skiffllm::SkiffEngine& engine,
                         skiffllm::Session& session, skiffllm::Terminal& terminal,
                         const skiffllm::GenerationOptions& options) {
     auto& messages = session.messages();
@@ -557,7 +557,7 @@ bool regenerate_session(const skiffllm::Config& cfg, skiffllm::LlmEngine& engine
     return true;
 }
 
-int run_interactive(skiffllm::Config& cfg, std::unique_ptr<skiffllm::LlmEngine>& engine,
+int run_interactive(skiffllm::Config& cfg, std::unique_ptr<skiffllm::SkiffEngine>& engine,
                     skiffllm::Session& session, skiffllm::Terminal& terminal,
                     skiffllm::GenerationOptions& options) {
     std::string model_error;
@@ -885,7 +885,7 @@ int run_interactive(skiffllm::Config& cfg, std::unique_ptr<skiffllm::LlmEngine>&
                 const int previous_ctx = cfg.context_size;
                 cfg.context_size = value;
                 std::string ctx_error;
-                auto candidate = std::make_unique<skiffllm::LlmEngine>(cfg);
+                auto candidate = std::make_unique<skiffllm::SkiffEngine>(cfg);
                 if (!candidate->load(ctx_error)) {
                     cfg.context_size = previous_ctx;
                     terminal.error(ctx_error);
@@ -1013,7 +1013,7 @@ struct BenchmarkRun {
     double tokens_per_second = 0.0;
 };
 
-int run_benchmark(skiffllm::Config& cfg, std::unique_ptr<skiffllm::LlmEngine>& engine,
+int run_benchmark(skiffllm::Config& cfg, std::unique_ptr<skiffllm::SkiffEngine>& engine,
                   skiffllm::Terminal& terminal, const skiffllm::GenerationOptions& options) {
     std::string model_error;
     if (!choose_model(cfg, engine, model_error)) {
@@ -1132,7 +1132,7 @@ int run_benchmark(skiffllm::Config& cfg, std::unique_ptr<skiffllm::LlmEngine>& e
     return 0;
 }
 
-int run_one_shot(skiffllm::Config& cfg, std::unique_ptr<skiffllm::LlmEngine>& engine,
+int run_one_shot(skiffllm::Config& cfg, std::unique_ptr<skiffllm::SkiffEngine>& engine,
                  skiffllm::Session& session, skiffllm::Terminal& terminal,
                  const skiffllm::GenerationOptions& options, const std::string& raw_prompt) {
     std::string model_error;
@@ -1252,16 +1252,13 @@ int run_one_shot(skiffllm::Config& cfg, std::unique_ptr<skiffllm::LlmEngine>& en
     return 0;
 }
 
-}  // namespace
+}
 
 int main(int argc, char** argv) {
     KeepConsoleOpen keep_open(argc == 1 && keep_open_on_no_arguments());
     skiffllm::Config cfg = skiffllm::default_config();
     skiffllm::apply_environment(cfg);
 
-    // Detect the Unix-style subcommands before argument parsing so that
-    // `skiffllm model ...` and `skiffllm git ...` never collide with model path
-    // or prompt positional arguments.
     std::string subcommand;
     std::vector<std::string> sub_args;
     int argument_start = 1;
@@ -1305,8 +1302,6 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    // Rebuild an argv view without the subcommand word so the standard parser
-    // can handle the rest of the flags.
     std::vector<std::string> arg_storage;
     std::vector<char*> arg_ptrs;
     arg_storage.emplace_back(argv[0]);
@@ -1340,7 +1335,7 @@ int main(int argc, char** argv) {
     }
 
     if (cfg.backend_info) {
-        const skiffllm::LlmEngine probe(cfg);
+        const skiffllm::SkiffEngine probe(cfg);
         std::cout << "Backends linked into this build: "
                   << (probe.active_backends().empty() ? "CPU-only" : probe.active_backends())
                   << "\n";
@@ -1355,7 +1350,6 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    // Fully-local subcommands first (model list/info/install/remove, git status).
     if (subcommand == "model") {
         error.clear();
         const int status = skiffllm::handle_model_command(cfg, sub_args, error);
@@ -1427,7 +1421,6 @@ int main(int argc, char** argv) {
         }
     }
 
-    // Quick memory editing needs no model and no runtime.
     if (!cfg.remember_text.empty()) {
         std::string memory_error;
         if (!skiffllm::append_memory(cfg, cfg.remember_text, memory_error)) {
@@ -1448,9 +1441,6 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    // Unix pipeline ergonomics:
-    //   cat file | skiffllm "summarize this"
-    //   git diff | skiffllm review
     if (!skiffllm::is_stdin_tty()) {
         const std::string piped = skiffllm::read_stdin_all();
         if (!piped.empty()) {
@@ -1464,9 +1454,6 @@ int main(int argc, char** argv) {
         }
     }
 
-    // --summarize <file> is a lovable shorthand: it reads the file and turns
-    // it into context for a one-shot summary (or combines with a positional
-    // instruction when both are present).
     if (!cfg.summarize_path.empty()) {
         const std::string document = read_file(cfg.summarize_path);
         if (document.empty()) {
@@ -1480,7 +1467,6 @@ int main(int argc, char** argv) {
         cfg.interactive = false;
     }
 
-    // --project <dir> adds a bounded project context before the prompt.
     if (!cfg.project_path.empty()) {
         if (!cfg.one_shot.empty()) {
             std::string project_error;
@@ -1492,16 +1478,11 @@ int main(int argc, char** argv) {
             }
             cfg.one_shot = block + "\n" + cfg.one_shot;
         } else if (cfg.interactive) {
-            // Interactive sessions build context from the messages you send,
-            // so a project block added once would not follow the conversation.
-            // Say so instead of silently ignoring the flag.
             std::cerr << "note: --project applies to one-shot prompts; use a single prompt "
                          "(e.g. `skiffllm --project . \"where is auth implemented?\"`)\n";
         }
     }
 
-    // Safe code mode: want concrete, reviewable edits, never automatic file
-    // mutation. The model returns a proposal; applying it remains manual.
     if (cfg.code_mode) {
         if (!cfg.one_shot.empty()) {
             const std::string code_header =
@@ -1531,7 +1512,7 @@ int main(int argc, char** argv) {
 #endif
 
     skiffllm::Terminal terminal(cfg);
-    std::unique_ptr<skiffllm::LlmEngine> engine;
+    std::unique_ptr<skiffllm::SkiffEngine> engine;
 
     if (cfg.list_models) {
         const int status = print_models(cfg);
@@ -1607,7 +1588,6 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    // Inject persistent user facts into the active system prompt.
     const std::string memories = skiffllm::load_memories(cfg);
     if (!memories.empty()) {
         const std::string current = session.system_prompt();

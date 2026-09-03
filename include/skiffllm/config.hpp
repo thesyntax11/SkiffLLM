@@ -79,7 +79,6 @@ struct Config {
     std::string one_shot;
     std::string tokenize_text;
 
-    // UI / diagnostics
     bool context_bar = true;
     bool backend_info = false;
 };
@@ -98,4 +97,4 @@ void apply_environment(Config& cfg);
 std::string usage(const std::string& program);
 void print_config(const Config& cfg, bool as_json = false);
 
-}  // namespace skiffllm
+}

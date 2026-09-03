@@ -11,6 +11,8 @@
 #include "skiffllm/session.hpp"
 #include "skiffllm/tools.hpp"
 
+void run_extra_tests();
+
 namespace {
 
 void check(bool condition, const char* message) {
@@ -258,7 +260,6 @@ void test_popularity_flags() {
 void test_tools_features() {
     skiffllm::Config cfg = skiffllm::default_config();
 
-    // Unix-style positional prompt handling.
     {
         std::vector<std::string> storage = {"skiffllm", "explain this code"};
         auto args = args_from(storage);
@@ -270,7 +271,6 @@ void test_tools_features() {
         check(!cfg.interactive, "a positional prompt should disable interactive mode");
     }
 
-    // Memory and convenience shorthand flags.
     {
         skiffllm::Config memory_cfg = skiffllm::default_config();
         std::vector<std::string> storage = {"skiffllm", "--remember", "be concise"};
@@ -299,7 +299,6 @@ void test_tools_features() {
         check(!memory_cfg.interactive, "summarize should disable interactive mode");
     }
 
-    // Session file resolution keeps session names tidy.
     {
         skiffllm::Config session_cfg = skiffllm::default_config();
         skiffllm::Config custom = session_cfg;
@@ -312,7 +311,6 @@ void test_tools_features() {
               "session file lives beside history");
     }
 
-    // Session rename moves the session file and updates the active name.
     {
         skiffllm::Config session_cfg = skiffllm::default_config();
         const auto dir = std::filesystem::temp_directory_path() / "skiffllm-rename-test";
@@ -334,7 +332,6 @@ void test_tools_features() {
         std::filesystem::remove_all(dir);
     }
 
-    // Safe code mode is a flag, not a file-mutating feature.
     {
         skiffllm::Config code_cfg = skiffllm::default_config();
         std::vector<std::string> storage = {"skiffllm", "--code", "--project", ".", "fix it"};
@@ -348,7 +345,6 @@ void test_tools_features() {
         check(code_cfg.one_shot == "fix it", "positional prompt should be retained");
     }
 
-    // Project context is bounded but includes the real map and source slice.
     const auto dir = std::filesystem::temp_directory_path() / "skiffllm-project-test";
     std::filesystem::remove_all(dir);
     std::filesystem::create_directories(dir / "src");
@@ -538,7 +534,7 @@ void test_cli_utils() {
     check(error.empty(), "empty attach list should not report an error");
 }
 
-}  // namespace
+}
 
 int main() {
     test_config_file();
@@ -557,5 +553,6 @@ int main() {
     test_ui_and_backend_flags();
     test_openai_passthrough_flags();
     test_cli_utils();
+    run_extra_tests();
     return 0;
 }

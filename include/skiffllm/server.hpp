@@ -8,7 +8,7 @@
 
 namespace skiffllm {
 
-int run_server(Config& config, LlmEngine& engine, Terminal& terminal,
+int run_server(Config& config, SkiffEngine& engine, Terminal& terminal,
                const GenerationOptions& options, const std::function<bool()>& interrupted);
 
 }

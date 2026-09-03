@@ -10,6 +10,7 @@ simple, so clean, honest contributions are the most valuable.
 ```bash
 make release
 make tests
+make sanitize
 ```
 
 Or use the underlying CMake/CTest commands directly:
@@ -25,6 +26,7 @@ Use `scripts/ci-local.sh` or `make check` for the full local CI check:
 ```bash
 make check
 bash scripts/ci-local.sh
+bash scripts/check-naming.sh
 ```
 
 ### Android

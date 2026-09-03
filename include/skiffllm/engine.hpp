@@ -49,21 +49,19 @@ struct GenerationResult {
     bool stopped = false;
 };
 
-class LlmEngine {
+class SkiffEngine {
    public:
-    explicit LlmEngine(const Config& config);
-    ~LlmEngine();
+    explicit SkiffEngine(const Config& config);
+    ~SkiffEngine();
 
-    LlmEngine(const LlmEngine&) = delete;
-    LlmEngine& operator=(const LlmEngine&) = delete;
+    SkiffEngine(const SkiffEngine&) = delete;
+    SkiffEngine& operator=(const SkiffEngine&) = delete;
 
     bool load(std::string& error);
     void close();
 
     const ModelInfo& info() const;
     uint32_t context_capacity() const;
-    // Human-readable list of the backends linked into this build
-    // (CPU, CUDA, Metal, Vulkan, OpenCL, BLAS...). Empty when unavailable.
     std::string active_backends() const;
     bool tokenize(const std::string& text, std::vector<int32_t>& tokens, std::string& error) const;
     bool generate(const std::vector<ChatMessage>& messages, const GenerationOptions& options,
@@ -88,4 +86,4 @@ class LlmEngine {
     std::string error_;
 };
 
-}  // namespace skiffllm
+}
