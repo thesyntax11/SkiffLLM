@@ -178,16 +178,15 @@ skiffllm_apply_toolchain(skiffllm_core)
 
 add_executable(skiffllm src/main.cpp)
 if(WIN32)
-    if(NOT MSVC)
-        enable_language(RC)
-        set(CMAKE_RC_FLAGS "${CMAKE_RC_FLAGS} -I${CMAKE_CURRENT_SOURCE_DIR}/packaging/windows")
-    else()
-        set(CMAKE_RC_FLAGS "${CMAKE_RC_FLAGS} /i${CMAKE_CURRENT_SOURCE_DIR}/packaging/windows")
-    endif()
-    target_include_directories(skiffllm PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/packaging/windows)
-    target_sources(skiffllm PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/packaging/windows/skiffllm.rc
+    enable_language(RC)
+    set(APP_ICON_PATH "${CMAKE_CURRENT_SOURCE_DIR}/packaging/windows/skiffllm.ico")
+    set(SKIFFLLM_RC_FILE "${CMAKE_CURRENT_BINARY_DIR}/skiffllm.rc")
+    configure_file(
+        packaging/windows/skiffllm.rc
+        "${SKIFFLLM_RC_FILE}"
+        @ONLY
     )
+    target_sources(skiffllm PRIVATE "${SKIFFLLM_RC_FILE}")
 endif()
 target_link_libraries(skiffllm PRIVATE skiffllm_core)
 target_compile_definitions(skiffllm PRIVATE SKIFFLLM_VERSION="${PROJECT_VERSION}")
