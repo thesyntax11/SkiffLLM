@@ -926,7 +926,7 @@ std::string build_project_block(const std::filesystem::path& root, std::string& 
               [](const ProjectFile& a, const ProjectFile& b) { return a.relative < b.relative; });
 
     std::ostringstream out;
-    out << "<project root=\"" << root.string() << "\">\n";
+    out << "<project root=\"" << root.generic_string() << "\">\n";
     out << "<summary>\n";
     out << "files: " << files.size() << "\n";
     out << "source files: " << total_source << "\n";
@@ -937,7 +937,7 @@ std::string build_project_block(const std::filesystem::path& root, std::string& 
 
     const size_t max_index = 600;
     for (size_t i = 0; i < files.size() && i < max_index; ++i) {
-        out << files[i].relative.string() << " (" << files[i].bytes << " bytes)\n";
+        out << files[i].relative.generic_string() << " (" << files[i].bytes << " bytes)\n";
     }
     if (files.size() > max_index) {
         out << "... " << (files.size() - max_index) << " more files\n";
@@ -969,7 +969,7 @@ std::string build_project_block(const std::filesystem::path& root, std::string& 
             content.append(buffer, static_cast<size_t>(input.gcount()));
         }
         input.close();
-        out << "<file path=\"" << file.relative.string() << "\">\n";
+        out << "<file path=\"" << file.relative.generic_string() << "\">\n";
         out << content.substr(0, per_file_limit);
         out << "\n</file>\n";
         included += 1;
