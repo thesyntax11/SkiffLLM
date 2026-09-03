@@ -47,7 +47,7 @@ NSString *utf8_to_ns(const std::string &value) {
 @implementation NativeEngine {
     llama_model *_model;
     llama_context *_ctx;
-    llama_vocab *_vocab;
+    const llama_vocab *_vocab;
     llama_sampler *_sampler;
     std::atomic<bool> _stopping;
     std::string _chatTemplate;
