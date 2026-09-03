@@ -45,9 +45,13 @@ skifflm.llamaSourceDir=/path/to/llama.cpp
 
 ## Supported ABIs
 
-- `arm64-v8a`
-- `armeabi-v7a`
-- `x86_64` (emulators)
+- `arm64-v8a` (physical devices; Apple Silicon-era and most modern phones)
+- `x86_64` (Android emulators)
+
+32-bit ARM (`armeabi-v7a`) is intentionally not shipped. The pinned
+llama.cpp sgemm kernel requires memory-mapped FP16 NEON intrinsics that
+ARMv7 does not provide, and quantized LLM inference on 32-bit ARM is not
+practical with the supported model sizes.
 
 ## Load a model
 

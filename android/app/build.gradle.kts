@@ -18,7 +18,11 @@ android {
         ndkVersion = "26.3.11579264"
 
         ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+            // 64-bit only: the pinned llama.cpp sgemm kernel uses FP16 NEON
+            // intrinsics that ARMv7 (armeabi-v7a) does not provide, and modern
+            // quantized LLM inference on 32-bit ARM is not practical. Hosts in
+            // 2026 are overwhelmingly arm64; x86_64 is kept for emulators.
+            abiFilters += listOf("arm64-v8a", "x86_64")
         }
 
         externalNativeBuild {
