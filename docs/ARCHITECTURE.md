@@ -2,6 +2,11 @@
 
 ## Components
 
+- `include/skifflm/cli_utils.hpp` and `src/cli_utils.cpp`
+  Shared CLI helpers for parsing numbers, reading files and stdin, expanding
+  `@file` paths, building attach blocks, exporting Markdown, escaping JSON, and
+  writing output files.
+
 - `include/skifflm/config.hpp` and `src/config.cpp`
   Parse CLI flags, config files, environment variables, profiles, and model
   discovery.

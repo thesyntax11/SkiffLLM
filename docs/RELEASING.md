@@ -22,7 +22,8 @@ scripts/release.sh --output-dir artifacts --version 1.6.0
 The script creates `skifflm-<version>-<os>-<arch>.tar.gz` (for example
 `skifflm-1.6.0-linux-x86_64.tar.gz`, with `macos-arm64` on Apple Silicon and
 `macos-x86_64` on Intel) containing the binary, licenses, docs, completions,
-example config, logo, and helper scripts, plus `checksums.txt`.
+example config, logo, and helper scripts. It also emits a standalone native
+binary named `skifflm-<version>-<os>-<arch>[.exe]`, plus `checksums.txt`.
 
 Once the archive is published as a GitHub release asset, users can install it
 with:
@@ -55,8 +56,23 @@ GitHub Release assets automatically. Asset names are normalized so
 - `skifflm-<version>-linux-x86_64.tar.gz`
 - `skifflm-<version>-macos-arm64.tar.gz`
 - `skifflm-<version>-windows-x86_64.zip`
+- `skifflm-<version>-linux-x86_64`
+- `skifflm-<version>-macos-arm64`
+- `skifflm-<version>-windows-x86_64.exe`
 - `SkiffLLM-<version>-Android.apk`
+- `SkiffLLM-<version>-iOS.ipa`
 - `checksums.txt` (SHA-256 for every asset above)
+
+The iOS job builds a device app through `ios/` and packages it with
+`scripts/package-ios.sh`. It produces an unsigned `.ipa` when signing secrets
+are absent. To publish a signed IPA, set `IOS_CERTIFICATE_P12_BASE64`,
+`IOS_CERTIFICATE_PASSWORD`, `IOS_CERTIFICATE_IDENTITY`,
+`IOS_DEVELOPMENT_TEAM`, `IOS_PROVISIONING_PROFILE_NAME`, and
+`IOS_PROVISIONING_PROFILE_BASE64` in repository or environment secrets.
+
+The same workflow can be launched manually from the Actions page to produce
+downloadable artifacts without publishing a GitHub release; the `publish` job
+only runs on tag pushes.
 
 The workflow runs `scripts/release.sh` on the exact host platform it targets,
 so the archive always contains a native binary. It does **not** cross-compile,
@@ -75,5 +91,7 @@ would break the installer's checksum/name contract.
 - Verify `--export`, `--attach`, `--serve`, and `--benchmark` on a local model.
 - For Android releases, run `cd android && ./gradlew assembleDebug` and confirm
   the APK installs and loads a real GGUF model.
+- For iOS, run `scripts/package-ios.sh` locally if you already have a device
+  build; confirm the `.ipa` opens after signing.
 - Update the changelog, app version, and docs.
 - Push the tag.

@@ -20,10 +20,12 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License MIT"/>
-  <img src="https://img.shields.io/badge/version-v1.6.0-blue" alt="Version v1.6.0"/>
+  <img src="https://img.shields.io/github/v/release/thesyntax11/SkiffLLM" alt="Latest release"/>
   <img src="https://img.shields.io/badge/c%2B%2B-17-blue.svg" alt="C++17"/>
   <img src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows%20%7C%20Android%20%7C%20iOS-lightgrey" alt="Platforms"/>
   <img src="https://img.shields.io/badge/runtime-offline-green" alt="Offline"/>
+  <img src="https://img.shields.io/github/downloads/thesyntax11/SkiffLLM/total" alt="Downloads"/>
+  <img src="https://img.shields.io/github/stars/thesyntax11/SkiffLLM" alt="Stars"/>
   <img src="https://github.com/thesyntax11/SkiffLLM/actions/workflows/ci.yml/badge.svg" alt="CI"/>
   <img src="https://github.com/thesyntax11/SkiffLLM/actions/workflows/release.yml/badge.svg" alt="Release"/>
 </p>
@@ -42,6 +44,14 @@ skifflm --project . "where is this implemented?"
 ---
 
 ## Get started
+
+### One command (published release)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/thesyntax11/SkiffLLM/main/scripts/install-latest.sh | bash
+export PATH="$HOME/.local/bin:$PATH"
+skifflm --version
+```
 
 ### One command (source checkout)
 
@@ -69,6 +79,32 @@ bash scripts/install-from-release.sh --version v1.6.0
 
 The helper maps your OS/arch to the release archive. It fails fast when a
 release has no assets yet.
+
+### Direct download
+
+Every published release carries native artifacts with a stable naming scheme:
+
+| Asset | Use |
+| --- | --- |
+| `skifflm-<version>-linux-x86_64.tar.gz` | Linux |
+| `skifflm-<version>-macos-arm64.tar.gz` | macOS Apple Silicon |
+| `skifflm-<version>-windows-x86_64.zip` | Windows archive |
+| `skifflm-<version>-windows-x86_64.exe` | Standalone Windows executable |
+| `skifflm-<version>-linux-x86_64` | Standalone Linux executable |
+| `skifflm-<version>-macos-arm64` | Standalone macOS executable |
+| `SkiffLLM-<version>-Android.apk` | Android device or emulator |
+| `SkiffLLM-<version>-iOS.ipa` | iOS app container |
+| `checksums.txt` | SHA-256 for every asset above |
+
+On Linux and macOS, mark a standalone executable with `chmod +x` after
+downloading it. The iOS `.ipa` is produced as an unsigned app container unless
+the repository
+has Apple signing secrets configured. A device build normally needs Xcode and
+a development team; local iOS setup is documented in [ios/README.md](ios/README.md).
+
+The release workflow can also be run manually from the repository's Actions
+page. That produces the same desktop executables, Windows `.exe`, Android APK,
+and iOS `.ipa` artifacts without creating a GitHub Release.
 
 ### Record a demo
 

@@ -4,6 +4,11 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -12,6 +17,7 @@ jobs:
   build:
     name: Package ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -19,7 +25,7 @@ jobs:
           - name: linux-x86_64
             os: ubuntu-latest
           - name: macos-arm64
-            os: macos-14
+            os: macos-15
           - name: windows-x86_64
             os: windows-latest
     steps:
@@ -72,16 +78,18 @@ jobs:
         run: bash scripts/release.sh --build-dir build --output-dir artifacts
         shell: bash
 
-      - name: Upload archive
+      - name: Upload release artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}
           path: artifacts/*
+          retention-days: 14
           if-no-files-found: error
 
   apk:
     name: Package Android APK
     runs-on: ubuntu-latest
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
 
@@ -117,12 +125,115 @@ jobs:
         with:
           name: android-apk
           path: SkiffLLM-*-Android.apk
+          retention-days: 14
+          if-no-files-found: error
+
+  ios:
+    name: Package iOS app
+    runs-on: macos-15
+    timeout-minutes: 180
+    env:
+      IOS_CERT_P12: ${{ secrets.IOS_CERTIFICATE_P12_BASE64 }}
+      IOS_CERT_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+      IOS_CERT_IDENTITY: ${{ secrets.IOS_CERTIFICATE_IDENTITY }}
+      IOS_TEAM_ID: ${{ secrets.IOS_DEVELOPMENT_TEAM }}
+      IOS_PROFILE_NAME: ${{ secrets.IOS_PROVISIONING_PROFILE_NAME }}
+      IOS_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tooling
+        run: |
+          command -v cmake >/dev/null 2>&1 || brew install cmake
+          command -v xcodegen >/dev/null 2>&1 || brew install xcodegen
+
+      - name: Generate Xcode project and XCFramework
+        run: bash scripts/ios-setup.sh
+
+      - name: Prepare signing keychain
+        env:
+          KEYCHAIN_PASSWORD: skifflm
+        run: |
+          if [[ -n "${IOS_CERT_P12}" && -n "${IOS_TEAM_ID}" ]]; then
+            if [[ -z "${IOS_CERT_PASSWORD}" || -z "${IOS_CERT_IDENTITY}" ||
+                  -z "${IOS_PROFILE_NAME}" || -z "${IOS_PROFILE_BASE64}" ]]; then
+              echo "error: missing iOS signing secret" >&2
+              exit 1
+            fi
+            echo "${IOS_CERT_P12}" | base64 -D > /tmp/skifflm.p12
+            security create-keychain -p "${KEYCHAIN_PASSWORD}" "${HOME}/Library/Keychains/skifflm.keychain"
+            security default-keychain -s "${HOME}/Library/Keychains/skifflm.keychain"
+            security unlock-keychain -p "${KEYCHAIN_PASSWORD}" "${HOME}/Library/Keychains/skifflm.keychain"
+            security import /tmp/skifflm.p12 -k "${HOME}/Library/Keychains/skifflm.keychain" \
+              -P "${IOS_CERT_PASSWORD}" -T /usr/bin/codesign
+            security set-key-partition-list -S apple-tool:,apple: \
+              -s -k "${KEYCHAIN_PASSWORD}" "${HOME}/Library/Keychains/skifflm.keychain"
+            if [[ -n "${IOS_PROFILE_BASE64}" ]]; then
+              mkdir -p "${HOME}/Library/MobileDevice/Provisioning Profiles"
+              echo "${IOS_PROFILE_BASE64}" | base64 -D > \
+                "${HOME}/Library/MobileDevice/Provisioning Profiles/${IOS_PROFILE_NAME}.mobileprovision"
+            fi
+          fi
+        shell: bash
+
+      - name: Build iOS app
+        run: |
+          VERSION="$(sed -n 's/project(SkiffLLM VERSION \([0-9][0-9.]*\).*/\1/p' CMakeLists.txt)"
+          if [[ -n "${IOS_CERT_P12}" && -n "${IOS_TEAM_ID}" ]]; then
+            xcodebuild \
+              -project ios/SkiffLLM.xcodeproj \
+              -scheme SkiffLLM \
+              -configuration Release \
+              -destination 'generic/platform=iOS' \
+              -derivedDataPath ios-build \
+              -archivePath ios-build/SkiffLLM.xcarchive \
+              CODE_SIGN_STYLE=Manual \
+              DEVELOPMENT_TEAM="${IOS_TEAM_ID}" \
+              PROVISIONING_PROFILE_SPECIFIER="${IOS_PROFILE_NAME}" \
+              CODE_SIGN_IDENTITY="${IOS_CERT_IDENTITY}" \
+              archive
+          else
+            xcodebuild \
+              -project ios/SkiffLLM.xcodeproj \
+              -scheme SkiffLLM \
+              -configuration Release \
+              -destination 'generic/platform=iOS' \
+              -derivedDataPath ios-build \
+              CODE_SIGNING_ALLOWED=NO \
+              build
+          fi
+        shell: bash
+
+      - name: Package iOS artifacts
+        run: |
+          VERSION="$(sed -n 's/project(SkiffLLM VERSION \([0-9][0-9.]*\).*/\1/p' CMakeLists.txt)"
+          APP=""
+          if [[ -d "ios-build/Build/Products/Release-iphoneos/SkiffLLM.app" ]]; then
+            APP="ios-build/Build/Products/Release-iphoneos/SkiffLLM.app"
+          elif [[ -d "ios-build/SkiffLLM.xcarchive/Products/Applications/SkiffLLM.app" ]]; then
+            APP="ios-build/SkiffLLM.xcarchive/Products/Applications/SkiffLLM.app"
+          fi
+          if [[ -z "${APP}" ]]; then
+            echo "error: iOS app bundle not found" >&2
+            exit 1
+          fi
+          bash scripts/package-ios.sh --app "${APP}" --version "${VERSION}" --output-dir artifacts
+        shell: bash
+
+      - name: Upload iOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-app
+          path: artifacts/*
+          retention-days: 14
           if-no-files-found: error
 
   publish:
     name: Create GitHub Release
-    needs: [build, apk]
+    if: github.event_name == 'push'
+    needs: [build, apk, ios]
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: write
     steps:

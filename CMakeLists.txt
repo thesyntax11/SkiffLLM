@@ -75,6 +75,7 @@ else()
 endif()
 
 add_library(skifflm_core
+    src/cli_utils.cpp
     src/config.cpp
     src/engine.cpp
     src/http_auth.cpp

@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+### Release artifacts and publishability
+
+- Added standalone native binaries alongside archives in `scripts/release.sh`
+  and included them in the checksum file.
+- Added CI artifacts for desktop executables and the iOS simulator app.
+- Added a release iOS job that packages `SkiffLLM-<version>-iOS.ipa` with an
+  unsigned container by default and a signed IPA when Apple signing secrets are
+  configured.
+- Added `scripts/package-ios.sh` so an iOS build can be packaged locally or in
+  Actions without shelling out to Xcode export steps.
+- Added `scripts/install-latest.sh` for a `curl ... | bash` install from the
+  newest published release.
+- Made the release workflow manually runnable from Actions so `exe`, APK, and
+  iOS artifacts can be downloaded before a tag is pushed.
+- Documented the exact release asset names, direct `.exe`, `.ipa`, Android APK,
+  and signing-secret setup.
+
+### Code quality
+
+- Split CLI helpers from `src/main.cpp` into `src/cli_utils.cpp` behind a small
+  `skifflm/cli_utils.hpp` API and added unit coverage.
+
 ### Tooling and developer experience
 
 - Split HTTP Bearer auth into a small, unit-tested `http_auth` module so the

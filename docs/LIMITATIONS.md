@@ -50,13 +50,14 @@ model. Unknown template names fall back to `chatml` or fail with a clear error.
 - Model downloads require enough free storage and a network connection.
 - GPU offload depends on llama.cpp build support and the device backend.
 
-## CI
+## CI and published assets
 
-The CI and release workflow files are present in the working tree but are not
-pushed to this branch until the repository grants the required `workflows`
-permission. Until then, local checks can be run with `scripts/ci-local.sh`
-(desktop) and `scripts/ci-android.sh` (Android, with the Android SDK
-installed).
+CI builds and tests desktop binaries, an Android debug APK, and an iOS
+simulator app. Release runs publish Linux, macOS, and Windows archives plus
+standalone executables, an Android APK, and an iOS app container. The iOS
+container is unsigned unless repository signing secrets are configured, so a
+physical-device install may require re-signing with Xcode. Local checks can be
+run with `scripts/ci-local.sh` and `scripts/ci-android.sh`.
 
 ## Planned
 

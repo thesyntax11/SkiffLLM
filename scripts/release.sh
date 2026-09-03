@@ -184,22 +184,49 @@ else
     tar -czf "${ARCHIVE}" -C "${STAGE}" .
 fi
 
+BIN_ASSET="${OUTPUT_DIR}/skifflm-${VERSION}-${PLATFORM}${BINARY_NAME#skifflm}"
+cp "${BINARY}" "${BIN_ASSET}"
+rm -rf "${STAGE}"
+
 if [[ -f "${PROJECT_DIR}/android/app/build/outputs/apk/debug/app-debug.apk" ]]; then
     cp "${PROJECT_DIR}/android/app/build/outputs/apk/debug/app-debug.apk" \
         "${OUTPUT_DIR}/SkiffLLM-${VERSION}-Android.apk"
 fi
 
+ASSET_LIST="${OUTPUT_DIR}/.assets.list"
+rm -f "${ASSET_LIST}"
+"${PYTHON}" - "${OUTPUT_DIR}" "${VERSION}" "${ASSET_LIST}" <<'PY'
+import os
+import sys
+
+output_dir = sys.argv[1]
+version = sys.argv[2]
+asset_list = sys.argv[3]
+prefix = "skifflm-" + version + "-"
+assets = []
+for name in os.listdir(output_dir):
+    path = os.path.join(output_dir, name)
+    if not os.path.isfile(path):
+        continue
+    if name.startswith(prefix) and (name.endswith(".tar.gz") or name.endswith(".zip") or
+                                    "-linux-" in name or "-macos-" in name or "-windows-" in name):
+        assets.append(path)
+    elif name.startswith("SkiffLLM-" + version + "-") and name.endswith(".apk"):
+        assets.append(path)
+with open(asset_list, "w", encoding="utf-8") as handle:
+    for path in sorted(assets):
+        handle.write(path + "\n")
+PY
+
 rm -f "${OUTPUT_DIR}/checksums.txt"
-for asset in "${OUTPUT_DIR}/skifflm-${VERSION}-"*.tar.gz \
-             "${OUTPUT_DIR}/skifflm-${VERSION}-"*.zip \
-             "${OUTPUT_DIR}/SkiffLLM-${VERSION}-"*.apk; do
-    if [[ -f "${asset}" ]]; then
-        sha256_of "${asset}" >> "${OUTPUT_DIR}/checksums.txt"
-    fi
-done
+while IFS= read -r asset; do
+    sha256_of "${asset}" >> "${OUTPUT_DIR}/checksums.txt"
+done < "${ASSET_LIST}"
+rm -f "${ASSET_LIST}"
 
 echo
 echo "Release archive: ${ARCHIVE}"
+echo "Direct binary:   ${BIN_ASSET}"
 echo "Platform:        ${PLATFORM}"
 echo "Checksums:       ${OUTPUT_DIR}/checksums.txt"
-echo "Use:             tar -xzf $(basename "${ARCHIVE}") && ./bin/${BINARY_NAME} --help"
+echo "Use:             ${BIN_ASSET} --help"

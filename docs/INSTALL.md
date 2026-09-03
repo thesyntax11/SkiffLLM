@@ -7,7 +7,8 @@ daemon.
 ## 1. Install a prebuilt archive
 
 When a release is published it includes platform archives named
-`skifflm-<version>-<os>-<arch>.tar.gz` (or `.zip` on Windows) plus
+`skifflm-<version>-<os>-<arch>.tar.gz` (or `.zip` on Windows), standalone
+native binaries, Android APK files, an iOS app container, and
 `checksums.txt`.
 
 ```bash
@@ -15,6 +16,11 @@ When a release is published it includes platform archives named
 tar -xzf skifflm-v1.6.0-linux-x86_64.tar.gz
 sudo install -m 0755 bin/skifflm /usr/local/bin/skifflm
 ```
+
+Standalone executables follow `skifflm-<version>-<os>-<arch>[.exe]`. The Windows
+asset is available both as a zip and as a direct `.exe`. The iOS asset is an
+`.ipa` app container; a device install requires signing with an Apple
+development identity.
 
 A ready-to-run helper is included:
 
@@ -26,7 +32,13 @@ bash scripts/install-from-release.sh --help
 The helper maps the current OS/arch to the release asset and installs to
 `$HOME/.local/bin`. It fails fast when the archive is not published yet.
 
-## 2. Install from a source checkout
+## 2. Install the latest release
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/thesyntax11/SkiffLLM/main/scripts/install-latest.sh | bash
+```
+
+## 3. Install from a source checkout
 
 ### Quick local install
 
@@ -54,7 +66,7 @@ cmake --build build/release -j
 cmake --install build/release --prefix /usr/local
 ```
 
-## 3. Manual build
+## 4. Manual build
 
 Requirements:
 
@@ -78,7 +90,7 @@ cmake -S . -B build \
   -DCMAKE_BUILD_TYPE=Release
 ```
 
-## 4. Get a model
+## 5. Get a model
 
 The runtime never downloads models.
 
@@ -90,7 +102,7 @@ python3 scripts/model_fetch.py --model qwen2.5-0.5b
 Files land in `~/.local/share/skifflm/models` by default. You can also point
 `--model` at any existing `.gguf`.
 
-## 5. Shell completions
+## 6. Shell completions
 
 Source or copy the generated files:
 
@@ -105,18 +117,18 @@ cp scripts/completions/skifflm.zsh ~/.zsh_functions/
 cp scripts/completions/skifflm.fish ~/.config/fish/completions/
 ```
 
-## 6. macOS / iOS
+## 7. macOS / iOS
 
 - macOS builds through the same CMake path; use `--backend metal` for Metal.
 - iOS requires macOS/Xcode + XcodeGen: `bash scripts/ios-setup.sh`.
 
-## 7. Android
+## 8. Android
 
 - Android Studio is not on this install path.
 - `bash scripts/ci-android.sh` produces a debug APK when the Android SDK is
   installed.
 
-## 8. Record a demo
+## 9. Record a demo
 
 Run `scripts/demo-capture.sh` with a real binary and a real GGUF model to
 produce an honest terminal recording. The script never creates fake output.

@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "skifflm/cli_utils.hpp"
 #include "skifflm/config.hpp"
 #include "skifflm/http_auth.hpp"
 #include "skifflm/session.hpp"
@@ -512,6 +513,30 @@ void test_session_resolution() {
     check(cfg.history_path.filename() == "writing.skif", "session history should use the name");
 }
 
+void test_cli_utils() {
+    bool ok = false;
+    check(skifflm::cli::parse_double("0.42", ok) == 0.42f,
+          "parse_double should parse valid values");
+    check(ok, "parse_double should report success");
+    skifflm::cli::parse_double("abc", ok);
+    check(!ok, "parse_double should reject invalid values");
+
+    ok = false;
+    check(skifflm::cli::parse_int("42", ok) == 42, "parse_int should parse valid values");
+    check(ok, "parse_int should report success");
+    skifflm::cli::parse_int("-1x", ok);
+    check(!ok, "parse_int should reject invalid values");
+
+    check(skifflm::cli::compact_preview("a\nb\tc", 2) == "a ...",
+          "compact_preview should replace whitespace");
+    check(skifflm::cli::json_escape("a\"b\\c") == "\"a\\\"b\\\\c\"",
+          "json_escape should escape quotes and backslashes");
+
+    std::string error;
+    check(skifflm::cli::make_attach_block({}, error).empty(), "empty attach list should be empty");
+    check(error.empty(), "empty attach list should not report an error");
+}
+
 }  // namespace
 
 int main() {
@@ -530,5 +555,6 @@ int main() {
     test_config_and_stats_features();
     test_ui_and_backend_flags();
     test_openai_passthrough_flags();
+    test_cli_utils();
     return 0;
 }

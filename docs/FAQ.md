@@ -67,6 +67,14 @@ Yes, after a model is loaded. Loading a saved model, chatting, exporting, and
 clearing all work offline. Network is used only if you choose to download a new
 model from Hugging Face.
 
+## Can I download prebuilt Windows or iOS binaries?
+
+Yes. Release assets include a standalone `skifflm-<version>-windows-x86_64.exe`,
+an Android APK, and a `SkiffLLM-<version>-iOS.ipa`. The release workflow can be
+run manually from the Actions page even before a tag is pushed. Without Apple
+signing secrets the iOS artifact is an unsigned container; re-sign it with your
+development team before installing it on a physical device.
+
 ## Is telemetry enabled?
 
 No. There is no analytics, crash reporting, or usage tracking in the desktop
