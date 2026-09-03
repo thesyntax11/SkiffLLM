@@ -16,7 +16,7 @@ BEGIN
         BLOCK "040904b0"
         BEGIN
             VALUE "CompanyName", "SkiffLLM Contributors"
-            VALUE "FileDescription", "LLM"
+            VALUE "FileDescription", "SkiffLLM"
             VALUE "FileVersion", "1.6.0"
             VALUE "InternalName", "skiffllm"
             VALUE "OriginalFilename", "skiffllm.exe"
