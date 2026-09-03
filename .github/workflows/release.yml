@@ -107,7 +107,7 @@ jobs:
 
       - name: Rename APK for release
         run: |
-          VERSION="$(sed -n 's/project(SkiffLLM VERSION \([0-9][0-9.]*\)).*/\1/p' CMakeLists.txt)"
+          VERSION="$(sed -n 's/project(SkiffLLM VERSION \([0-9][0-9.]*\).*/\1/p' CMakeLists.txt)"
           cp android/app/build/outputs/apk/debug/app-debug.apk \
             "SkiffLLM-${VERSION}-Android.apk"
         shell: bash
