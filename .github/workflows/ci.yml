@@ -130,6 +130,21 @@ jobs:
             exit 1
           fi
 
+      - name: Launch desktop GUI (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          ./build/Release/skiffllm.exe > gui-launch.log 2>&1 &
+          pid=$!
+          sleep 3
+          if kill -0 "$pid" 2>/dev/null; then
+            kill "$pid"
+          else
+            echo "::error::desktop GUI exited during startup"
+            cat gui-launch.log
+            exit 1
+          fi
+
       - name: Prepare desktop artifact
         if: always()
         shell: bash
