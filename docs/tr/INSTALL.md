@@ -5,13 +5,13 @@ zamanı model paketlemez, ağa çağrı yapmaz ve bir arka plan servisi gerektir
 
 ## 1. Hazır arşiv kurulumu
 
-Bir sürüm yayınlandığında içinde `llm-<version>-<os>-<arch>.tar.gz`
+Bir sürüm yayınlandığında içinde `skiffllm-<version>-<os>-<arch>.tar.gz`
 (Windows'ta `.zip`) biçiminde platform arşivleri ve `checksums.txt` bulunur.
 
 ```bash
 # Linux / macOS
-tar -xzf llm-v1.6.0-linux-x86_64.tar.gz
-sudo install -m 0755 bin/llm /usr/local/bin/llm
+tar -xzf skiffllm-v1.6.0-linux-x86_64.tar.gz
+sudo install -m 0755 bin/skiffllm /usr/local/bin/skiffllm
 ```
 
 Hazır bir yardımcı script dahildir:
@@ -33,7 +33,7 @@ git clone https://github.com/thesyntax11/SkiffLLM.git
 cd SkiffLLM
 bash scripts/install.sh --prefix "$HOME/.local"
 export PATH="$HOME/.local/bin:$PATH"
-llm --version
+skiffllm --version
 ```
 
 Yararlı seçenekler:
@@ -71,8 +71,8 @@ Elinizde derlenmiş ve kurulmuş bir llama.cpp kopyası varsa:
 
 ```bash
 cmake -S . -B build \
-  -DLLM_FETCH_LLAMA=OFF \
-  -DLLM_LLAMA_SOURCE_DIR=/path/to/llama.cpp \
+  -DSKIFFLLM_FETCH_LLAMA=OFF \
+  -DSKIFFLLM_LLAMA_SOURCE_DIR=/path/to/llama.cpp \
   -DCMAKE_BUILD_TYPE=Release
 ```
 
@@ -85,7 +85,7 @@ python3 scripts/model_fetch.py --list
 python3 scripts/model_fetch.py --model qwen2.5-0.5b
 ```
 
-Dosyalar varsayılan olarak `~/.local/share/llm/models` dizinine kaydedilir.
+Dosyalar varsayılan olarak `~/.local/share/skiffllm/models` dizinine kaydedilir.
 Mevcut herhangi bir `.gguf` dosyasına da `--model` ile işaret edebilirsiniz.
 
 ## 5. Kabuk tamamlamaları
@@ -94,13 +94,13 @@ Mevcut herhangi bir `.gguf` dosyasına da `--model` ile işaret edebilirsiniz.
 
 ```bash
 # bash
-source scripts/completions/llm.bash
+source scripts/completions/skiffllm.bash
 
 # zsh
-cp scripts/completions/llm.zsh ~/.zsh_functions/
+cp scripts/completions/skiffllm.zsh ~/.zsh_functions/
 
 # fish (tamamlamalar dizini)
-cp scripts/completions/llm.fish ~/.config/fish/completions/
+cp scripts/completions/skiffllm.fish ~/.config/fish/completions/
 ```
 
 ## 6. macOS / iOS
@@ -121,5 +121,5 @@ Gerçek bir binary ve gerçek bir GGUF modeliyle `scripts/demo-capture.sh`
 üretmez.
 
 ```bash
-bash scripts/demo-capture.sh ./build/release/llm /path/model.gguf
+bash scripts/demo-capture.sh ./build/release/skiffllm /path/model.gguf
 ```

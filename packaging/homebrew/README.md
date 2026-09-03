@@ -15,7 +15,7 @@ release archive exists.
 
 ## Adding a tap
 
-Create or edit a file named `llm.rb` in a Homebrew tap with the following
+Create or edit a file named `skiffllm.rb` in a Homebrew tap with the following
 shape and replace the URL, SHA-256, and version fields:
 
 ```ruby
@@ -30,25 +30,25 @@ class Skifflm < Formula
 
   def install
     system "cmake", "-S", ".", "-B", "build",
-           "-DLLM_BUILD_TESTS=OFF",
+           "-DSKIFFLLM_BUILD_TESTS=OFF",
            "-DCMAKE_BUILD_TYPE=Release"
     system "cmake", "--build", "build"
-    bin.install "build/llm"
-    man1.install "docs/llm.1"
+    bin.install "build/skiffllm"
+    man1.install "docs/skiffllm.1"
     doc.install Dir["docs/*.md"]
-    (share/"llm/completions").install Dir["scripts/completions/*"]
+    (share/"skiffllm/completions").install Dir["scripts/completions/*"]
   end
 end
 ```
 
 ## Publishing a personal tap
 
-Create a repository such as `thesyntax11/homebrew-llm`, add the formula,
+Create a repository such as `thesyntax11/homebrew-skiffllm`, add the formula,
 then users install with:
 
 ```bash
-brew tap thesyntax11/llm
-brew install llm
+brew tap thesyntax11/skiffllm
+brew install skiffllm
 ```
 
 ## Publishing to homebrew-core

@@ -18,8 +18,8 @@ compile_commands.json
 models/
 third_party/
 staged/
-llm-*.tar.gz
-llm-*.zip
+skiffllm-*.tar.gz
+skiffllm-*.zip
 *.gguf
 *.bin
 *.skif

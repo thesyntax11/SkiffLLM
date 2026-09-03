@@ -1,7 +1,7 @@
 #include <jni.h>
 
-#include "llm/config.hpp"
-#include "llm/engine.hpp"
+#include "skiffllm/config.hpp"
+#include "skiffllm/engine.hpp"
 
 #include <atomic>
 #include <memory>
@@ -13,8 +13,8 @@
 namespace {
 
 struct NativeState {
-    llm::Config config;
-    std::unique_ptr<llm::LlmEngine> engine;
+    skiffllm::Config config;
+    std::unique_ptr<skiffllm::LlmEngine> engine;
     std::atomic<bool> stop_requested{false};
     std::string last_error;
 };
@@ -51,7 +51,7 @@ jstring to_jstring(JNIEnv* env, const std::string& value) {
 }
 
 extern "C" JNIEXPORT jlong JNICALL
-Java_com_llm_app_SkiffNative_create(
+Java_com_skiffllm_app_SkiffNative_create(
         JNIEnv* env,
         jobject,
         jint context_size,
@@ -59,7 +59,7 @@ Java_com_llm_app_SkiffNative_create(
         jint gpu_layers,
         jstring chat_template) {
     auto state = std::make_unique<NativeState>();
-    state->config = llm::default_config();
+    state->config = skiffllm::default_config();
     state->config.model_path.clear();
     state->config.context_size = static_cast<int>(context_size);
     state->config.n_threads = static_cast<int>(threads);
@@ -70,12 +70,12 @@ Java_com_llm_app_SkiffNative_create(
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_llm_app_SkiffNative_destroy(JNIEnv*, jobject, jlong handle) {
+Java_com_skiffllm_app_SkiffNative_destroy(JNIEnv*, jobject, jlong handle) {
     delete state_from(handle);
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_llm_app_SkiffNative_load(
+Java_com_skiffllm_app_SkiffNative_load(
         JNIEnv* env,
         jobject,
         jlong handle,
@@ -87,7 +87,7 @@ Java_com_llm_app_SkiffNative_load(
     state->config.model_path = to_string(env, model_path);
     state->stop_requested = false;
     state->last_error.clear();
-    auto engine = std::make_unique<llm::LlmEngine>(state->config);
+    auto engine = std::make_unique<skiffllm::LlmEngine>(state->config);
     std::string error;
     if (!engine->load(error)) {
         state->last_error = error;
@@ -98,7 +98,7 @@ Java_com_llm_app_SkiffNative_load(
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_llm_app_SkiffNative_loadError(JNIEnv* env, jobject, jlong handle) {
+Java_com_skiffllm_app_SkiffNative_loadError(JNIEnv* env, jobject, jlong handle) {
     NativeState* state = state_from(handle);
     if (state == nullptr) {
         return to_jstring(env, "engine is not initialized");
@@ -113,7 +113,7 @@ Java_com_llm_app_SkiffNative_loadError(JNIEnv* env, jobject, jlong handle) {
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_llm_app_SkiffNative_warmup(JNIEnv*, jobject, jlong handle) {
+Java_com_skiffllm_app_SkiffNative_warmup(JNIEnv*, jobject, jlong handle) {
     NativeState* state = state_from(handle);
     if (state == nullptr || state->engine == nullptr) {
         return JNI_FALSE;
@@ -127,7 +127,7 @@ Java_com_llm_app_SkiffNative_warmup(JNIEnv*, jobject, jlong handle) {
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_llm_app_SkiffNative_infoJson(JNIEnv* env, jobject, jlong handle) {
+Java_com_skiffllm_app_SkiffNative_infoJson(JNIEnv* env, jobject, jlong handle) {
     NativeState* state = state_from(handle);
     if (state == nullptr || state->engine == nullptr) {
         return nullptr;
@@ -147,7 +147,7 @@ Java_com_llm_app_SkiffNative_infoJson(JNIEnv* env, jobject, jlong handle) {
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_llm_app_SkiffNative_stop(JNIEnv*, jobject, jlong handle) {
+Java_com_skiffllm_app_SkiffNative_stop(JNIEnv*, jobject, jlong handle) {
     NativeState* state = state_from(handle);
     if (state != nullptr) {
         state->stop_requested = true;
@@ -155,7 +155,7 @@ Java_com_llm_app_SkiffNative_stop(JNIEnv*, jobject, jlong handle) {
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_llm_app_SkiffNative_generate(
+Java_com_skiffllm_app_SkiffNative_generate(
         JNIEnv* env,
         jobject,
         jlong handle,
@@ -214,7 +214,7 @@ Java_com_llm_app_SkiffNative_generate(
         return JNI_FALSE;
     }
 
-    std::vector<llm::ChatMessage> messages;
+    std::vector<skiffllm::ChatMessage> messages;
     messages.reserve(static_cast<size_t>(count));
     for (jsize i = 0; i < count; ++i) {
         jobject role = env->GetObjectArrayElement(roles, i);
@@ -235,7 +235,7 @@ Java_com_llm_app_SkiffNative_generate(
         }
     }
 
-    llm::GenerationOptions options;
+    skiffllm::GenerationOptions options;
     options.temperature = static_cast<float>(temperature);
     options.top_p = static_cast<float>(top_p);
     options.top_k = static_cast<int>(top_k);
@@ -256,7 +256,7 @@ Java_com_llm_app_SkiffNative_generate(
     };
 
     state->stop_requested = false;
-    llm::GenerationResult result;
+    skiffllm::GenerationResult result;
     std::string error;
     const bool ok = state->engine->generate(
         messages,

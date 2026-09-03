@@ -11,7 +11,7 @@ fi
 
 echo "Checking C++ formatting..."
 clang-format --dry-run --Werror \
-    include/llm/*.hpp \
+    include/skiffllm/*.hpp \
     src/*.cpp \
     tests/test_main.cpp
 

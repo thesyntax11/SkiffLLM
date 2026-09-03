@@ -39,10 +39,10 @@ Ollama is server-first: you run a service and talk to an HTTP API. SkiffLLM is
 CLI-first:
 
 ```bash
-git diff | llm "review these changes"
-cat error.log | llm "find the root cause"
-llm --project . "where is authentication handled?"
-llm --code --project . "propose a fix for src/server.cpp"
+git diff | skiffllm "review these changes"
+cat error.log | skiffllm "find the root cause"
+skiffllm --project . "where is authentication handled?"
+skiffllm --code --project . "propose a fix for src/server.cpp"
 ```
 
 There is no background process, no port to manage, no container carrying a
@@ -61,14 +61,14 @@ you disable networking."
 ### 3. You need control over the inference engine
 
 SkiffLLM builds against the llama.cpp you choose. The backend is decided when
-you configure `LLM_LLAMA_SOURCE_DIR` and the build backend flag, and
+you configure `SKIFFLLM_LLAMA_SOURCE_DIR` and the build backend flag, and
 `--backend-info` tells you what is actually linked. You own the compiler, the
 backend, and the binary. Ollama bundles and manages its runtime for you, which is
 convenient but less transparent.
 
 ### 4. You want supply-chain evidence
 
-`llm model verify` checks the GGUF magic header and verifies the SHA-256
+`skiffllm model verify` checks the GGUF magic header and verifies the SHA-256
 sidecar. The catalog size is advisory so a newer upstream revision is not
 rejected by a stale byte count. `model_fetch.py --checksum` records the sidecar and
 `--verify` checks an existing download without re-downloading. This is the kind

@@ -7,13 +7,13 @@ benötigt keinen Daemon.
 ## 1. Fertiges Archiv installieren
 
 Wenn eine Version veröffentlicht wird, enthält sie Plattformarchive namens
-`llm-<version>-<os>-<arch>.tar.gz` (unter Windows `.zip`) sowie
+`skiffllm-<version>-<os>-<arch>.tar.gz` (unter Windows `.zip`) sowie
 `checksums.txt`.
 
 ```bash
 # Linux / macOS
-tar -xzf llm-v1.6.0-linux-x86_64.tar.gz
-sudo install -m 0755 bin/llm /usr/local/bin/llm
+tar -xzf skiffllm-v1.6.0-linux-x86_64.tar.gz
+sudo install -m 0755 bin/skiffllm /usr/local/bin/skiffllm
 ```
 
 Ein gebrauchsfertiges Hilfsskript ist enthalten:
@@ -37,7 +37,7 @@ git clone https://github.com/thesyntax11/SkiffLLM.git
 cd SkiffLLM
 bash scripts/install.sh --prefix "$HOME/.local"
 export PATH="$HOME/.local/bin:$PATH"
-llm --version
+skiffllm --version
 ```
 
 Nützliche Optionen:
@@ -75,8 +75,8 @@ Wenn Sie bereits einen gebauten und installierten llama.cpp-Checkout haben:
 
 ```bash
 cmake -S . -B build \
-  -DLLM_FETCH_LLAMA=OFF \
-  -DLLM_LLAMA_SOURCE_DIR=/path/to/llama.cpp \
+  -DSKIFFLLM_FETCH_LLAMA=OFF \
+  -DSKIFFLLM_LLAMA_SOURCE_DIR=/path/to/llama.cpp \
   -DCMAKE_BUILD_TYPE=Release
 ```
 
@@ -89,7 +89,7 @@ python3 scripts/model_fetch.py --list
 python3 scripts/model_fetch.py --model qwen2.5-0.5b
 ```
 
-Dateien landen standardmäßig in `~/.local/share/llm/models`. Sie können mit
+Dateien landen standardmäßig in `~/.local/share/skiffllm/models`. Sie können mit
 `--model` auch auf jede vorhandene `.gguf`-Datei zeigen.
 
 ## 5. Shell-Vervollständigungen
@@ -98,13 +98,13 @@ Quellen Sie die generierten Dateien ein oder kopieren Sie sie:
 
 ```bash
 # bash
-source scripts/completions/llm.bash
+source scripts/completions/skiffllm.bash
 
 # zsh
-cp scripts/completions/llm.zsh ~/.zsh_functions/
+cp scripts/completions/skiffllm.zsh ~/.zsh_functions/
 
 # fish (Vervollständigungsverzeichnis)
-cp scripts/completions/llm.fish ~/.config/fish/completions/
+cp scripts/completions/skiffllm.fish ~/.config/fish/completions/
 ```
 
 ## 6. macOS / iOS
@@ -126,5 +126,5 @@ echten GGUF-Modell aus, um eine ehrliche Terminalaufzeichnung zu erzeugen. Das
 Skript erstellt niemals erfundene Ausgabe.
 
 ```bash
-bash scripts/demo-capture.sh ./build/release/llm /pfad/model.gguf
+bash scripts/demo-capture.sh ./build/release/skiffllm /pfad/model.gguf
 ```

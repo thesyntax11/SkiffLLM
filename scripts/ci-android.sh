@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Local Android CI. Requires ANDROID_HOME / Android Studio SDK and a JDK 17.
 # The Gradle wrapper downloads the pinned Gradle version; the native build
-# fetches the pinned llama.cpp revision unless LLM_LLAMA_SOURCE_DIR is set.
+# fetches the pinned llama.cpp revision unless SKIFFLLM_LLAMA_SOURCE_DIR is set.
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${PROJECT_DIR}/android"
@@ -14,11 +14,11 @@ if [[ -z "${ANDROID_HOME:-}" ]] && [[ -z "${ANDROID_SDK_ROOT:-}" ]]; then
 fi
 
 LLAMA_ARGS=()
-if [[ -n "${LLM_LLAMA_SOURCE_DIR:-}" ]]; then
-    LLAMA_ARGS+=("-Pllm.llamaSourceDir=${LLM_LLAMA_SOURCE_DIR}")
+if [[ -n "${SKIFFLLM_LLAMA_SOURCE_DIR:-}" ]]; then
+    LLAMA_ARGS+=("-Pskiffllm.llamaSourceDir=${SKIFFLLM_LLAMA_SOURCE_DIR}")
 fi
-if [[ -n "${LLM_BACKEND:-}" ]]; then
-    LLAMA_ARGS+=("-Pllm.backend=${LLM_BACKEND}")
+if [[ -n "${SKIFFLLM_BACKEND:-}" ]]; then
+    LLAMA_ARGS+=("-Pskiffllm.backend=${SKIFFLLM_BACKEND}")
 fi
 
 ./gradlew --stacktrace assembleDebug "${LLAMA_ARGS[@]}"

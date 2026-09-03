@@ -8,7 +8,7 @@
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "LLM_BUILD_TESTS": "ON"
+        "SKIFFLLM_BUILD_TESTS": "ON"
       }
     },
     {
@@ -18,7 +18,7 @@
       "binaryDir": "${sourceDir}/build/${presetName}",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "LLM_BUILD_TESTS": "ON"
+        "SKIFFLLM_BUILD_TESTS": "ON"
       }
     },
     {
@@ -35,7 +35,7 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_C_COMPILER": "clang",
         "CMAKE_CXX_COMPILER": "clang++",
-        "LLM_BUILD_TESTS": "ON"
+        "SKIFFLLM_BUILD_TESTS": "ON"
       }
     },
     {
@@ -43,7 +43,7 @@
       "displayName": "Release + CUDA",
       "inherits": "release",
       "cacheVariables": {
-        "LLM_LLAMA_BACKEND": "cuda"
+        "SKIFFLLM_LLAMA_BACKEND": "cuda"
       }
     },
     {
@@ -51,7 +51,7 @@
       "displayName": "Release + Vulkan",
       "inherits": "release",
       "cacheVariables": {
-        "LLM_LLAMA_BACKEND": "vulkan"
+        "SKIFFLLM_LLAMA_BACKEND": "vulkan"
       }
     },
     {
@@ -59,7 +59,7 @@
       "displayName": "Release + Metal (macOS)",
       "inherits": "release",
       "cacheVariables": {
-        "LLM_LLAMA_BACKEND": "metal"
+        "SKIFFLLM_LLAMA_BACKEND": "metal"
       }
     },
     {
@@ -67,7 +67,7 @@
       "displayName": "Release + OpenCL",
       "inherits": "release",
       "cacheVariables": {
-        "LLM_LLAMA_BACKEND": "opencl"
+        "SKIFFLLM_LLAMA_BACKEND": "opencl"
       }
     },
     {
@@ -75,7 +75,7 @@
       "displayName": "Release + BLAS",
       "inherits": "release",
       "cacheVariables": {
-        "LLM_LLAMA_BACKEND": "blas"
+        "SKIFFLLM_LLAMA_BACKEND": "blas"
       }
     }
   ],

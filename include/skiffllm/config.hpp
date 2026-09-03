@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-namespace llm {
+namespace skiffllm {
 
 struct Config {
     std::filesystem::path model_path;
@@ -98,4 +98,4 @@ void apply_environment(Config& cfg);
 std::string usage(const std::string& program);
 void print_config(const Config& cfg, bool as_json = false);
 
-}  // namespace llm
+}  // namespace skiffllm

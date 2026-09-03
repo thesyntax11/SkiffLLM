@@ -2,11 +2,11 @@
 
 #include <functional>
 
-#include "llm/config.hpp"
-#include "llm/engine.hpp"
-#include "llm/terminal.hpp"
+#include "skiffllm/config.hpp"
+#include "skiffllm/engine.hpp"
+#include "skiffllm/terminal.hpp"
 
-namespace llm {
+namespace skiffllm {
 
 int run_server(Config& config, LlmEngine& engine, Terminal& terminal,
                const GenerationOptions& options, const std::function<bool()>& interrupted);

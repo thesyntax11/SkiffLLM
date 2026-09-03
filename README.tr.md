@@ -34,10 +34,10 @@ zamanıdır. Herhangi bir GGUF modelini CPU veya GPU’nuzda llama.cpp üzerinde
 girer.
 
 ```bash
-git diff | llm "review these changes"
-cat error.log | llm "find the root cause"
-cat README.md | llm "summarize this"
-llm --project . "where is this implemented?"
+git diff | skiffllm "review these changes"
+cat error.log | skiffllm "find the root cause"
+cat README.md | skiffllm "summarize this"
+skiffllm --project . "where is this implemented?"
 ```
 
 ---
@@ -51,7 +51,7 @@ git clone https://github.com/thesyntax11/SkiffLLM.git
 cd SkiffLLM
 bash scripts/install.sh --prefix "$HOME/.local"
 export PATH="$HOME/.local/bin:$PATH"
-llm --version
+skiffllm --version
 ```
 
 ### Ya da elle derleyin
@@ -74,7 +74,7 @@ Sürümde henüz ürün dosyası yoksa hızlıca hata verir.
 ### Demo kaydedin
 
 ```bash
-bash scripts/demo-capture.sh ./build/release/llm /path/to/model.gguf
+bash scripts/demo-capture.sh ./build/release/skiffllm /path/to/model.gguf
 ```
 
 Bu, README için gerçek bir terminal oturumu kaydeder; asla sahte çıktı üretmez.
@@ -86,7 +86,7 @@ python3 scripts/model_fetch.py --list
 python3 scripts/model_fetch.py --model qwen2.5-0.5b
 ```
 
-Dosyalar varsayılan olarak `~/.local/share/llm/models` dizinine kaydedilir.
+Dosyalar varsayılan olarak `~/.local/share/skiffllm/models` dizinine kaydedilir.
 Mevcut herhangi bir `.gguf` dosyasına da `--model` ile işaret edebilirsiniz.
 
 Model dosyaları Hugging Face'ten kendi üst lisansları altında indirilir;
@@ -139,10 +139,10 @@ sayfasına bakın.
 
 | Özellik | Açıklama |
 | --- | --- |
-| Unix boru hatları | `cat file \| llm "summarize"`, `git diff \| llm "review"` |
+| Unix boru hatları | `cat file \| skiffllm "summarize"`, `git diff \| skiffllm "review"` |
 | Proje bağlamı | `--project <dir>` gerçek dosya indeksi + sınırlı kaynak kod dilimi ekler |
-| Model yöneticisi | `llm model list / info / install / remove / verify` |
-| Git entegrasyonu | `llm git review / explain / commit / log / status` |
+| Model yöneticisi | `skiffllm model list / info / install / remove / verify` |
+| Git entegrasyonu | `skiffllm git review / explain / commit / log / status` |
 | Etkileşimli kabuk | Akış halinde token çıktısı, geçmiş, canlı sayaçlar |
 | Dosya bağlamı | Her istemde `--attach`, `/file` ve `@file` genişletme |
 | Konuşma dışa aktarma | `--export` ve `/export` oturumları Markdown olarak kaydeder |
@@ -163,22 +163,22 @@ sayfasına bakın.
 
 ```bash
 # Göndermeden önce değişiklik kümesini inceleyin
-git diff | llm "review these changes"
+git diff | skiffllm "review these changes"
 
 # Karmaşık bir günlükteki gerçek nedeni bulun
-journalctl -e | llm "find suspicious errors and a likely root cause"
+journalctl -e | skiffllm "find suspicious errors and a likely root cause"
 
 # Yeni okuduğunuz bir dosyayı özetleyin
-cat README.md | llm "summarize this"
+cat README.md | skiffllm "summarize this"
 
 # Tüm depoya işaret edin
-llm --project . "where is authentication implemented?"
+skiffllm --project . "where is authentication implemented?"
 
 # Kendi betikleriniz için makine tarafından okunabilir çıktı
-git diff | llm --json "classify this diff"
+git diff | skiffllm --json "classify this diff"
 
 # Güvenli kod incelemesi (diff önerir, dosyaları asla düzenlemez)
-llm --code --project . "fix the bug in src/server.cpp"
+skiffllm --code --project . "fix the bug in src/server.cpp"
 ```
 
 ## Model yöneticisi
@@ -187,11 +187,11 @@ SkiffLLM çalışma zamanında çevrimdışı kalır. Model elde etme açık ve 
 komuttur.
 
 ```bash
-llm model list
-llm model info qwen2.5-0.5b
-llm model install qwen2.5-0.5b
-llm model verify qwen2.5-0.5b --update
-llm model remove qwen2.5-0.5b --force
+skiffllm model list
+skiffllm model info qwen2.5-0.5b
+skiffllm model install qwen2.5-0.5b
+skiffllm model verify qwen2.5-0.5b --update
+skiffllm model remove qwen2.5-0.5b --force
 ```
 
 `model install`, `scripts/model_fetch.py` dosyasına devreder. Bu script Hugging
@@ -206,12 +206,12 @@ Karşınızdaki diff için yerel, çevrimdışı kod incelemesi ve açıklama.
 
 ```bash
 # git alt komutları diff’i kendisi okur; boru hattı gerekmez.
-llm git review
-llm git review --cached
-llm git explain
-llm git commit --cached
-llm git log
-llm git status
+skiffllm git review
+skiffllm git review --cached
+skiffllm git explain
+skiffllm git commit --cached
+skiffllm git log
+skiffllm git status
 ```
 
 `git commit --cached`, hazırlanmış diff'inizden geleneksel bir commit mesajı
@@ -220,21 +220,21 @@ llm git status
 ## Oturumlar ve kalıcı bellek
 
 ```bash
-llm --session coding --model qwen2.5-0.5b-instruct-q4_k_m.gguf
-llm --session writing --model qwen2.5-0.5b-instruct-q4_k_m.gguf
+skiffllm --session coding --model qwen2.5-0.5b-instruct-q4_k_m.gguf
+skiffllm --session writing --model qwen2.5-0.5b-instruct-q4_k_m.gguf
 
-llm session list
-llm session show coding
-llm session rename coding writing
-llm session remove old-draft
+skiffllm session list
+skiffllm session show coding
+skiffllm session rename coding writing
+skiffllm session remove old-draft
 ```
 
-Kalıcı bellek `~/.local/share/llm/memories.txt` dosyasında durur ve makineden
+Kalıcı bellek `~/.local/share/skiffllm/memories.txt` dosyasında durur ve makineden
 asıla ayrılmaz.
 
 ```bash
-llm --remember "the user prefers concise answers"
-llm --forget concise
+skiffllm --remember "the user prefers concise answers"
+skiffllm --forget concise
 ```
 
 Etkileşimli kabukta `/remember`, `/forget`, `/memories`,
@@ -246,10 +246,10 @@ Etkileşimli kabukta `/remember`, `/forget`, `/memories`,
 
 ```bash
 # yalnızca yerel
-llm --model model.gguf --serve --host 127.0.0.1 --port 8080
+skiffllm --model model.gguf --serve --host 127.0.0.1 --port 8080
 
 # paylaşılan bir anahtarla korunan yerel olmayan dinleyici
-llm --model model.gguf --serve --host 0.0.0.0 --port 8080 --api-key "$LLM_SERVER_KEY"
+skiffllm --model model.gguf --serve --host 0.0.0.0 --port 8080 --api-key "$SKIFFLLM_SERVER_KEY"
 ```
 
 Uç noktalar:
@@ -282,7 +282,7 @@ Bağımlılıksız bir Python istemcisi dahildir:
 
 ```bash
 python3 scripts/api_client.py http://127.0.0.1:8080 "Say hello."
-python3 scripts/api_client.py http://127.0.0.1:8080 --api-key "$LLM_SERVER_KEY" "Say hello."
+python3 scripts/api_client.py http://127.0.0.1:8080 --api-key "$SKIFFLLM_SERVER_KEY" "Say hello."
 ```
 
 ---
@@ -315,7 +315,7 @@ istemler ve geçmiş cihazdan asla ayrılmaz.
 ## Komut satırı
 
 ```text
-Usage: llm [options] [model.gguf]
+Usage: skiffllm [options] [model.gguf]
 
 Core options:
   --model <path>             Path to a GGUF model file
@@ -360,8 +360,8 @@ Tam kullanım: [docs/tr/usage.md](docs/tr/usage.md). Etkileşimli komutlar:
 ## Benchmark dürüstlüğü
 
 ```bash
-llm --model model.gguf --benchmark 3
-llm --model model.gguf --benchmark 3 --json
+skiffllm --model model.gguf --benchmark 3
+skiffllm --model model.gguf --benchmark 3 --json
 ```
 
 Her sayı, modeliniz ve donanımınızla kendi makinanızda ölçülür. SkiffLLM asla
@@ -371,7 +371,7 @@ tablosu için [docs/benchmarks.md](docs/benchmarks.md) dosyasına bakın.
 ## Gizlilik kanıtı
 
 ```bash
-llm --doctor --network
+skiffllm --doctor --network
 ```
 
 çalışma zamanı gerçeklerini yazdırır: çekirdek üretim hiçbir giden çağrı yapmaz,
@@ -400,8 +400,8 @@ make install
 make help
 ```
 
-Yayınlandığında hazır arşivler `llm-<version>-<os>-<arch>.tar.gz`
-(ör. `llm-v1.6.0-linux-x86_64.tar.gz`, Windows’ta `.zip`) ve
+Yayınlandığında hazır arşivler `skiffllm-<version>-<os>-<arch>.tar.gz`
+(ör. `skiffllm-v1.6.0-linux-x86_64.tar.gz`, Windows’ta `.zip`) ve
 `checksums.txt` biçimindedir. Bkz. [docs/tr/INSTALL.md](docs/tr/INSTALL.md).
 Kabuk tamamlamaları [scripts/completions](scripts/completions/) içindedir.
 
@@ -409,12 +409,12 @@ Kabuk tamamlamaları [scripts/completions](scripts/completions/) içindedir.
 
 | Seçenek | Varsayılan | Açıklama |
 | --- | --- | --- |
-| `LLM_BUILD_TESTS` | `ON` | Test paketini derler ve kaydeder |
-| `LLM_FETCH_LLAMA` | `ON` | Sabitlenmiş llama.cpp'yi indirir ve derler |
-| `LLM_LLAMA_SOURCE_DIR` | boş | Mevcut bir llama.cpp kopyasını kullanır |
-| `LLM_BUILD_SHARED_LLAMA` | `OFF` | llama.cpp'yi paylaşılan kütüphane olarak derler |
-| `LLM_USE_READLINE` | `ON` | Varsa GNU Readline'ı etkinleştirir |
-| `LLM_LLAMA_BACKEND` | `auto` | `cuda`, `metal`, `vulkan`, `opencl`, `blas`, `cpu` |
+| `SKIFFLLM_BUILD_TESTS` | `ON` | Test paketini derler ve kaydeder |
+| `SKIFFLLM_FETCH_LLAMA` | `ON` | Sabitlenmiş llama.cpp'yi indirir ve derler |
+| `SKIFFLLM_LLAMA_SOURCE_DIR` | boş | Mevcut bir llama.cpp kopyasını kullanır |
+| `SKIFFLLM_BUILD_SHARED_LLAMA` | `OFF` | llama.cpp'yi paylaşılan kütüphane olarak derler |
+| `SKIFFLLM_USE_READLINE` | `ON` | Varsa GNU Readline'ı etkinleştirir |
+| `SKIFFLLM_LLAMA_BACKEND` | `auto` | `cuda`, `metal`, `vulkan`, `opencl`, `blas`, `cpu` |
 
 Donanım hızlandırma her zaman açıktır: yapılandırma sırasında arka ucu seçin ve
 çalışma zamanında `--gpu-layers` ile katmanları boşaltın.
@@ -434,7 +434,7 @@ Donanım hızlandırma her zaman açıktır: yapılandırma sırasında arka ucu
 ## Proje düzeni
 
 ```text
-include/llm/              Genel API başlıkları
+include/skiffllm/              Genel API başlıkları
 src/                          CLI, çekirdek ve yerel sunucu uygulaması
 tests/                        Birim testleri (modelsiz)
 configs/                      Örnek yapılandırma

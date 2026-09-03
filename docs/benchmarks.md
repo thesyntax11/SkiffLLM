@@ -10,7 +10,7 @@ hardware/model/quant listed in that row.
 Use the built-in benchmark so the methodology is identical for every machine:
 
 ```bash
-llm --model /path/model-Q4_K_M.gguf \
+skiffllm --model /path/model-Q4_K_M.gguf \
   --benchmark 3 \
   --temp 0.70 --top-p 0.95 --top-k 40 \
   --ctx 2048 --batch 512 --seed 42
@@ -23,8 +23,8 @@ For independent verification, run the same command three times and record the
 median. Also record the exact llama.cpp version and SkiffLLM version:
 
 ```bash
-./build/llm --version
-./build/llm --backend-info
+./build/skiffllm --version
+./build/skiffllm --backend-info
 ```
 
 ## Measurement protocol
@@ -42,7 +42,7 @@ median. Also record the exact llama.cpp version and SkiffLLM version:
 ## How to publish a result
 
 A contribution is accepted when it includes all columns from the table below
-and a `llm --version` / `--backend-info` output plus the model SHA-256.
+and a `skiffllm --version` / `--backend-info` output plus the model SHA-256.
 Keep numbers separated by hardware so readers can compare like-for-like.
 
 ## Results
@@ -64,7 +64,7 @@ command above on the listed machine and attach the output.
 Create a pull request that:
 
 1. Adds one row with the exact columns above.
-2. Includes the `llm --version` and `--backend-info` output in the PR
+2. Includes the `skiffllm --version` and `--backend-info` output in the PR
    description.
 3. Includes the model file's SHA-256 and the exact command used.
 4. States where the measurement was run (desktop, phone, server).

@@ -5,9 +5,9 @@
 #include <string>
 #include <vector>
 
-#include "llm/messages.hpp"
+#include "skiffllm/messages.hpp"
 
-namespace llm::cli {
+namespace skiffllm::cli {
 
 double parse_double(const std::string& text, bool& ok);
 int parse_int(const std::string& text, bool& ok);
@@ -22,4 +22,4 @@ std::string json_escape(const std::string& value);
 bool write_text_file(const std::filesystem::path& path, const std::string& content,
                      std::string& error);
 
-}  // namespace llm::cli
+}  // namespace skiffllm::cli

@@ -9,7 +9,7 @@ set -euo pipefail
 # The output is intended to be copied into docs/benchmarks.md once someone
 # verifies it on a real machine. Numbers are never invented here.
 
-BIN="${1:-./build/release/llm}"
+BIN="${1:-./build/release/skiffllm}"
 MODEL="${2:-}"
 REPEAT="${3:-3}"
 

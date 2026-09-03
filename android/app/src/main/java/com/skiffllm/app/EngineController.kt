@@ -1,4 +1,4 @@
-package com.llm.app
+package com.skiffllm.app
 
 import android.content.Context
 import android.net.Uri
@@ -55,7 +55,7 @@ data class SessionStats(
 class EngineController(private val appContext: Context) {
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
     private val uiHandler = Handler(Looper.getMainLooper())
-    private val prefs = appContext.getSharedPreferences("llm", Context.MODE_PRIVATE)
+    private val prefs = appContext.getSharedPreferences("skiffllm", Context.MODE_PRIVATE)
     private val tokenLock = Any()
     private val tokenBuffer = StringBuilder()
     private var tokenFlushScheduled = false

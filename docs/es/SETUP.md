@@ -27,7 +27,7 @@ bash scripts/install.sh                            # CPU / predicción de plataf
 BACKEND=cuda bash scripts/install.sh               # CUDA
 BACKEND=vulkan bash scripts/install.sh             # Vulkan
 BACKEND=metal bash scripts/install.sh              # macOS Metal
-./build/llm --backend-info                     # inspeccionar backends enlazados
+./build/skiffllm --backend-info                     # inspeccionar backends enlazados
 ```
 
 Use una copia existente de llama.cpp para evitar la descarga opcional en tiempo de
@@ -55,14 +55,14 @@ python3 scripts/model_fetch.py --list
 python3 scripts/model_fetch.py --model qwen2.5-0.5b
 ```
 
-El asistente guarda el archivo en `~/.local/share/llm/models`. La inferencia
+El asistente guarda el archivo en `~/.local/share/skiffllm/models`. La inferencia
 sigue siendo totalmente sin conexión.
 
 O cópielo usted mismo:
 
 ```bash
-mkdir -p ~/.local/share/llm/models
-cp /path/to/model-q4_k_m.gguf ~/.local/share/llm/models/
+mkdir -p ~/.local/share/skiffllm/models
+cp /path/to/model-q4_k_m.gguf ~/.local/share/skiffllm/models/
 ```
 
 Modelos pequeños recomendados para un inicio rápido solo con CPU:
@@ -76,9 +76,9 @@ Modelos pequeños recomendados para un inicio rápido solo con CPU:
 ## Primera ejecución
 
 ```bash
-./build/llm --doctor
-./build/llm --model ~/.local/share/llm/models/model-q4_k_m.gguf --model-info
-./build/llm --model ~/.local/share/llm/models/model-q4_k_m.gguf
+./build/skiffllm --doctor
+./build/skiffllm --model ~/.local/share/skiffllm/models/model-q4_k_m.gguf --model-info
+./build/skiffllm --model ~/.local/share/skiffllm/models/model-q4_k_m.gguf
 ```
 
 ## Ejecutar las pruebas
@@ -95,8 +95,8 @@ scripts/ci-local.sh
 
 ## Configuración
 
-El archivo de configuración predeterminado es `~/.config/llm/config`. Un
-ejemplo completo está en `configs/llm.example.conf`. Los indicadores de CLI
+El archivo de configuración predeterminado es `~/.config/skiffllm/config`. Un
+ejemplo completo está en `configs/skiffllm.example.conf`. Los indicadores de CLI
 anulan los valores del archivo de configuración.
 
 ## Solución de problemas
@@ -105,7 +105,7 @@ anulan los valores del archivo de configuración.
 - Si la generación se detiene en el límite de contexto, suba `--ctx` o acorte la
   conversación.
 - Si hay un llama.cpp precompilado disponible, configure
-  `LLM_LLAMA_SOURCE_DIR`.
+  `SKIFFLLM_LLAMA_SOURCE_DIR`.
 - En sistemas con varios sockets, pruebe `--numa`.
 - Para una inferencia de CPU más rápida, mantenga `--profile fast` y un modelo
   cuantizado.

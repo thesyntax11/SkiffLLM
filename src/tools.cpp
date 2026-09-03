@@ -1,4 +1,4 @@
-#include "llm/tools.hpp"
+#include "skiffllm/tools.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -12,9 +12,9 @@
 #include <iostream>
 #include <sstream>
 
-#include "llm/engine.hpp"
-#include "llm/server.hpp"
-#include "llm/session.hpp"
+#include "skiffllm/engine.hpp"
+#include "skiffllm/server.hpp"
+#include "skiffllm/session.hpp"
 
 #ifdef _WIN32
 #include <fcntl.h>
@@ -29,7 +29,7 @@
 #include <sys/wait.h>
 #endif
 
-namespace llm {
+namespace skiffllm {
 namespace {
 
 // Run an external program without going through a shell. Arguments are passed
@@ -60,7 +60,7 @@ bool run_argv(const std::vector<std::string>& argv, bool capture_stdout, std::st
         std::error_code ec;
         capture_file =
             std::filesystem::temp_directory_path(ec) /
-            ("llm-capture-" + std::to_string(static_cast<long long>(_getpid())) + ".tmp");
+            ("skiffllm-capture-" + std::to_string(static_cast<long long>(_getpid())) + ".tmp");
         const int fd = _open(capture_file.string().c_str(),
                              _O_CREAT | _O_WRONLY | _O_TRUNC | _O_BINARY, _S_IREAD | _S_IWRITE);
         if (fd < 0) {
@@ -384,7 +384,7 @@ bool write_config_file(const std::filesystem::path& path, const Config& cfg, std
 int handle_config_command(Config& cfg, const std::vector<std::string>& args, std::string& error) {
     const std::string action = args.empty() ? "path" : args[0];
     if (action == "help") {
-        std::cout << "Usage: llm config path|show|init\n";
+        std::cout << "Usage: skiffllm config path|show|init\n";
         return 0;
     }
     if (action == "path") {
@@ -410,8 +410,8 @@ int handle_config_command(Config& cfg, const std::vector<std::string>& args, std
 
 int handle_server_command(Config& cfg, const std::vector<std::string>& args, std::string& error) {
     if (args.empty() || args[0] == "help") {
-        std::cout << "Usage: llm server health [--json] [--host <addr>] [--port <n>]\n";
-        std::cout << "       llm server help\n";
+        std::cout << "Usage: skiffllm server health [--json] [--host <addr>] [--port <n>]\n";
+        std::cout << "       skiffllm server help\n";
         return 0;
     }
     if (args[0] == "health") {
@@ -465,8 +465,8 @@ int handle_chat_template_command(Config& cfg, const std::vector<std::string>& ar
         std::cout << "  phi3        <|user|> ... <|end|> (Phi-3)\n";
         std::cout << "  vicuna      USER: ... ASSISTANT: (older chat models)\n";
         std::cout << "  default     generic assistant/chat style\n";
-        std::cout << "\nUse `llm chat-template detect --model <file.gguf>` to read the\n";
-        std::cout << "template embedded in a specific model, or run `llm model info <id>`.\n";
+        std::cout << "\nUse `skiffllm chat-template detect --model <file.gguf>` to read the\n";
+        std::cout << "template embedded in a specific model, or run `skiffllm model info <id>`.\n";
         return 0;
     }
     if (action == "detect" || action == "info") {
@@ -482,7 +482,7 @@ int handle_chat_template_command(Config& cfg, const std::vector<std::string>& ar
             model_path = cfg.model_path.string();
         }
         if (model_path.empty()) {
-            error = "usage: llm chat-template detect --model <path.gguf> (or set --model)";
+            error = "usage: skiffllm chat-template detect --model <path.gguf> (or set --model)";
             return 2;
         }
         cfg.model_path = expand_path(model_path);
@@ -647,7 +647,7 @@ bool extract_openai_content(const std::string& json, std::string& content) {
 int handle_openai_command(Config& cfg, const std::vector<std::string>& args, std::string& error) {
     (void)cfg;
     std::string base_url = "http://127.0.0.1:8080";
-    std::string model = "llm-local";
+    std::string model = "skiffllm-local";
     std::string api_key;
     std::string prompt;
     bool stream = false;
@@ -695,7 +695,7 @@ int handle_openai_command(Config& cfg, const std::vector<std::string>& args, std
     }
     if (prompt.empty()) {
         error =
-            "usage: llm openai [--base-url http://127.0.0.1:8080] [--model id] "
+            "usage: skiffllm openai [--base-url http://127.0.0.1:8080] [--model id] "
             "[--stream] [--json] [--temp <t>] [--max-tokens <n>] \"prompt\"";
         return 2;
     }
@@ -717,7 +717,7 @@ int handle_openai_command(Config& cfg, const std::vector<std::string>& args, std
 #endif
     const std::filesystem::path payload_path =
         std::filesystem::temp_directory_path() /
-        ("llm-openai-" + std::to_string(pid_value) + ".json");
+        ("skiffllm-openai-" + std::to_string(pid_value) + ".json");
     {
         std::ofstream out(payload_path, std::ios::trunc | std::ios::binary);
         if (!out.is_open()) {
@@ -1024,7 +1024,7 @@ bool hash_matches_sidecar(const std::filesystem::path& model_path, std::string& 
     std::ifstream input(sidecar);
     if (!input.is_open()) {
         error = "no checksum sidecar found at " + sidecar.string() +
-                "; run `llm model verify --update` to store the local hash";
+                "; run `skiffllm model verify --update` to store the local hash";
         return false;
     }
     std::string expected;
@@ -1156,18 +1156,18 @@ int handle_model_command(Config& cfg, const std::vector<std::string>& args, std:
                       << model.ram_note << std::setw(30) << model.license.substr(0, 29)
                       << (installed(model) ? "yes" : "no") << "\n";
         }
-        std::cout << "\nInstall with: llm model install <id>\n";
+        std::cout << "\nInstall with: skiffllm model install <id>\n";
         return 0;
     }
 
     if (action == "info" || action == "show") {
         if (args.size() < 2) {
-            error = "usage: llm model info <id>";
+            error = "usage: skiffllm model info <id>";
             return 2;
         }
         const CatalogModel* model = find_catalog_model(args[1]);
         if (model == nullptr) {
-            error = "unknown model id: " + args[1] + " (use `llm model list`)";
+            error = "unknown model id: " + args[1] + " (use `skiffllm model list`)";
             return 2;
         }
         std::cout << "ID:          " << model->id << "\n";
@@ -1186,19 +1186,19 @@ int handle_model_command(Config& cfg, const std::vector<std::string>& args, std:
             std::cout << "Integrity:  " << (ok ? "ok" : "needs attention") << "\n";
             const bool has_sidecar = std::filesystem::exists(target.string() + ".sha256", ec);
             std::cout << "Checksum:   " << (has_sidecar ? "recorded" : "not recorded")
-                      << " (use `llm model verify " << model->id << " --update`)\n";
+                      << " (use `skiffllm model verify " << model->id << " --update`)\n";
         }
         return 0;
     }
 
     if (action == "install" || action == "get") {
         if (args.size() < 2) {
-            error = "usage: llm model install <id>";
+            error = "usage: skiffllm model install <id>";
             return 2;
         }
         const CatalogModel* model = find_catalog_model(args[1]);
         if (model == nullptr) {
-            error = "unknown model id: " + args[1] + " (use `llm model list`)";
+            error = "unknown model id: " + args[1] + " (use `skiffllm model list`)";
             return 2;
         }
         if (installed(*model)) {
@@ -1252,18 +1252,18 @@ int handle_model_command(Config& cfg, const std::vector<std::string>& args, std:
 
     if (action == "verify" || action == "check") {
         if (args.size() < 2) {
-            error = "usage: llm model verify <id> [--update]";
+            error = "usage: skiffllm model verify <id> [--update]";
             return 2;
         }
         const CatalogModel* model = find_catalog_model(args[1]);
         if (model == nullptr) {
-            error = "unknown model id: " + args[1] + " (use `llm model list`)";
+            error = "unknown model id: " + args[1] + " (use `skiffllm model list`)";
             return 2;
         }
         const std::filesystem::path target = cfg.model_dir / model->file;
         if (!std::filesystem::exists(target, ec)) {
-            std::cout << model->file << " is not installed. Run `llm model install " << model->id
-                      << "` first.\n";
+            std::cout << model->file << " is not installed. Run `skiffllm model install "
+                      << model->id << "` first.\n";
             return 1;
         }
         const bool update = std::find(args.begin(), args.end(), "--update") != args.end();
@@ -1291,12 +1291,12 @@ int handle_model_command(Config& cfg, const std::vector<std::string>& args, std:
 
     if (action == "remove" || action == "rm") {
         if (args.size() < 2) {
-            error = "usage: llm model remove <id> [--force]";
+            error = "usage: skiffllm model remove <id> [--force]";
             return 2;
         }
         const CatalogModel* model = find_catalog_model(args[1]);
         if (model == nullptr) {
-            error = "unknown model id: " + args[1] + " (use `llm model list`)";
+            error = "unknown model id: " + args[1] + " (use `skiffllm model list`)";
             return 2;
         }
         const std::filesystem::path target = cfg.model_dir / model->file;
@@ -1332,7 +1332,7 @@ int handle_git_command(Config& cfg, const std::vector<std::string>& args, std::s
         git_args = use_cached ? std::vector<std::string>{"diff", "--cached"}
                               : std::vector<std::string>{"diff"};
         if (action == "commit" && !use_cached) {
-            std::cout << "No --cached diff provided. Use `llm git commit --cached` "
+            std::cout << "No --cached diff provided. Use `skiffllm git commit --cached` "
                       << "after staging changes.\n";
             return 1;
         }
@@ -1571,13 +1571,13 @@ int handle_session_command(Config& cfg, const std::vector<std::string>& args, st
             std::cout << std::setw(24) << path.stem().string() << std::setw(14)
                       << to_human_bytes(size) << path.filename().string() << "\n";
         }
-        std::cout << "\nUse `llm --session <name>` or `llm session use <name>`.\n";
+        std::cout << "\nUse `skiffllm --session <name>` or `skiffllm session use <name>`.\n";
         return 0;
     }
 
     if (action == "show" || action == "info") {
         if (args.size() < 2) {
-            error = "usage: llm session show <name>";
+            error = "usage: skiffllm session show <name>";
             return 2;
         }
         const std::filesystem::path path = session_file_for(cfg, args[1]);
@@ -1610,7 +1610,7 @@ int handle_session_command(Config& cfg, const std::vector<std::string>& args, st
 
     if (action == "remove" || action == "rm" || action == "delete") {
         if (args.size() < 2) {
-            error = "usage: llm session remove <name>";
+            error = "usage: skiffllm session remove <name>";
             return 2;
         }
         const std::filesystem::path path = session_file_for(cfg, args[1]);
@@ -1629,7 +1629,7 @@ int handle_session_command(Config& cfg, const std::vector<std::string>& args, st
 
     if (action == "rename" || action == "mv") {
         if (args.size() < 3) {
-            error = "usage: llm session rename <old> <new>";
+            error = "usage: skiffllm session rename <old> <new>";
             return 2;
         }
         const std::filesystem::path src = session_file_for(cfg, args[1]);
@@ -1657,7 +1657,7 @@ int handle_session_command(Config& cfg, const std::vector<std::string>& args, st
 
     if (action == "use" || action == "switch") {
         if (args.size() < 2) {
-            error = "usage: llm session use <name>";
+            error = "usage: skiffllm session use <name>";
             return 2;
         }
         cfg.session_name = args[1];
@@ -1685,4 +1685,4 @@ std::string read_stdin_all() {
     return buffer.str();
 }
 
-}  // namespace llm
+}  // namespace skiffllm

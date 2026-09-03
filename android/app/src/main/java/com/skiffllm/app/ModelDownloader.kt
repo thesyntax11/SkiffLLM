@@ -1,4 +1,4 @@
-package com.llm.app
+package com.skiffllm.app
 
 import android.content.Context
 import android.os.Handler

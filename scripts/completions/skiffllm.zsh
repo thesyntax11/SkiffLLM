@@ -1,6 +1,6 @@
-#compdef llm
+#compdef skiffllm
 
-_llm() {
+_skiffllm() {
     local -a opts
     opts=(
         '--help[Show help]'
@@ -75,4 +75,4 @@ _llm() {
     _arguments "${opts[@]}" '1:subcommand:(run model chat-template openai config server)' '*:model file:_files'
 }
 
-_llm "$@"
+_skiffllm "$@"

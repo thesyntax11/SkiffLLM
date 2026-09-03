@@ -53,7 +53,7 @@ jobs:
           fi
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
-            -DLLM_BUILD_TESTS=ON
+            -DSKIFFLLM_BUILD_TESTS=ON
         shell: bash
 
       - name: Build
@@ -117,14 +117,14 @@ jobs:
         run: |
           VERSION="$(sed -n 's/project(SkiffLLM VERSION \([0-9][0-9.]*\).*/\1/p' CMakeLists.txt)"
           cp android/app/build/outputs/apk/debug/app-debug.apk \
-            "llm-${VERSION}-Android.apk"
+            "skiffllm-${VERSION}-Android.apk"
         shell: bash
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: android-apk
-          path: llm-*-Android.apk
+          path: skiffllm-*-Android.apk
           retention-days: 14
           if-no-files-found: error
 
@@ -152,7 +152,7 @@ jobs:
 
       - name: Prepare signing keychain
         env:
-          KEYCHAIN_PASSWORD: llm
+          KEYCHAIN_PASSWORD: skiffllm
         run: |
           if [[ -n "${IOS_CERT_P12}" && -n "${IOS_TEAM_ID}" ]]; then
             if [[ -z "${IOS_CERT_PASSWORD}" || -z "${IOS_CERT_IDENTITY}" ||
@@ -160,14 +160,14 @@ jobs:
               echo "error: missing iOS signing secret" >&2
               exit 1
             fi
-            echo "${IOS_CERT_P12}" | base64 -D > /tmp/llm.p12
-            security create-keychain -p "${KEYCHAIN_PASSWORD}" "${HOME}/Library/Keychains/llm.keychain"
-            security default-keychain -s "${HOME}/Library/Keychains/llm.keychain"
-            security unlock-keychain -p "${KEYCHAIN_PASSWORD}" "${HOME}/Library/Keychains/llm.keychain"
-            security import /tmp/llm.p12 -k "${HOME}/Library/Keychains/llm.keychain" \
+            echo "${IOS_CERT_P12}" | base64 -D > /tmp/skiffllm.p12
+            security create-keychain -p "${KEYCHAIN_PASSWORD}" "${HOME}/Library/Keychains/skiffllm.keychain"
+            security default-keychain -s "${HOME}/Library/Keychains/skiffllm.keychain"
+            security unlock-keychain -p "${KEYCHAIN_PASSWORD}" "${HOME}/Library/Keychains/skiffllm.keychain"
+            security import /tmp/skiffllm.p12 -k "${HOME}/Library/Keychains/skiffllm.keychain" \
               -P "${IOS_CERT_PASSWORD}" -T /usr/bin/codesign
             security set-key-partition-list -S apple-tool:,apple: \
-              -s -k "${KEYCHAIN_PASSWORD}" "${HOME}/Library/Keychains/llm.keychain"
+              -s -k "${KEYCHAIN_PASSWORD}" "${HOME}/Library/Keychains/skiffllm.keychain"
             if [[ -n "${IOS_PROFILE_BASE64}" ]]; then
               mkdir -p "${HOME}/Library/MobileDevice/Provisioning Profiles"
               echo "${IOS_PROFILE_BASE64}" | base64 -D > \

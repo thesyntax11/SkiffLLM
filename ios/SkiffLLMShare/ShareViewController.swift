@@ -5,7 +5,7 @@ final class ShareViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        let shared = UserDefaults(suiteName: "group.com.llm.app")
+        let shared = UserDefaults(suiteName: "group.com.skiffllm.app")
         if let text = extractText(), !text.isEmpty {
             shared?.set(text, forKey: "shared_text")
             shared?.synchronize()

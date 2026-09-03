@@ -22,8 +22,8 @@ endpoint you choose; keep it pointed at localhost unless you intend otherwise.
 ### 2.1 Developer laptop / CI runner (CLI-first)
 
 ```bash
-llm --model ./model-q4_k_m.gguf --project . "review the change"
-git diff | llm "does this preserve the offline guarantee?"
+skiffllm --model ./model-q4_k_m.gguf --project . "review the change"
+git diff | skiffllm "does this preserve the offline guarantee?"
 ```
 
 No daemon, no port, no persistent service. The process exits when the task ends.
@@ -38,12 +38,12 @@ No daemon, no port, no persistent service. The process exits when the task ends.
 
 ```bash
 # loopback only — the safe default for a workstation service
-llm --model model.gguf --serve --host 127.0.0.1 --port 8080
+skiffllm --model model.gguf --serve --host 127.0.0.1 --port 8080
 
 # protected listener behind a reverse proxy; never expose without a token
-LLM_SERVER_KEY="$(openssl rand -hex 24)" \
-  llm --model model.gguf --serve --host 0.0.0.0 --port 8080 \
-  --api-key "$LLM_SERVER_KEY"
+SKIFFLLM_SERVER_KEY="$(openssl rand -hex 24)" \
+  skiffllm --model model.gguf --serve --host 0.0.0.0 --port 8080 \
+  --api-key "$SKIFFLLM_SERVER_KEY"
 ```
 
 `/health`, `/version`, and `/` stay public; `/v1/models` and
@@ -85,7 +85,7 @@ These are the current real limits; plan around them rather than assuming more.
 python3 scripts/model_fetch.py --list
 python3 scripts/model_fetch.py --model qwen2.5-0.5b --checksum
 python3 scripts/model_fetch.py --model qwen2.5-0.5b --verify
-llm model verify qwen2.5-0.5b
+skiffllm model verify qwen2.5-0.5b
 ```
 
 The sidecar is `<model>.sha256`. Record it at import time and re-verify before
@@ -97,7 +97,7 @@ hash, size, backend.
 - **No telemetry.** There is no analytics, crash reporting, or usage tracking in
   the desktop runtime or the Android app.
 - **Session files** live under `--session`/`--history` (default
-  `~/.local/share/llm`). Treat them like any prompt data.
+  `~/.local/share/skiffllm`). Treat them like any prompt data.
 - **Exports** are Markdown written by `--export` / `/export`; only export what
   you intend to store.
 - **Logs.** The compact server has no request log; keep proxy/access logs at the
@@ -109,10 +109,10 @@ hash, size, backend.
 
 ```bash
 # non-interactive, machine-readable
-llm --json --model model.gguf --project . "summarize the diff"
+skiffllm --json --model model.gguf --project . "summarize the diff"
 
 # code review that proposes but never edits
-llm --code --project . "suggest a fix for src/server.cpp"
+skiffllm --code --project . "suggest a fix for src/server.cpp"
 ```
 
 Because generation is serialized and context is bounded, keep CI jobs on small
@@ -131,9 +131,9 @@ in a job that does not need one.
 
 ## 8. Runbook
 
-1. `llm --doctor` — system report.
-2. `llm --backend-info` — confirm the linked backend.
-3. `llm --model <model> --model-info` — model metadata.
+1. `skiffllm --doctor` — system report.
+2. `skiffllm --backend-info` — confirm the linked backend.
+3. `skiffllm --model <model> --model-info` — model metadata.
 4. `scripts/enterprise-check.sh` — repository preflight checks.
 5. If generation stops at the context limit, raise `--ctx` or enable
    `--auto-trim`.

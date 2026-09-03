@@ -15,11 +15,11 @@ machine.
   re-uploading a revision with a new size is not treated as corruption.
 - Local server: `--serve` exposes an HTTP API on the bind address. The
   `/v1/*` endpoints are public by default; pass `--api-key` (or set the
-  `LLM_API_KEY` / `LLM_SERVER_KEY` environment variable) to require
+  `SKIFFLLM_API_KEY` / `SKIFFLLM_SERVER_KEY` environment variable) to require
   `Authorization: Bearer <key>` on `/v1/models` and `/v1/chat/completions`
   while `/health`, `/version`, and `/` stay public. Keep the default
   `127.0.0.1` binding; if you bind to `0.0.0.0`, always set `--api-key` and
-  protect the token like a password. The docs use `LLM_SERVER_KEY`; both
+  protect the token like a password. The docs use `SKIFFLLM_SERVER_KEY`; both
   names are accepted.
 
 ## Network behavior

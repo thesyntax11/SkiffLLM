@@ -3,10 +3,10 @@
 #include <string>
 #include <vector>
 
-#include "llm/config.hpp"
-#include "llm/engine.hpp"
+#include "skiffllm/config.hpp"
+#include "skiffllm/engine.hpp"
 
-namespace llm {
+namespace skiffllm {
 
 enum class Color {
     Reset,
@@ -56,4 +56,4 @@ class Terminal {
     std::string readline_history_path_;
 };
 
-}  // namespace llm
+}  // namespace skiffllm

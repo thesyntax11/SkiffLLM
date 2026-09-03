@@ -28,7 +28,7 @@ bash scripts/install.sh                            # CPU / Plattform-Standard
 BACKEND=cuda bash scripts/install.sh               # CUDA
 BACKEND=vulkan bash scripts/install.sh             # Vulkan
 BACKEND=metal bash scripts/install.sh              # macOS Metal
-./build/llm --backend-info                     # verbundene Backends anzeigen
+./build/skiffllm --backend-info                     # verbundene Backends anzeigen
 ```
 
 Verwenden Sie einen vorhandenen llama.cpp-Checkout, um den optionalen Download
@@ -57,14 +57,14 @@ python3 scripts/model_fetch.py --list
 python3 scripts/model_fetch.py --model qwen2.5-0.5b
 ```
 
-Das Hilfsskript speichert die Datei in `~/.local/share/llm/models`. Die
+Das Hilfsskript speichert die Datei in `~/.local/share/skiffllm/models`. Die
 Inferenz bleibt vollständig offline.
 
 Oder kopieren Sie selbst:
 
 ```bash
-mkdir -p ~/.local/share/llm/models
-cp /path/to/model-q4_k_m.gguf ~/.local/share/llm/models/
+mkdir -p ~/.local/share/skiffllm/models
+cp /path/to/model-q4_k_m.gguf ~/.local/share/skiffllm/models/
 ```
 
 Empfohlene kleine Modelle für einen schnellen CPU-only-Start:
@@ -78,9 +78,9 @@ Empfohlene kleine Modelle für einen schnellen CPU-only-Start:
 ## Erster Lauf
 
 ```bash
-./build/llm --doctor
-./build/llm --model ~/.local/share/llm/models/model-q4_k_m.gguf --model-info
-./build/llm --model ~/.local/share/llm/models/model-q4_k_m.gguf
+./build/skiffllm --doctor
+./build/skiffllm --model ~/.local/share/skiffllm/models/model-q4_k_m.gguf --model-info
+./build/skiffllm --model ~/.local/share/skiffllm/models/model-q4_k_m.gguf
 ```
 
 ## Tests ausführen
@@ -97,8 +97,8 @@ scripts/ci-local.sh
 
 ## Konfiguration
 
-Die Standardkonfigurationsdatei liegt unter `~/.config/llm/config`. Ein
-vollständiges Beispiel befindet sich in `configs/llm.example.conf`.
+Die Standardkonfigurationsdatei liegt unter `~/.config/skiffllm/config`. Ein
+vollständiges Beispiel befindet sich in `configs/skiffllm.example.conf`.
 CLI-Flags überschreiben Werte aus der Konfigurationsdatei.
 
 ## Fehlerbehebung
@@ -108,7 +108,7 @@ CLI-Flags überschreiben Werte aus der Konfigurationsdatei.
 - Wenn die Generierung am Kontextlimit stoppt, erhöhen Sie `--ctx` oder
   verkürzen Sie die Konversation.
 - Wenn ein fertiger llama.cpp verfügbar ist, setzen Sie
-  `LLM_LLAMA_SOURCE_DIR`.
+  `SKIFFLLM_LLAMA_SOURCE_DIR`.
 - Bei Systemen mit mehreren Sockets versuchen Sie `--numa`.
 - Für schnellere CPU-Inferenz behalten Sie `--profile fast` und ein
   quantisiertes Modell bei.

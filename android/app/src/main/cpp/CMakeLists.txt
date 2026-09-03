@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(llm_android LANGUAGES C CXX)
+project(skiffllm_android LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -22,18 +22,18 @@ set(GGML_NATIVE OFF CACHE BOOL "" FORCE)
 set(GGML_OPENMP OFF CACHE BOOL "" FORCE)
 
 # Android GPU acceleration. Default is CPU-only; pass
-# -DLLM_LLAMA_BACKEND=vulkan or opencl to enable a GPU backend.
-if(LLM_LLAMA_BACKEND STREQUAL "vulkan")
+# -DSKIFFLLM_LLAMA_BACKEND=vulkan or opencl to enable a GPU backend.
+if(SKIFFLLM_LLAMA_BACKEND STREQUAL "vulkan")
     set(GGML_VULKAN ON CACHE BOOL "" FORCE)
-elseif(LLM_LLAMA_BACKEND STREQUAL "opencl")
+elseif(SKIFFLLM_LLAMA_BACKEND STREQUAL "opencl")
     set(GGML_OPENCL ON CACHE BOOL "" FORCE)
-elseif(LLM_LLAMA_BACKEND STREQUAL "cpu")
+elseif(SKIFFLLM_LLAMA_BACKEND STREQUAL "cpu")
     set(GGML_VULKAN OFF CACHE BOOL "" FORCE)
     set(GGML_OPENCL OFF CACHE BOOL "" FORCE)
 endif()
 
-if(LLM_LLAMA_SOURCE_DIR)
-    add_subdirectory("${LLM_LLAMA_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/llama")
+if(SKIFFLLM_LLAMA_SOURCE_DIR)
+    add_subdirectory("${SKIFFLLM_LLAMA_SOURCE_DIR}" "${CMAKE_BINARY_DIR}/llama")
 else()
     include(FetchContent)
     FetchContent_Declare(llama
@@ -44,16 +44,16 @@ else()
     FetchContent_MakeAvailable(llama)
 endif()
 
-add_library(llm SHARED
+add_library(skiffllm SHARED
     jni_bridge.cpp
     "${PROJECT_ROOT}/src/config.cpp"
     "${PROJECT_ROOT}/src/engine.cpp"
 )
 
-target_include_directories(llm
+target_include_directories(skiffllm
     PRIVATE
         "${PROJECT_ROOT}/include"
         "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
-target_link_libraries(llm PUBLIC llama)
+target_link_libraries(skiffllm PUBLIC llama)

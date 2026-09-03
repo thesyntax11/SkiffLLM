@@ -7,17 +7,17 @@ daemon.
 ## 1. Install a prebuilt archive
 
 When a release is published it includes platform archives named
-`llm-<version>-<os>-<arch>.tar.gz` (or `.zip` on Windows), standalone
+`skiffllm-<version>-<os>-<arch>.tar.gz` (or `.zip` on Windows), standalone
 native binaries, Android APK files, an iOS app container, and
 `checksums.txt`.
 
 ```bash
 # Linux / macOS
-tar -xzf llm-v1.6.0-linux-x86_64.tar.gz
-sudo install -m 0755 bin/llm /usr/local/bin/llm
+tar -xzf skiffllm-v1.6.0-linux-x86_64.tar.gz
+sudo install -m 0755 bin/skiffllm /usr/local/bin/skiffllm
 ```
 
-Standalone executables follow `llm-<version>-<os>-<arch>[.exe]`. The Windows
+Standalone executables follow `skiffllm-<version>-<os>-<arch>[.exe]`. The Windows
 asset is available both as a zip and as a direct `.exe`. The iOS asset is an
 `.ipa` app container; a device install requires signing with an Apple
 development identity.
@@ -47,7 +47,7 @@ git clone https://github.com/thesyntax11/SkiffLLM.git
 cd SkiffLLM
 bash scripts/install.sh --prefix "$HOME/.local"
 export PATH="$HOME/.local/bin:$PATH"
-llm --version
+skiffllm --version
 ```
 
 Useful flags:
@@ -85,8 +85,8 @@ If you already have a llama.cpp checkout built and installed:
 
 ```bash
 cmake -S . -B build \
-  -DLLM_FETCH_LLAMA=OFF \
-  -DLLM_LLAMA_SOURCE_DIR=/path/to/llama.cpp \
+  -DSKIFFLLM_FETCH_LLAMA=OFF \
+  -DSKIFFLLM_LLAMA_SOURCE_DIR=/path/to/llama.cpp \
   -DCMAKE_BUILD_TYPE=Release
 ```
 
@@ -99,7 +99,7 @@ python3 scripts/model_fetch.py --list
 python3 scripts/model_fetch.py --model qwen2.5-0.5b
 ```
 
-Files land in `~/.local/share/llm/models` by default. You can also point
+Files land in `~/.local/share/skiffllm/models` by default. You can also point
 `--model` at any existing `.gguf`.
 
 ## 6. Shell completions
@@ -108,13 +108,13 @@ Source or copy the generated files:
 
 ```bash
 # bash
-source scripts/completions/llm.bash
+source scripts/completions/skiffllm.bash
 
 # zsh
-cp scripts/completions/llm.zsh ~/.zsh_functions/
+cp scripts/completions/skiffllm.zsh ~/.zsh_functions/
 
 # fish (completions directory)
-cp scripts/completions/llm.fish ~/.config/fish/completions/
+cp scripts/completions/skiffllm.fish ~/.config/fish/completions/
 ```
 
 ## 7. macOS / iOS
@@ -134,6 +134,6 @@ Run `scripts/demo-capture.sh` with a real binary and a real GGUF model to
 produce an honest terminal recording. The script never creates fake output.
 
 ```bash
-bash scripts/demo-capture.sh ./build/release/llm /path/model.gguf
+bash scripts/demo-capture.sh ./build/release/skiffllm /path/model.gguf
 ```
 

@@ -36,17 +36,17 @@ calienta el modelo automáticamente después de cargarlo.
 ## ¿Dónde se almacenan las sesiones?
 
 Escritorio: el directorio de sesiones de `--session`/`--history` (por defecto bajo
-`~/.local/share/llm`). Android: `conversation.json` interno de la app; borrar
+`~/.local/share/skiffllm`). Android: `conversation.json` interno de la app; borrar
 los datos de la app lo elimina.
 
 ## ¿Cómo expongo la API local?
 
 ```bash
 # solo local
-llm --model model.gguf --serve --host 127.0.0.1 --port 8080
+skiffllm --model model.gguf --serve --host 127.0.0.1 --port 8080
 
 # accesible desde otra máquina, protegida por un token compartido
-llm --model model.gguf --serve --host 0.0.0.0 --port 8080 --api-key "local-token"
+skiffllm --model model.gguf --serve --host 0.0.0.0 --port 8080 --api-key "local-token"
 ```
 
 Con `--api-key` configurado, `/v1/models` y `/v1/chat/completions` requieren

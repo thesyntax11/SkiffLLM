@@ -36,17 +36,17 @@ otomatik olarak ısıtır.
 ## Oturumlar nerede saklanır?
 
 Masaüstü: `--session`/`--history` oturum dizini (varsayılan olarak
-`~/.local/share/llm` altında). Android: uygulama içi `conversation.json`;
+`~/.local/share/skiffllm` altında). Android: uygulama içi `conversation.json`;
 uygulama verilerini temizlemek onu kaldırır.
 
 ## Yerel API'yi nasıl kullanıma açarım?
 
 ```bash
 # yalnızca yerel
-llm --model model.gguf --serve --host 127.0.0.1 --port 8080
+skiffllm --model model.gguf --serve --host 127.0.0.1 --port 8080
 
 # başka bir makineden erişilebilir, paylaşılan anahtarla korunur
-llm --model model.gguf --serve --host 0.0.0.0 --port 8080 --api-key "local-token"
+skiffllm --model model.gguf --serve --host 0.0.0.0 --port 8080 --api-key "local-token"
 ```
 
 `--api-key` ayarlıyken `/v1/models` ve `/v1/chat/completions`

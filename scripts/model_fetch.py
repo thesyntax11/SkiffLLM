@@ -78,10 +78,10 @@ def human_bytes(value: int) -> str:
 
 
 def default_model_dir() -> Path:
-    override = os.environ.get("LLM_MODEL_DIR")
+    override = os.environ.get("SKIFFLLM_MODEL_DIR")
     if override:
         return Path(override).expanduser()
-    return Path.home() / ".local/share/llm/models"
+    return Path.home() / ".local/share/skiffllm/models"
 
 
 def is_gguf(path: Path) -> bool:
@@ -239,7 +239,7 @@ def download(entry: dict, output_dir: Path) -> Path:
     write_sidecar(output)
     print(f"Saved to {output}")
     print(f"  SHA-256 sidecar: {sidecar_path(output)}")
-    print(f"  Now run: llm --model {output}")
+    print(f"  Now run: skiffllm --model {output}")
     return output
 
 
@@ -252,7 +252,7 @@ def main() -> int:
         metavar="DIR",
         type=Path,
         default=default_model_dir(),
-        help="model directory (default: ~/.local/share/llm/models)",
+        help="model directory (default: ~/.local/share/skiffllm/models)",
     )
     parser.add_argument(
         "--verify",

@@ -4,17 +4,17 @@ set -euo pipefail
 # Record a short SkiffLLM terminal demo for README/GitHub.
 #
 # Requires:
-#   - a built llm binary
+#   - a built skiffllm binary
 #   - a small GGUF model
 #   - asciinema OR a terminal recorder that can export a GIF/SVG
 #
 # Usage:
-#   bash scripts/demo-capture.sh ./build/release/llm /path/model.gguf
+#   bash scripts/demo-capture.sh ./build/release/skiffllm /path/model.gguf
 #
 # The script only records; it never invents output. You must have a real model
 # and a real generation to produce an honest demo.
 
-BIN="${1:-./build/release/llm}"
+BIN="${1:-./build/release/skiffllm}"
 MODEL="${2:-}"
 
 if [[ ! -x "${BIN}" ]]; then
@@ -47,4 +47,4 @@ echo "After recording, upload the cast file and convert it to a GIF with:"
 echo "  agif delivery  # or asciinema-agg cast.json demo.gif"
 echo
 
-asciinema rec llm-demo.cast
+asciinema rec skiffllm-demo.cast

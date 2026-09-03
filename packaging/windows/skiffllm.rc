@@ -1,6 +1,6 @@
 #include <windows.h>
 
-IDI_APP_ICON ICON "llm.ico"
+IDI_APP_ICON ICON "skiffllm.ico"
 
 VS_VERSION_INFO VERSIONINFO
  FILEVERSION 1,6,0,0
@@ -18,8 +18,8 @@ BEGIN
             VALUE "CompanyName", "SkiffLLM Contributors"
             VALUE "FileDescription", "LLM"
             VALUE "FileVersion", "1.6.0"
-            VALUE "InternalName", "llm"
-            VALUE "OriginalFilename", "llm.exe"
+            VALUE "InternalName", "skiffllm"
+            VALUE "OriginalFilename", "skiffllm.exe"
             VALUE "ProductName", "SkiffLLM"
             VALUE "ProductVersion", "1.6.0"
         END

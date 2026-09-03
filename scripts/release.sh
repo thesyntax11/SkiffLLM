@@ -4,7 +4,7 @@ set -euo pipefail
 # Produce reproducible local release archives from a built tree.
 #
 # Examples:
-#   bash scripts/release.sh                         # find build/release/llm
+#   bash scripts/release.sh                         # find build/release/skiffllm
 #   bash scripts/release.sh --build-dir build/debug
 #   bash scripts/release.sh --output artifacts/
 #
@@ -71,14 +71,14 @@ if ! command -v "${PYTHON}" >/dev/null 2>&1; then
     exit 2
 fi
 
-BINARY="${BUILD_DIR}/llm"
+BINARY="${BUILD_DIR}/skiffllm"
 if [[ ! -x "${BINARY}" ]]; then
-    if [[ -x "${BUILD_DIR}/llm.exe" ]]; then
-        BINARY="${BUILD_DIR}/llm.exe"
-    elif [[ -x "${BUILD_DIR}/Release/llm.exe" ]]; then
-        BINARY="${BUILD_DIR}/Release/llm.exe"
-    elif [[ -x "${BUILD_DIR}/Release/llm" ]]; then
-        BINARY="${BUILD_DIR}/Release/llm"
+    if [[ -x "${BUILD_DIR}/skiffllm.exe" ]]; then
+        BINARY="${BUILD_DIR}/skiffllm.exe"
+    elif [[ -x "${BUILD_DIR}/Release/skiffllm.exe" ]]; then
+        BINARY="${BUILD_DIR}/Release/skiffllm.exe"
+    elif [[ -x "${BUILD_DIR}/Release/skiffllm" ]]; then
+        BINARY="${BUILD_DIR}/Release/skiffllm"
     else
         echo "error: binary not found at ${BINARY}" >&2
         echo "Build first with: make release or cmake --build build/release" >&2
@@ -97,15 +97,15 @@ fi
 STAGE="${OUTPUT_DIR}/staged"
 mkdir -p "${STAGE}/bin" "${STAGE}/share"
 
-BINARY_NAME="llm"
+BINARY_NAME="skiffllm"
 if [[ "${BINARY}" == *.exe ]]; then
-    BINARY_NAME="llm.exe"
+    BINARY_NAME="skiffllm.exe"
 fi
 cp "${BINARY}" "${STAGE}/bin/${BINARY_NAME}"
 cp README.md LICENSE CHANGELOG.md SECURITY.md CONTRIBUTING.md "${STAGE}/"
 cp -r docs "${STAGE}/share/"
 cp -r scripts/completions "${STAGE}/share/"
-cp configs/llm.example.conf "${STAGE}/share/"
+cp configs/skiffllm.example.conf "${STAGE}/share/"
 cp -r packaging "${STAGE}/share/packaging"
 cp -r scripts "${STAGE}/share/scripts"
 
@@ -168,7 +168,7 @@ PY
 }
 
 if [[ "${OS_NAME}" == "windows" ]]; then
-    ARCHIVE="${OUTPUT_DIR}/llm-${VERSION}-${PLATFORM}.zip"
+    ARCHIVE="${OUTPUT_DIR}/skiffllm-${VERSION}-${PLATFORM}.zip"
     rm -f "${ARCHIVE}"
     "${PYTHON}" - "${STAGE}" "${ARCHIVE}" <<'PY'
 import shutil
@@ -180,18 +180,18 @@ base = archive[: -len(".zip")]
 shutil.make_archive(base, "zip", root_dir=stage)
 PY
 else
-    ARCHIVE="${OUTPUT_DIR}/llm-${VERSION}-${PLATFORM}.tar.gz"
+    ARCHIVE="${OUTPUT_DIR}/skiffllm-${VERSION}-${PLATFORM}.tar.gz"
     rm -f "${ARCHIVE}"
     tar -czf "${ARCHIVE}" -C "${STAGE}" .
 fi
 
-BIN_ASSET="${OUTPUT_DIR}/llm-${VERSION}-${PLATFORM}${BINARY_NAME#llm}"
+BIN_ASSET="${OUTPUT_DIR}/skiffllm-${VERSION}-${PLATFORM}${BINARY_NAME#skiffllm}"
 cp "${BINARY}" "${BIN_ASSET}"
 rm -rf "${STAGE}"
 
 if [[ -f "${PROJECT_DIR}/android/app/build/outputs/apk/debug/app-debug.apk" ]]; then
     cp "${PROJECT_DIR}/android/app/build/outputs/apk/debug/app-debug.apk" \
-        "${OUTPUT_DIR}/llm-${VERSION}-Android.apk"
+        "${OUTPUT_DIR}/skiffllm-${VERSION}-Android.apk"
 fi
 
 ASSET_LIST="${OUTPUT_DIR}/.assets.list"
@@ -203,7 +203,7 @@ import sys
 output_dir = sys.argv[1]
 version = sys.argv[2]
 asset_list = sys.argv[3]
-prefix = "llm-" + version + "-"
+prefix = "skiffllm-" + version + "-"
 assets = []
 for name in os.listdir(output_dir):
     path = os.path.join(output_dir, name)
@@ -212,7 +212,7 @@ for name in os.listdir(output_dir):
     if name.startswith(prefix) and (name.endswith(".tar.gz") or name.endswith(".zip") or
                                     "-linux-" in name or "-macos-" in name or "-windows-" in name):
         assets.append(path)
-    elif name.startswith("llm-" + version + "-") and name.endswith(".apk"):
+    elif name.startswith("skiffllm-" + version + "-") and name.endswith(".apk"):
         assets.append(path)
 with open(asset_list, "w", encoding="utf-8") as handle:
     for path in sorted(assets):

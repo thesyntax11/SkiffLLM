@@ -37,17 +37,17 @@ Android préchauffe le modèle automatiquement après le chargement.
 ## Où sont stockées les sessions ?
 
 Bureau : le répertoire de sessions de `--session`/`--history` (par défaut sous
-`~/.local/share/llm`). Android : `conversation.json` interne à l'application ;
+`~/.local/share/skiffllm`). Android : `conversation.json` interne à l'application ;
 effacer les données de l'application le supprime.
 
 ## Comment exposer l'API locale ?
 
 ```bash
 # local uniquement
-llm --model model.gguf --serve --host 127.0.0.1 --port 8080
+skiffllm --model model.gguf --serve --host 127.0.0.1 --port 8080
 
 # accessible depuis une autre machine, protégée par un jeton partagé
-llm --model model.gguf --serve --host 0.0.0.0 --port 8080 --api-key "local-token"
+skiffllm --model model.gguf --serve --host 0.0.0.0 --port 8080 --api-key "local-token"
 ```
 
 Avec `--api-key` défini, `/v1/models` et `/v1/chat/completions` exigent

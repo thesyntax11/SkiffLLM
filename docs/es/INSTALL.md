@@ -6,13 +6,13 @@ ejecución no incluye un modelo, no llama a la red y no necesita un demonio.
 ## 1. Instalar un archivo precompilado
 
 Cuando se publica una versión, incluye archivos de plataforma llamados
-`llm-<version>-<os>-<arch>.tar.gz` (o `.zip` en Windows) además de
+`skiffllm-<version>-<os>-<arch>.tar.gz` (o `.zip` en Windows) además de
 `checksums.txt`.
 
 ```bash
 # Linux / macOS
-tar -xzf llm-v1.6.0-linux-x86_64.tar.gz
-sudo install -m 0755 bin/llm /usr/local/bin/llm
+tar -xzf skiffllm-v1.6.0-linux-x86_64.tar.gz
+sudo install -m 0755 bin/skiffllm /usr/local/bin/skiffllm
 ```
 
 Se incluye un asistente listo para usar:
@@ -35,7 +35,7 @@ git clone https://github.com/thesyntax11/SkiffLLM.git
 cd SkiffLLM
 bash scripts/install.sh --prefix "$HOME/.local"
 export PATH="$HOME/.local/bin:$PATH"
-llm --version
+skiffllm --version
 ```
 
 Opciones útiles:
@@ -73,8 +73,8 @@ Si ya tiene una copia de llama.cpp compilada e instalada:
 
 ```bash
 cmake -S . -B build \
-  -DLLM_FETCH_LLAMA=OFF \
-  -DLLM_LLAMA_SOURCE_DIR=/path/to/llama.cpp \
+  -DSKIFFLLM_FETCH_LLAMA=OFF \
+  -DSKIFFLLM_LLAMA_SOURCE_DIR=/path/to/llama.cpp \
   -DCMAKE_BUILD_TYPE=Release
 ```
 
@@ -87,7 +87,7 @@ python3 scripts/model_fetch.py --list
 python3 scripts/model_fetch.py --model qwen2.5-0.5b
 ```
 
-Los archivos se guardan en `~/.local/share/llm/models` por defecto. También
+Los archivos se guardan en `~/.local/share/skiffllm/models` por defecto. También
 puede apuntar `--model` a cualquier `.gguf` existente.
 
 ## 5. Completado de shell
@@ -96,13 +96,13 @@ Copie o cargue los archivos generados:
 
 ```bash
 # bash
-source scripts/completions/llm.bash
+source scripts/completions/skiffllm.bash
 
 # zsh
-cp scripts/completions/llm.zsh ~/.zsh_functions/
+cp scripts/completions/skiffllm.zsh ~/.zsh_functions/
 
 # fish (directorio de completados)
-cp scripts/completions/llm.fish ~/.config/fish/completions/
+cp scripts/completions/skiffllm.fish ~/.config/fish/completions/
 ```
 
 ## 6. macOS / iOS
@@ -122,5 +122,5 @@ Ejecute `scripts/demo-capture.sh` con un binario real y un modelo GGUF real para
 producir una grabación de terminal honesta. El script nunca crea salida falsa.
 
 ```bash
-bash scripts/demo-capture.sh ./build/release/llm /ruta/model.gguf
+bash scripts/demo-capture.sh ./build/release/skiffllm /ruta/model.gguf
 ```

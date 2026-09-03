@@ -1,4 +1,4 @@
-package com.llm.app
+package com.skiffllm.app
 
 import android.content.Context
 import org.json.JSONArray
@@ -225,7 +225,7 @@ class ConversationStore(private val appContext: Context) {
             })
         }
         return JSONObject().apply {
-            put("format", "llm-conversation")
+            put("format", "skiffllm-conversation")
             put("version", 1)
             put("system_prompt", systemPrompt)
             put("messages", raw)

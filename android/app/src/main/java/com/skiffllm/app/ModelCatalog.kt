@@ -1,4 +1,4 @@
-package com.llm.app
+package com.skiffllm.app
 
 data class ModelCatalogEntry(
     val id: String,

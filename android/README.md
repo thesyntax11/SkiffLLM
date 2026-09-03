@@ -34,13 +34,13 @@ checkout is supplied. To use an existing checkout, add a Gradle property:
 
 ```bash
 ./gradlew assembleDebug \
-  -Pllm.llamaSourceDir=/path/to/llama.cpp
+  -Pskiffllm.llamaSourceDir=/path/to/llama.cpp
 ```
 
 Or add to `android/gradle.properties`:
 
 ```properties
-llm.llamaSourceDir=/path/to/llama.cpp
+skiffllm.llamaSourceDir=/path/to/llama.cpp
 ```
 
 ## Supported ABIs
@@ -88,10 +88,10 @@ Native GPU acceleration is opt-in because the toolchain must be configured
 before the shared library is built:
 
 ```bash
-./gradlew assembleDebug -Pllm.backend=vulkan   # or opencl
+./gradlew assembleDebug -Pskiffllm.backend=vulkan   # or opencl
 ```
 
-The desktop equivalent is `-DLLM_LLAMA_BACKEND=vulkan|opencl`. The app
+The desktop equivalent is `-DSKIFFLLM_LLAMA_BACKEND=vulkan|opencl`. The app
 keeps `--gpu-layers` equivalent under `Settings -> GPU layers`.
 
 ## Recommended models

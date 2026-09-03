@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.llm.app"
+    namespace = "com.skiffllm.app"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.llm.app"
+        applicationId = "com.skiffllm.app"
         minSdk = 26
         targetSdk = 34
         versionCode = 10600
@@ -30,14 +30,14 @@ android {
                 cppFlags += "-std=c++17"
                 arguments += "-DANDROID_STL=c++_shared"
                 arguments += "-DCMAKE_BUILD_TYPE=Release"
-                val llamaDir = project.findProperty("llm.llamaSourceDir") as String?
+                val llamaDir = project.findProperty("skiffllm.llamaSourceDir") as String?
                 if (llamaDir != null && llamaDir.isNotBlank()) {
-                    arguments += "-DLLM_LLAMA_SOURCE_DIR=$llamaDir"
+                    arguments += "-DSKIFFLLM_LLAMA_SOURCE_DIR=$llamaDir"
                 }
-                // GPU/NPU acceleration on Android: `./gradlew ... -Pllm.backend=vulkan|opencl|cpu`
-                val backend = project.findProperty("llm.backend") as String?
+                // GPU/NPU acceleration on Android: `./gradlew ... -Pskiffllm.backend=vulkan|opencl|cpu`
+                val backend = project.findProperty("skiffllm.backend") as String?
                 if (!backend.isNullOrBlank()) {
-                    arguments += "-DLLM_LLAMA_BACKEND=$backend"
+                    arguments += "-DSKIFFLLM_LLAMA_BACKEND=$backend"
                 }
             }
         }

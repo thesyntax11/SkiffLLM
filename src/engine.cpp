@@ -1,4 +1,4 @@
-#include "llm/engine.hpp"
+#include "skiffllm/engine.hpp"
 
 #include <llama.h>
 
@@ -11,7 +11,7 @@
 #include <sstream>
 #include <thread>
 
-namespace llm {
+namespace skiffllm {
 namespace {
 
 double now_ms() {
@@ -570,4 +570,4 @@ bool LlmEngine::warmup(std::string& error) {
         ask, warm, result, []() { return false; }, error);
 }
 
-}  // namespace llm
+}  // namespace skiffllm

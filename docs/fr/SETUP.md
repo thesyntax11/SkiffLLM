@@ -28,7 +28,7 @@ bash scripts/install.sh                            # CPU / valeur par défaut de
 BACKEND=cuda bash scripts/install.sh               # CUDA
 BACKEND=vulkan bash scripts/install.sh             # Vulkan
 BACKEND=metal bash scripts/install.sh              # macOS Metal
-./build/llm --backend-info                     # inspecter les backends liés
+./build/skiffllm --backend-info                     # inspecter les backends liés
 ```
 
 Utilisez une copie existante de llama.cpp pour éviter le téléchargement facultatif
@@ -57,14 +57,14 @@ python3 scripts/model_fetch.py --list
 python3 scripts/model_fetch.py --model qwen2.5-0.5b
 ```
 
-L'utilitaire enregistre le fichier dans `~/.local/share/llm/models`.
+L'utilitaire enregistre le fichier dans `~/.local/share/skiffllm/models`.
 L'inférence reste entièrement hors ligne.
 
 Ou copiez-le vous-même :
 
 ```bash
-mkdir -p ~/.local/share/llm/models
-cp /path/to/model-q4_k_m.gguf ~/.local/share/llm/models/
+mkdir -p ~/.local/share/skiffllm/models
+cp /path/to/model-q4_k_m.gguf ~/.local/share/skiffllm/models/
 ```
 
 Petits modèles recommandés pour un démarrage rapide uniquement CPU :
@@ -78,9 +78,9 @@ Petits modèles recommandés pour un démarrage rapide uniquement CPU :
 ## Première exécution
 
 ```bash
-./build/llm --doctor
-./build/llm --model ~/.local/share/llm/models/model-q4_k_m.gguf --model-info
-./build/llm --model ~/.local/share/llm/models/model-q4_k_m.gguf
+./build/skiffllm --doctor
+./build/skiffllm --model ~/.local/share/skiffllm/models/model-q4_k_m.gguf --model-info
+./build/skiffllm --model ~/.local/share/skiffllm/models/model-q4_k_m.gguf
 ```
 
 ## Exécuter les tests
@@ -97,8 +97,8 @@ scripts/ci-local.sh
 
 ## Configuration
 
-Le fichier de configuration par défaut est `~/.config/llm/config`. Un exemple
-complet se trouve dans `configs/llm.example.conf`. Les options CLI priment
+Le fichier de configuration par défaut est `~/.config/skiffllm/config`. Un exemple
+complet se trouve dans `configs/skiffllm.example.conf`. Les options CLI priment
 sur les valeurs du fichier de configuration.
 
 ## Dépannage
@@ -107,7 +107,7 @@ sur les valeurs du fichier de configuration.
 - Si la génération s'arrête à la limite de contexte, augmentez `--ctx` ou
   raccourcissez la conversation.
 - Si un llama.cpp précompilé est disponible, définissez
-  `LLM_LLAMA_SOURCE_DIR`.
+  `SKIFFLLM_LLAMA_SOURCE_DIR`.
 - Sur les systèmes multi-processeurs, essayez `--numa`.
 - Pour une inférence CPU plus rapide, conservez `--profile fast` et un modèle
   quantifié.

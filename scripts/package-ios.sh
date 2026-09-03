@@ -58,22 +58,22 @@ fi
 
 mkdir -p "${OUTPUT_DIR}"
 STAGE="${OUTPUT_DIR}/Payload"
-rm -rf "${STAGE}" "${OUTPUT_DIR}/llm-${VERSION}-iOS.ipa" \
-    "${OUTPUT_DIR}/llm-${VERSION}-iOS.app.tar.gz"
+rm -rf "${STAGE}" "${OUTPUT_DIR}/skiffllm-${VERSION}-iOS.ipa" \
+    "${OUTPUT_DIR}/skiffllm-${VERSION}-iOS.app.tar.gz"
 mkdir -p "${STAGE}"
 cp -R "${APP}" "${STAGE}/SkiffLLM.app"
 
-if [[ -n "${LLM_SIGNING_IDENTITY:-}" ]]; then
+if [[ -n "${SKIFFLLM_SIGNING_IDENTITY:-}" ]]; then
     find "${STAGE}/SkiffLLM.app" -depth -name "*.appex" -print0 |
         while IFS= read -r -d '' extension; do
-            codesign --force --deep --sign "${LLM_SIGNING_IDENTITY}" "${extension}"
+            codesign --force --deep --sign "${SKIFFLLM_SIGNING_IDENTITY}" "${extension}"
         done
-    codesign --force --deep --sign "${LLM_SIGNING_IDENTITY}" "${STAGE}/SkiffLLM.app"
+    codesign --force --deep --sign "${SKIFFLLM_SIGNING_IDENTITY}" "${STAGE}/SkiffLLM.app"
 fi
 
-ditto -c -k --keepParent "${STAGE}" "${OUTPUT_DIR}/llm-${VERSION}-iOS.ipa"
-tar -czf "${OUTPUT_DIR}/llm-${VERSION}-iOS.app.tar.gz" -C "${OUTPUT_DIR}" Payload
+ditto -c -k --keepParent "${STAGE}" "${OUTPUT_DIR}/skiffllm-${VERSION}-iOS.ipa"
+tar -czf "${OUTPUT_DIR}/skiffllm-${VERSION}-iOS.app.tar.gz" -C "${OUTPUT_DIR}" Payload
 rm -rf "${STAGE}"
 
-echo "iOS package: ${OUTPUT_DIR}/llm-${VERSION}-iOS.ipa"
-echo "iOS archive: ${OUTPUT_DIR}/llm-${VERSION}-iOS.app.tar.gz"
+echo "iOS package: ${OUTPUT_DIR}/skiffllm-${VERSION}-iOS.ipa"
+echo "iOS archive: ${OUTPUT_DIR}/skiffllm-${VERSION}-iOS.app.tar.gz"

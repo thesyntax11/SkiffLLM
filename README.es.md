@@ -33,10 +33,10 @@ Ejecuta cualquier modelo GGUF mediante llama.cpp en tu CPU o GPU, mantiene cada
 token en tu máquina y se integra directamente en tu flujo de shell.
 
 ```bash
-git diff | llm "review these changes"
-cat error.log | llm "find the root cause"
-cat README.md | llm "summarize this"
-llm --project . "where is this implemented?"
+git diff | skiffllm "review these changes"
+cat error.log | skiffllm "find the root cause"
+cat README.md | skiffllm "summarize this"
+skiffllm --project . "where is this implemented?"
 ```
 
 ---
@@ -50,7 +50,7 @@ git clone https://github.com/thesyntax11/SkiffLLM.git
 cd SkiffLLM
 bash scripts/install.sh --prefix "$HOME/.local"
 export PATH="$HOME/.local/bin:$PATH"
-llm --version
+skiffllm --version
 ```
 
 ### O compilar manualmente
@@ -73,7 +73,7 @@ Falla rápidamente cuando la versión aún no tiene artefactos publicados.
 ### Grabar una demo
 
 ```bash
-bash scripts/demo-capture.sh ./build/release/llm /path/to/model.gguf
+bash scripts/demo-capture.sh ./build/release/skiffllm /path/to/model.gguf
 ```
 
 Esto graba una sesión real de terminal para el README; nunca inventa salida.
@@ -85,7 +85,7 @@ python3 scripts/model_fetch.py --list
 python3 scripts/model_fetch.py --model qwen2.5-0.5b
 ```
 
-Los archivos se guardan por defecto en `~/.local/share/llm/models`. También
+Los archivos se guardan por defecto en `~/.local/share/skiffllm/models`. También
 puedes apuntar `--model` a cualquier archivo `.gguf` existente.
 
 Los archivos de modelo se descargan de Hugging Face bajo su propia licencia
@@ -139,10 +139,10 @@ despliegue empresarial, endurecimiento de servidor y cadena de suministro, ve
 
 | Función | Descripción |
 | --- | --- |
-| Tuberías Unix | `cat file \| llm "summarize"`, `git diff \| llm "review"` |
+| Tuberías Unix | `cat file \| skiffllm "summarize"`, `git diff \| skiffllm "review"` |
 | Contexto de proyecto | `--project <dir>` añade índice real + fragmento limitado de código |
-| Gestor de modelos | `llm model list / info / install / remove / verify` |
-| Integración Git | `llm git review / explain / commit / log / status` |
+| Gestor de modelos | `skiffllm model list / info / install / remove / verify` |
+| Integración Git | `skiffllm git review / explain / commit / log / status` |
 | Shell interactivo | Salida en streaming, historial, contadores en vivo |
 | Contexto de archivo | `--attach`, `/file` y expansión `@file` en cualquier prompt |
 | Exportación de conversación | `--export` y `/export` guardan sesiones en Markdown |
@@ -163,22 +163,22 @@ despliegue empresarial, endurecimiento de servidor y cadena de suministro, ve
 
 ```bash
 # Revisar un conjunto de cambios antes de subirlo
-git diff | llm "review these changes"
+git diff | skiffllm "review these changes"
 
 # Encontrar la causa real en un log desordenado
-journalctl -e | llm "find suspicious errors and a likely root cause"
+journalctl -e | skiffllm "find suspicious errors and a likely root cause"
 
 # Resumir un archivo que acabas de leer
-cat README.md | llm "summarize this"
+cat README.md | skiffllm "summarize this"
 
 # Apuntar a todo un repositorio
-llm --project . "where is authentication implemented?"
+skiffllm --project . "where is authentication implemented?"
 
 # Salida legible por máquinas para tus propios scripts
-git diff | llm --json "classify this diff"
+git diff | skiffllm --json "classify this diff"
 
 # Revisión segura de código (propone diff, nunca edita archivos)
-llm --code --project . "fix the bug in src/server.cpp"
+skiffllm --code --project . "fix the bug in src/server.cpp"
 ```
 
 ## Gestor de modelos
@@ -187,11 +187,11 @@ SkiffLLM permanece sin conexión en tiempo de ejecución. Obtener un modelo es u
 comando explícito y separado.
 
 ```bash
-llm model list
-llm model info qwen2.5-0.5b
-llm model install qwen2.5-0.5b
-llm model verify qwen2.5-0.5b --update
-llm model remove qwen2.5-0.5b --force
+skiffllm model list
+skiffllm model info qwen2.5-0.5b
+skiffllm model install qwen2.5-0.5b
+skiffllm model verify qwen2.5-0.5b --update
+skiffllm model remove qwen2.5-0.5b --force
 ```
 
 `model install` delega en `scripts/model_fetch.py`, que descarga exactamente un
@@ -208,12 +208,12 @@ delante.
 
 ```bash
 # Los subcomandos git leen el diff ellos mismos; no se necesita una tubería.
-llm git review
-llm git review --cached
-llm git explain
-llm git commit --cached
-llm git log
-llm git status
+skiffllm git review
+skiffllm git review --cached
+skiffllm git explain
+skiffllm git commit --cached
+skiffllm git log
+skiffllm git status
 ```
 
 `git commit --cached` propone un mensaje de commit convencional a partir de tu
@@ -222,21 +222,21 @@ diff en stage; no ejecuta `git commit` por ti.
 ## Sesiones y memoria persistente
 
 ```bash
-llm --session coding --model qwen2.5-0.5b-instruct-q4_k_m.gguf
-llm --session writing --model qwen2.5-0.5b-instruct-q4_k_m.gguf
+skiffllm --session coding --model qwen2.5-0.5b-instruct-q4_k_m.gguf
+skiffllm --session writing --model qwen2.5-0.5b-instruct-q4_k_m.gguf
 
-llm session list
-llm session show coding
-llm session rename coding writing
-llm session remove old-draft
+skiffllm session list
+skiffllm session show coding
+skiffllm session rename coding writing
+skiffllm session remove old-draft
 ```
 
-La memoria persistente vive en `~/.local/share/llm/memories.txt` y nunca
+La memoria persistente vive en `~/.local/share/skiffllm/memories.txt` y nunca
 abandona la máquina.
 
 ```bash
-llm --remember "the user prefers concise answers"
-llm --forget concise
+skiffllm --remember "the user prefers concise answers"
+skiffllm --forget concise
 ```
 
 Dentro del shell interactivo usa `/remember`, `/forget`, `/memories`,
@@ -248,10 +248,10 @@ Dentro del shell interactivo usa `/remember`, `/forget`, `/memories`,
 
 ```bash
 # solo local
-llm --model model.gguf --serve --host 127.0.0.1 --port 8080
+skiffllm --model model.gguf --serve --host 127.0.0.1 --port 8080
 
 # listener no local protegido por un token compartido
-llm --model model.gguf --serve --host 0.0.0.0 --port 8080 --api-key "$LLM_SERVER_KEY"
+skiffllm --model model.gguf --serve --host 0.0.0.0 --port 8080 --api-key "$SKIFFLLM_SERVER_KEY"
 ```
 
 Endpoints:
@@ -284,7 +284,7 @@ Se incluye un cliente Python sin dependencias:
 
 ```bash
 python3 scripts/api_client.py http://127.0.0.1:8080 "Say hello."
-python3 scripts/api_client.py http://127.0.0.1:8080 --api-key "$LLM_SERVER_KEY" "Say hello."
+python3 scripts/api_client.py http://127.0.0.1:8080 --api-key "$SKIFFLLM_SERVER_KEY" "Say hello."
 ```
 
 ---
@@ -318,7 +318,7 @@ del dispositivo.
 ## Línea de comandos
 
 ```text
-Usage: llm [options] [model.gguf]
+Usage: skiffllm [options] [model.gguf]
 
 Core options:
   --model <path>             Path to a GGUF model file
@@ -363,8 +363,8 @@ Uso completo: [docs/es/usage.md](docs/es/usage.md). Comandos interactivos:
 ## Honestidad en benchmarks
 
 ```bash
-llm --model model.gguf --benchmark 3
-llm --model model.gguf --benchmark 3 --json
+skiffllm --model model.gguf --benchmark 3
+skiffllm --model model.gguf --benchmark 3 --json
 ```
 
 Cada número se mide en tu máquina con tu modelo y tu hardware. SkiffLLM nunca
@@ -374,7 +374,7 @@ reales: [docs/benchmarks.md](docs/benchmarks.md).
 ## Prueba de privacidad
 
 ```bash
-llm --doctor --network
+skiffllm --doctor --network
 ```
 
 imprime los hechos del runtime: la generación central no hace ninguna llamada
@@ -404,8 +404,8 @@ make install
 make help
 ```
 
-Los archivos precompilados siguen el patrón `llm-<version>-<os>-<arch>.tar.gz`
-(por ejemplo `llm-v1.6.0-linux-x86_64.tar.gz`, `.zip` en Windows) con
+Los archivos precompilados siguen el patrón `skiffllm-<version>-<os>-<arch>.tar.gz`
+(por ejemplo `skiffllm-v1.6.0-linux-x86_64.tar.gz`, `.zip` en Windows) con
 `checksums.txt` cuando se publican. Ver [docs/es/INSTALL.md](docs/es/INSTALL.md).
 Los completions de shell están en [scripts/completions](scripts/completions/).
 
@@ -413,12 +413,12 @@ Los completions de shell están en [scripts/completions](scripts/completions/).
 
 | Opción | Por defecto | Descripción |
 | --- | --- | --- |
-| `LLM_BUILD_TESTS` | `ON` | Compilar y registrar la suite de pruebas |
-| `LLM_FETCH_LLAMA` | `ON` | Descargar y compilar llama.cpp fijado |
-| `LLM_LLAMA_SOURCE_DIR` | vacío | Usar un checkout existente de llama.cpp |
-| `LLM_BUILD_SHARED_LLAMA` | `OFF` | Compilar llama.cpp como biblioteca compartida |
-| `LLM_USE_READLINE` | `ON` | Activar GNU Readline cuando esté disponible |
-| `LLM_LLAMA_BACKEND` | `auto` | `cuda`, `metal`, `vulkan`, `opencl`, `blas`, `cpu` |
+| `SKIFFLLM_BUILD_TESTS` | `ON` | Compilar y registrar la suite de pruebas |
+| `SKIFFLLM_FETCH_LLAMA` | `ON` | Descargar y compilar llama.cpp fijado |
+| `SKIFFLLM_LLAMA_SOURCE_DIR` | vacío | Usar un checkout existente de llama.cpp |
+| `SKIFFLLM_BUILD_SHARED_LLAMA` | `OFF` | Compilar llama.cpp como biblioteca compartida |
+| `SKIFFLLM_USE_READLINE` | `ON` | Activar GNU Readline cuando esté disponible |
+| `SKIFFLLM_LLAMA_BACKEND` | `auto` | `cuda`, `metal`, `vulkan`, `opencl`, `blas`, `cpu` |
 
 La aceleración por hardware siempre es explícita: elige el backend al
 configurar y descarga capas en tiempo de ejecución con `--gpu-layers`.
@@ -438,7 +438,7 @@ configurar y descarga capas en tiempo de ejecución con `--gpu-layers`.
 ## Estructura del proyecto
 
 ```text
-include/llm/              Encabezados de API pública
+include/skiffllm/              Encabezados de API pública
 src/                          CLI, núcleo y servidor local
 tests/                        Pruebas unitarias (sin modelo)
 configs/                      Configuración de ejemplo

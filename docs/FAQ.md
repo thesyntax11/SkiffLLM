@@ -37,17 +37,17 @@ conversation. The Android app warms the model automatically after loading.
 ## Where are sessions stored?
 
 Desktop: the session directory from `--session`/`--history` (defaults under
-`~/.local/share/llm`). Android: app-internal `conversation.json`; clearing
+`~/.local/share/skiffllm`). Android: app-internal `conversation.json`; clearing
 the app data removes it.
 
 ## How do I expose the local API?
 
 ```bash
 # local only
-llm --model model.gguf --serve --host 127.0.0.1 --port 8080
+skiffllm --model model.gguf --serve --host 127.0.0.1 --port 8080
 
 # reachable from another machine, protected by a shared token
-llm --model model.gguf --serve --host 0.0.0.0 --port 8080 --api-key "local-token"
+skiffllm --model model.gguf --serve --host 0.0.0.0 --port 8080 --api-key "local-token"
 ```
 
 With `--api-key` set, `/v1/models` and `/v1/chat/completions` require
@@ -69,8 +69,8 @@ model from Hugging Face.
 
 ## Can I download prebuilt Windows or iOS binaries?
 
-Yes. Release assets include a standalone `llm-<version>-windows-x86_64.exe`,
-an Android APK, and a `llm-<version>-iOS.ipa`. The release workflow can be
+Yes. Release assets include a standalone `skiffllm-<version>-windows-x86_64.exe`,
+an Android APK, and a `skiffllm-<version>-iOS.ipa`. The release workflow can be
 run manually from the Actions page even before a tag is pushed. Without Apple
 signing secrets the iOS artifact is an unsigned container; re-sign it with your
 development team before installing it on a physical device.

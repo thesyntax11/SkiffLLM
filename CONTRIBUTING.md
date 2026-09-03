@@ -38,12 +38,12 @@ cd android
 ```
 
 The native build downloads the pinned llama.cpp revision unless you pass
-`-Pllm.llamaSourceDir=/path/to/llama.cpp`.
+`-Pskiffllm.llamaSourceDir=/path/to/llama.cpp`.
 
 For a scripted Android check with the SDK installed:
 
 ```bash
-LLM_LLAMA_SOURCE_DIR=/path/to/llama.cpp bash scripts/ci-android.sh
+SKIFFLLM_LLAMA_SOURCE_DIR=/path/to/llama.cpp bash scripts/ci-android.sh
 ```
 
 ## What is expected
@@ -74,4 +74,4 @@ Use focused commits with imperative subjects:
 - CTest unit tests run without a model and are required to pass.
 - `scripts/model_fetch.py --list` and `scripts/api_client.py --help` must work.
 - Feature changes should avoid requiring a real GGUF model in the default test
-  suite unless there is an explicit `LLM_TEST_MODEL` opt-in.
+  suite unless there is an explicit `SKIFFLLM_TEST_MODEL` opt-in.

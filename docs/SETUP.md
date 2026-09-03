@@ -29,7 +29,7 @@ bash scripts/install.sh                            # CPU / platform default
 BACKEND=cuda bash scripts/install.sh               # CUDA
 BACKEND=vulkan bash scripts/install.sh             # Vulkan
 BACKEND=metal bash scripts/install.sh              # macOS Metal
-./build/llm --backend-info                     # inspect linked backends
+./build/skiffllm --backend-info                     # inspect linked backends
 ```
 
 Use an existing llama.cpp checkout to avoid the optional configure-time
@@ -57,14 +57,14 @@ python3 scripts/model_fetch.py --list
 python3 scripts/model_fetch.py --model qwen2.5-0.5b
 ```
 
-The helper stores the file in `~/.local/share/llm/models`. Inference stays
+The helper stores the file in `~/.local/share/skiffllm/models`. Inference stays
 fully offline.
 
 Or copy one yourself:
 
 ```bash
-mkdir -p ~/.local/share/llm/models
-cp /path/to/model-q4_k_m.gguf ~/.local/share/llm/models/
+mkdir -p ~/.local/share/skiffllm/models
+cp /path/to/model-q4_k_m.gguf ~/.local/share/skiffllm/models/
 ```
 
 Suggested small models for a fast CPU-only start:
@@ -78,9 +78,9 @@ Suggested small models for a fast CPU-only start:
 ## First run
 
 ```bash
-./build/llm --doctor
-./build/llm --model ~/.local/share/llm/models/model-q4_k_m.gguf --model-info
-./build/llm --model ~/.local/share/llm/models/model-q4_k_m.gguf
+./build/skiffllm --doctor
+./build/skiffllm --model ~/.local/share/skiffllm/models/model-q4_k_m.gguf --model-info
+./build/skiffllm --model ~/.local/share/skiffllm/models/model-q4_k_m.gguf
 ```
 
 ## Run the tests
@@ -97,14 +97,14 @@ scripts/ci-local.sh
 
 ## Configuration
 
-The default config file is `~/.config/llm/config`. A complete example is
-at `configs/llm.example.conf`. CLI flags override config file values.
+The default config file is `~/.config/skiffllm/config`. A complete example is
+at `configs/skiffllm.example.conf`. CLI flags override config file values.
 
 ## Troubleshooting
 
 - If no model is found, run `--list-models` or pass `--model`.
 - If generation stops at the context limit, raise `--ctx` or shorten the
   conversation.
-- If a prebuilt llama.cpp is available, set `LLM_LLAMA_SOURCE_DIR`.
+- If a prebuilt llama.cpp is available, set `SKIFFLLM_LLAMA_SOURCE_DIR`.
 - On multiple-socket systems, try `--numa`.
 - For faster CPU inference, keep `--profile fast` and a quantized model.
