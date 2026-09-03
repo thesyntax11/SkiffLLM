@@ -36,9 +36,9 @@ targets:
       - framework: third_party/llama/build-apple/llama.xcframework
         embed: true
         link: true
-      - framework: Metal.framework
+      - sdk: Metal.framework
         link: true
-      - framework: Accelerate.framework
+      - sdk: Accelerate.framework
         link: true
       - target: SkiffLLMShare
         embed: true
