@@ -71,7 +71,7 @@ jobs:
               :
             else
               status="${PIPESTATUS[0]}"
-              tail -n 60 build.log | while IFS= read -r line; do
+              grep -ixinE 'error|fatal|lnk|msb|rc20|rc21|c[0-9]{4}|l[0-9]{4}|d[0-9]{4}|cannot|unable|failed' build.log | tail -n 60 | while IFS= read -r line; do
                 echo "::error::$line"
               done
               exit "${status}"
@@ -81,7 +81,7 @@ jobs:
               :
             else
               status="${PIPESTATUS[0]}"
-              tail -n 60 build.log | while IFS= read -r line; do
+              grep -ixinE 'error|fatal|lnk|msb|rc20|rc21|c[0-9]{4}|l[0-9]{4}|d[0-9]{4}|cannot|unable|failed' build.log | tail -n 60 | while IFS= read -r line; do
                 echo "::error::$line"
               done
               exit "${status}"
