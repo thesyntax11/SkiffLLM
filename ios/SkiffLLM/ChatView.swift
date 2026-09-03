@@ -302,12 +302,12 @@ final class AppState: ObservableObject {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
             var error: NSError?
-            let ok = self.engine.loadModelAtPath(url.path,
-                                                 contextSize: Int32(params.contextSize),
-                                                 threads: Int32(params.threads),
-                                                 gpuLayers: Int32(params.gpuLayers),
-                                                 chatTemplate: params.chatTemplate,
-                                                 error: &error)
+            let ok = self.engine.loadModel(atPath: url.path,
+                                           contextSize: Int32(params.contextSize),
+                                           threads: Int32(params.threads),
+                                           gpuLayers: Int32(params.gpuLayers),
+                                           chatTemplate: params.chatTemplate,
+                                           error: &error)
             var description: String?
             if ok {
                 description = self.engine.modelDescription()
