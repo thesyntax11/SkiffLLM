@@ -84,6 +84,7 @@ if ! command -v "${PYTHON}" >/dev/null 2>&1; then
 fi
 
 BINARY="${BUILD_DIR}/skiffllm"
+CLI_BINARY=""
 if [[ ! -x "${BINARY}" ]]; then
     if [[ -x "${BUILD_DIR}/skiffllm.exe" ]]; then
         BINARY="${BUILD_DIR}/skiffllm.exe"
@@ -97,9 +98,19 @@ if [[ ! -x "${BINARY}" ]]; then
         exit 2
     fi
 fi
+for candidate in \
+    "${BUILD_DIR}/skiffllm-cli.exe" \
+    "${BUILD_DIR}/Release/skiffllm-cli.exe" \
+    "${BUILD_DIR}/skiffllm-cli"; do
+    if [[ -f "${candidate}" ]]; then
+        CLI_BINARY="${candidate}"
+        break
+    fi
+done
 
 if [[ -z "${VERSION}" ]]; then
-    VERSION="$("${BINARY}" --version | awk '{print $2}')"
+    VERSION_SOURCE="${CLI_BINARY:-${BINARY}}"
+    VERSION="$("${VERSION_SOURCE}" --version | awk '{print $2}')"
 fi
 if [[ -z "${VERSION}" ]]; then
     echo "error: could not determine version" >&2
@@ -123,6 +134,9 @@ if [[ "${BINARY}" == *.exe ]]; then
     BINARY_NAME="skiffllm.exe"
 fi
 cp "${BINARY}" "${STAGE}/bin/${BINARY_NAME}"
+if [[ -n "${CLI_BINARY}" ]]; then
+    cp "${CLI_BINARY}" "${STAGE}/bin/skiffllm-cli.exe"
+fi
 cp README.md LICENSE CHANGELOG.md SECURITY.md CONTRIBUTING.md "${STAGE}/"
 cp -r docs "${STAGE}/share/"
 cp -r scripts/completions "${STAGE}/share/"

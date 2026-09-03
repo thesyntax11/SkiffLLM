@@ -101,8 +101,8 @@ jobs:
       - name: Smoke test
         run: |
           if [ "$RUNNER_OS" = "Windows" ]; then
-            ./build/Release/skiffllm --version
-            ./build/Release/skiffllm --doctor
+            ./build/Release/skiffllm-cli --version
+            ./build/Release/skiffllm-cli --doctor
           else
             ./build/skiffllm --version
             ./build/skiffllm --doctor
@@ -113,7 +113,7 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          ./build/Release/skiffllm > keep-open.log 2>&1 &
+          ./build/Release/skiffllm-cli > keep-open.log 2>&1 &
           pid=$!
           sleep 2
           if kill -0 "$pid" 2>/dev/null; then
@@ -137,6 +137,7 @@ jobs:
           mkdir -p distribution
           if [ "$RUNNER_OS" = "Windows" ]; then
             cp build/Release/skiffllm.exe distribution/skiffllm.exe
+            cp build/Release/skiffllm-cli.exe distribution/skiffllm-cli.exe
           else
             cp build/skiffllm distribution/skiffllm
           fi

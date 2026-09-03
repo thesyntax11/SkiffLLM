@@ -14,6 +14,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include(GNUInstallDirs)
 
 option(SKIFFLLM_BUILD_TESTS "Build SkiffLLM unit tests" ON)
+option(SKIFFLLM_BUILD_GUI "Build the SkiffLLM desktop GUI on Windows" ON)
 option(SKIFFLLM_FETCH_LLAMA "Download and build llama.cpp automatically" ON)
 option(SKIFFLLM_BUILD_SHARED_LLAMA "Build llama.cpp as a shared library" OFF)
 option(SKIFFLLM_ENABLE_ROOTFS_CHECK "Allow the CMake configure step to continue when running as root" OFF)
@@ -180,7 +181,36 @@ endif()
 target_compile_features(skiffllm_core PUBLIC cxx_std_17)
 skiffllm_apply_toolchain(skiffllm_core)
 
-add_executable(skiffllm src/main.cpp)
+if(WIN32 AND SKIFFLLM_BUILD_GUI)
+    include(FetchContent)
+    FetchContent_Declare(imgui
+        GIT_REPOSITORY https://github.com/ocornut/imgui.git
+        GIT_TAG v1.91.4
+        GIT_SHALLOW TRUE
+    )
+    FetchContent_MakeAvailable(imgui)
+    add_library(skiffllm_imgui STATIC
+        ${imgui_SOURCE_DIR}/imgui.cpp
+        ${imgui_SOURCE_DIR}/imgui_draw.cpp
+        ${imgui_SOURCE_DIR}/imgui_tables.cpp
+        ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_dx11.cpp
+        ${imgui_SOURCE_DIR}/backends/imgui_impl_win32.cpp
+    )
+    target_include_directories(skiffllm_imgui PUBLIC
+        ${imgui_SOURCE_DIR}
+        ${imgui_SOURCE_DIR}/backends
+    )
+    target_link_libraries(skiffllm_imgui PUBLIC d3d11 dxgi d3dcompiler)
+    add_executable(skiffllm src/gui.cpp)
+    add_executable(skiffllm_cli src/main.cpp)
+    set_target_properties(skiffllm PROPERTIES WIN32_EXECUTABLE TRUE)
+    set_target_properties(skiffllm_cli PROPERTIES OUTPUT_NAME "skiffllm-cli")
+    set(SKIFFLLM_CLI_TARGET skiffllm_cli)
+else()
+    add_executable(skiffllm src/main.cpp)
+    set(SKIFFLLM_CLI_TARGET skiffllm)
+endif()
 if(WIN32)
     enable_language(RC)
     set(APP_ICON_PATH "${CMAKE_CURRENT_SOURCE_DIR}/packaging/windows/skiffllm.ico")
@@ -191,11 +221,21 @@ if(WIN32)
         @ONLY
     )
     target_sources(skiffllm PRIVATE "${SKIFFLLM_RC_FILE}")
+    if(WIN32 AND SKIFFLLM_BUILD_GUI)
+        target_sources(skiffllm_cli PRIVATE "${SKIFFLLM_RC_FILE}")
+    endif()
 endif()
 target_link_libraries(skiffllm PRIVATE skiffllm_core)
 target_compile_definitions(skiffllm PRIVATE SKIFFLLM_VERSION="${PROJECT_VERSION}")
 skiffllm_apply_toolchain(skiffllm)
 skiffllm_apply_link_options(skiffllm)
+if(WIN32 AND SKIFFLLM_BUILD_GUI)
+    target_link_libraries(skiffllm PRIVATE skiffllm_imgui)
+    target_compile_definitions(skiffllm_cli PRIVATE SKIFFLLM_VERSION="${PROJECT_VERSION}")
+    target_link_libraries(skiffllm_cli PRIVATE skiffllm_core)
+    skiffllm_apply_toolchain(skiffllm_cli)
+    skiffllm_apply_link_options(skiffllm_cli)
+endif()
 
 if(SKIFFLLM_BUILD_TESTS)
     enable_testing()
@@ -204,16 +244,19 @@ if(SKIFFLLM_BUILD_TESTS)
     skiffllm_apply_toolchain(skiffllm_tests)
     skiffllm_apply_link_options(skiffllm_tests)
     add_test(NAME unit COMMAND skiffllm_tests)
-    add_test(NAME help COMMAND skiffllm --help)
-    add_test(NAME version COMMAND skiffllm --version)
-    add_test(NAME config COMMAND skiffllm --show-config)
-    add_test(NAME list_models COMMAND skiffllm --list-models)
-    add_test(NAME doctor COMMAND skiffllm --doctor)
-    add_test(NAME backend_info COMMAND skiffllm --backend-info)
-    add_test(NAME export COMMAND skiffllm --export ${CMAKE_CURRENT_BINARY_DIR}/export-test.md --no-save --quiet)
+    add_test(NAME help COMMAND ${SKIFFLLM_CLI_TARGET} --help)
+    add_test(NAME version COMMAND ${SKIFFLLM_CLI_TARGET} --version)
+    add_test(NAME config COMMAND ${SKIFFLLM_CLI_TARGET} --show-config)
+    add_test(NAME list_models COMMAND ${SKIFFLLM_CLI_TARGET} --list-models)
+    add_test(NAME doctor COMMAND ${SKIFFLLM_CLI_TARGET} --doctor)
+    add_test(NAME backend_info COMMAND ${SKIFFLLM_CLI_TARGET} --backend-info)
+    add_test(NAME export COMMAND ${SKIFFLLM_CLI_TARGET} --export ${CMAKE_CURRENT_BINARY_DIR}/export-test.md --no-save --quiet)
 endif()
 
 install(TARGETS skiffllm RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+if(WIN32 AND SKIFFLLM_BUILD_GUI)
+    install(TARGETS skiffllm_cli RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif()
 install(TARGETS skiffllm_core
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})

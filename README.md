@@ -97,6 +97,11 @@ Every published release carries native artifacts with a stable naming scheme:
 | `checksums.txt` | SHA-256 for every asset above |
 | `<asset>.sha256` | Per-asset SHA-256 integrity file |
 
+On Windows, `skiffllm.exe` opens the desktop GUI. It starts maximized and
+offers a model picker, live generation settings, streaming chat output, and a
+Stop button. The command-line build is also shipped as `skiffllm-cli.exe` so
+the same release can be scripted from PowerShell or a terminal.
+
 On Linux and macOS, mark a standalone executable with `chmod +x` after
 downloading it. The iOS `.ipa` is produced as an unsigned app container unless
 the repository
