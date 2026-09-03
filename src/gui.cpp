@@ -486,6 +486,8 @@ void DrawChatPanel(GuiStatePtr state) {
     char draft_input[8192] = {};
     const bool loaded = state->loaded.load();
     const bool generating = state->generating.load();
+    const bool busy = generating || state->loading.load();
+    const bool can_exit = true;
     {
         std::lock_guard<std::mutex> guard(state->mutex);
         messages = state->messages;
@@ -555,6 +557,14 @@ void DrawChatPanel(GuiStatePtr state) {
         }
         ImGui::EndDisabled();
     }
+    ImGui::SameLine();
+    if (ImGui::Button("Help")) {
+        state->status = "Commands: /exit or /quit to close, /clear to clear, /help for help.";
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Exit")) {
+        PostQuitMessage(0);
+    }
     ImGui::PopStyleColor();
     ImGui::EndChild();
 
@@ -594,6 +604,9 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         return true;
     }
     switch (msg) {
+        case WM_CLOSE:
+            DestroyWindow(hWnd);
+            return 0;
         case WM_SIZE:
             if (wParam == SIZE_MINIMIZED) {
                 return 0;
