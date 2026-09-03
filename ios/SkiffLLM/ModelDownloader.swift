@@ -70,7 +70,7 @@ final class ModelDownloader: NSObject, ObservableObject, URLSessionDownloadDeleg
             var hasher = SHA256()
             if let handle = try? FileHandle(forReadingFrom: url) {
                 defer { try? handle.close() }
-                var madeProgress = true
+                let madeProgress = true
                 while madeProgress {
                     let chunk = handle.readData(ofLength: 1024 * 1024)
                     if chunk.isEmpty { break }
@@ -159,7 +159,7 @@ final class ModelDownloader: NSObject, ObservableObject, URLSessionDownloadDeleg
         var hasher = SHA256()
         let handle = try FileHandle(forReadingFrom: file)
         defer { try? handle.close() }
-        var madeProgress = true
+        let madeProgress = true
         while madeProgress {
             let chunk = handle.readData(ofLength: 1024 * 1024)
             if chunk.isEmpty { break }

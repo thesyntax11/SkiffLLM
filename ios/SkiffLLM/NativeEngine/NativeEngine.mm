@@ -422,7 +422,7 @@ NSString *utf8_to_ns(const std::string &value) {
     }
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
         NSError *localError = nil;
-        uint32_t capacity = _ctx ? llama_n_ctx(_ctx) : 0;
+        uint32_t capacity = self->_ctx ? llama_n_ctx(self->_ctx) : 0;
         uint32_t generationReserve = capacity > 128 ? 64 : 1;
         uint32_t maxPrompt = capacity > generationReserve ? capacity - generationReserve : capacity;
 
@@ -471,13 +471,13 @@ NSString *utf8_to_ns(const std::string &value) {
             return;
         }
 
-        if (llama_memory_t mem = llama_get_memory(_ctx)) {
+        if (llama_memory_t mem = llama_get_memory(self->_ctx)) {
             llama_memory_clear(mem, true);
         }
-        llama_sampler_reset(_sampler);
+        llama_sampler_reset(self->_sampler);
 
         const double promptStart = now_ms();
-        uint32_t nBatch = _ctx ? llama_n_batch(_ctx) : 0;
+        uint32_t nBatch = self->_ctx ? llama_n_batch(self->_ctx) : 0;
         if (nBatch == 0) nBatch = (uint32_t)prompt.size();
         size_t offset = 0;
         while (offset < prompt.size()) {
@@ -501,13 +501,13 @@ NSString *utf8_to_ns(const std::string &value) {
         const double generationStart = now_ms();
 
         while (generated < target) {
-            if (_stopping.load()) {
+            if (self->_stopping.load()) {
                 stopped = true;
                 break;
             }
-            llama_token token = llama_sampler_sample(_sampler, _ctx, -1);
+            llama_token token = llama_sampler_sample(self->_sampler, self->_ctx, -1);
             if (token < 0) break;
-            if (llama_vocab_is_eog(_vocab, token)) break;
+            if (llama_vocab_is_eog(self->_vocab, token)) break;
 
             std::vector<llama_token> next = {token};
             if (![self decode:next error:&localError]) {
