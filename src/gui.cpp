@@ -1,5 +1,15 @@
-#include <commctrl.h>
+#ifndef _WIN32_WINNT
+#define _WIN32_WINNT 0x0601
+#endif
+#ifndef WINVER
+#define WINVER 0x0601
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
+
+#include <commctrl.h>
 
 #include <algorithm>
 #include <atomic>
