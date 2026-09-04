@@ -92,45 +92,45 @@ class MainActivity : ComponentActivity() {
 private fun SkiffTheme(themeName: String = "dark", content: @Composable () -> Unit) {
     val scheme = when (themeName) {
         "light" -> lightColorScheme(
-            primary = Color(0xFF3B6FE0),
-            secondary = Color(0xFF2E5BB5),
+            primary = Color(0xFF3B82F6),
+            secondary = Color(0xFF7C5CFF),
             background = Color(0xFFF4F6FB),
             surface = Color(0xFFFFFFFF),
             onPrimary = Color(0xFFFFFFFF),
-            onBackground = Color(0xFF1A1F27),
-            onSurface = Color(0xFF1A1F27)
+            onBackground = Color(0xFF10141C),
+            onSurface = Color(0xFF10141C)
         )
         "system" -> (
             if (isSystemInDarkTheme()) {
                 darkColorScheme(
-                    primary = Color(0xFF6BA6FF),
-                    secondary = Color(0xFF4A7DFF),
-                    background = Color(0xFF0B0F14),
-                    surface = Color(0xFF151A21),
-                    onPrimary = Color(0xFF0B0F14),
-                    onBackground = Color(0xFFE6EBF2),
-                    onSurface = Color(0xFFE6EBF2)
+                    primary = Color(0xFF6EA8FF),
+                    secondary = Color(0xFF9B6DFF),
+                    background = Color(0xFF0A0E17),
+                    surface = Color(0xFF111726),
+                    onPrimary = Color(0xFF0A0E17),
+                    onBackground = Color(0xFFE8EDF6),
+                    onSurface = Color(0xFFE8EDF6)
                 )
             } else {
                 lightColorScheme(
-                    primary = Color(0xFF3B6FE0),
-                    secondary = Color(0xFF2E5BB5),
+                    primary = Color(0xFF3B82F6),
+                    secondary = Color(0xFF7C5CFF),
                     background = Color(0xFFF4F6FB),
                     surface = Color(0xFFFFFFFF),
                     onPrimary = Color(0xFFFFFFFF),
-                    onBackground = Color(0xFF1A1F27),
-                    onSurface = Color(0xFF1A1F27)
+                    onBackground = Color(0xFF10141C),
+                    onSurface = Color(0xFF10141C)
                 )
             }
             )
         else -> darkColorScheme(
-            primary = Color(0xFF6BA6FF),
-            secondary = Color(0xFF4A7DFF),
-            background = Color(0xFF0B0F14),
-            surface = Color(0xFF151A21),
-            onPrimary = Color(0xFF0B0F14),
-            onBackground = Color(0xFFE6EBF2),
-            onSurface = Color(0xFFE6EBF2)
+            primary = Color(0xFF6EA8FF),
+            secondary = Color(0xFF9B6DFF),
+            background = Color(0xFF0A0E17),
+            surface = Color(0xFF111726),
+            onPrimary = Color(0xFF0A0E17),
+            onBackground = Color(0xFFE8EDF6),
+            onSurface = Color(0xFFE8EDF6)
         )
     }
     MaterialTheme(
@@ -1138,19 +1138,25 @@ private fun MessageBubble(message: ChatMessage) {
     val alignment = if (isUser) Alignment.End else Alignment.Start
     val bubbleColor = if (isUser) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
     val textColor = if (isUser) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+    val shape = if (isUser) {
+        RoundedCornerShape(16.dp, 4.dp, 16.dp, 16.dp)
+    } else {
+        RoundedCornerShape(4.dp, 16.dp, 16.dp, 16.dp)
+    }
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = alignment
     ) {
         Surface(
             color = bubbleColor,
-            shape = RoundedCornerShape(14.dp),
-            modifier = Modifier.heightIn(min = 34.dp)
+            shape = shape,
+            shadowElevation = if (isUser) 6.dp else 2.dp,
+            modifier = Modifier.heightIn(min = 36.dp)
         ) {
             Text(
                 message.content,
                 color = textColor,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp)
             )
         }
     }

@@ -620,6 +620,8 @@ struct ChatView: View {
             quickPromptsRow
             composer
         }
+        .tint(Color.skiffAccent)
+        .background(Color.skiffBackground.ignoresSafeArea())
         .preferredColorScheme(app.theme == .system ? nil
                               : app.theme == .dark ? .dark : .light)
         .sheet(isPresented: $app.showSettings) {
@@ -902,7 +904,7 @@ struct ChatView: View {
             TextEditor(text: $app.input)
                 .frame(minHeight: 38, maxHeight: 120)
                 .padding(6)
-                .background(Color(.secondarySystemBackground))
+                .background(Color.skiffSurfaceAlt)
                 .cornerRadius(12)
 
             Button { app.regenerate() } label: {
@@ -927,6 +929,12 @@ struct ChatView: View {
             }
         }
         .padding(12)
+        .background(Color.skiffSurface)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .stroke(Color.white.opacity(0.08), lineWidth: 1))
+        .padding(.horizontal, 14)
+        .padding(.bottom, 10)
     }
 }
 
@@ -939,15 +947,28 @@ struct MessageBubble: View {
         HStack {
             if isUser { Spacer(minLength: 60) }
             Text(message.content)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .foregroundColor(isUser ? .white : .primary)
-                .background(isUser ? Color.accentColor : Color(.secondarySystemBackground))
-                .cornerRadius(14)
-                .opacity(streaming ? 0.8 : 1)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 9)
+                .foregroundColor(isUser ? .white : Color.skiffText)
+                .background(
+                    isUser
+                        ? AnyShapeStyle(LinearGradient.skiffAccent)
+                        : AnyShapeStyle(Color.skiffSurface)
+                )
+                .clipShape(RoundedRectangle(
+                    cornerRadius: 16,
+                    style: .continuous
+                ))
+                .overlay(RoundedRectangle(
+                    cornerRadius: 16,
+                    style: .continuous
+                )
+                .stroke(Color.white.opacity(0.06), lineWidth: 1))
+                .opacity(streaming ? 0.82 : 1)
             if !isUser { Spacer(minLength: 60) }
         }
         .frame(maxWidth: .infinity)
+        .padding(.horizontal, 12)
     }
 }
 
