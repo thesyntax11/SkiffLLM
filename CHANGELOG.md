@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### Skills and modern UI
+
+- Added a shared C++ skills engine (`skiffllm::read_file`, `write_file`,
+  `list_files`, `search_files`, `run_command`, `fetch_url`, `current_time`,
+  `memory_save`, `memory_recall`, `memory_clear`).
+- Skills are available to the WebView2 desktop UI, the CLI, and the local HTTP
+  server; the desktop Web UI shows live skill calls and results in chat.
+- Transformed the embedded Web UI into a polished ChatGPT-style interface with
+  light/dark themes, a skills panel, conversation save/load/delete, Markdown
+  tables, code copy, message actions, keyboard shortcuts, toasts, and a
+  responsive mobile layout.
+- Added `GET /v1/skills` and `POST /v1/skills/execute` to the local server and
+  automatic skill resolution for non-streaming chat completions.
+- Added unit coverage for skill parsing, built-in skill catalog, file/memory
+  skills, and error paths.
+
 ### Release artifacts and publishability
 
 - Added standalone native binaries alongside archives in `scripts/release.sh`

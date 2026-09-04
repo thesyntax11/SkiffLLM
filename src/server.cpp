@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "skiffllm/http_auth.hpp"
+#include "skiffllm/skills.hpp"
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -903,11 +904,40 @@ void handle_chat_completions(skiffllm_socket_t socket_fd, const Config& config, 
     options.token_callback = nullptr;
     GenerationResult result;
     std::string error;
-    const bool ok = engine.generate(messages, options, result, interrupted, error);
+    std::vector<ChatMessage> conversation = messages;
+    bool ok = false;
+    for (int round = 0; round < 8; ++round) {
+        GenerationResult round_result;
+        ok = engine.generate(conversation, options, round_result, interrupted, error);
+        if (!ok) {
+            break;
+        }
+        result = round_result;
+        std::vector<SkillRequest> requests;
+        std::string skill_error;
+        if (!parse_skill_requests(result.text, requests, skill_error) || requests.empty()) {
+            break;
+        }
+        conversation.push_back({"assistant", result.text});
+        bool executed = false;
+        for (const SkillRequest& request : requests) {
+            std::string result_text;
+            std::string execute_error;
+            result_text = execute_skill(config, request, execute_error);
+            conversation.push_back(
+                {"user", "Skill result for " + request.name + ":\n" +
+                             (execute_error.empty() ? result_text : "Error: " + execute_error)});
+            executed = true;
+        }
+        if (!executed) {
+            break;
+        }
+    }
     if (!ok) {
         send_chat_error(socket_fd, false, error, request_id);
         return;
     }
+    result.text = strip_skill_markers(result.text);
 
     std::ostringstream out;
     out << "{\n";
@@ -952,7 +982,8 @@ void handle_request(skiffllm_socket_t socket_fd, const Config& config, SkiffEngi
         send_response(socket_fd, 200, "application/json", out.str(), error);
         return;
     }
-    if (request.target == "/v1/models" || request.target == "/v1/chat/completions") {
+    if (request.target == "/v1/models" || request.target == "/v1/chat/completions" ||
+        request.target == "/v1/skills" || request.target == "/v1/skills/execute") {
         const auto authorization = request.headers.find("authorization");
         const bool authorized =
             config.api_key.empty() || (authorization != request.headers.end() &&
@@ -972,10 +1003,66 @@ void handle_request(skiffllm_socket_t socket_fd, const Config& config, SkiffEngi
         send_response(socket_fd, 200, "application/json", out.str(), error);
         return;
     }
+    if (request.method == "GET" && request.target == "/v1/skills") {
+        std::ostringstream out;
+        out << "{\"object\":\"list\",\"data\":[";
+        const auto catalog = skill_catalog();
+        for (size_t i = 0; i < catalog.size(); ++i) {
+            if (i != 0) {
+                out << ",";
+            }
+            out << "{\"name\":" << json_escape(catalog[i])
+                << ",\"description\":" << json_escape(skill_description(catalog[i]))
+                << ",\"example\":" << json_escape(skill_example(catalog[i])) << "}";
+        }
+        out << "]}\n";
+        send_response(socket_fd, 200, "application/json", out.str(), error);
+        return;
+    }
+    if (request.method == "POST" && request.target == "/v1/skills/execute") {
+        Json body;
+        std::string parse_error;
+        JsonParser parser(request.body);
+        if (!parser.parse(body, parse_error)) {
+            send_response(socket_fd, 400, "application/json",
+                          "{\"error\":\"" + json_escape("invalid JSON body") + "\"}\n", error);
+            return;
+        }
+        const Json* name = json_find(body, "name");
+        if (name == nullptr || name->type != Json::Type::String || name->string.empty()) {
+            send_response(socket_fd, 400, "application/json", "{\"error\":\"name is required\"}\n",
+                          error);
+            return;
+        }
+        SkillRequest request;
+        request.name = name->string;
+        if (const Json* args = json_find(body, "args")) {
+            if (args->type == Json::Type::Object) {
+                for (const auto& entry : args->object) {
+                    if (entry.second.type == Json::Type::String) {
+                        request.args[entry.first] = entry.second.string;
+                    } else if (entry.second.type == Json::Type::Number) {
+                        request.args[entry.first] = std::to_string(entry.second.number);
+                    } else if (entry.second.type == Json::Type::Boolean) {
+                        request.args[entry.first] = entry.second.boolean ? "true" : "false";
+                    }
+                }
+            }
+        }
+        std::string skill_error;
+        const std::string result = execute_skill(config, request, skill_error);
+        std::ostringstream out;
+        out << "{\"ok\":" << (skill_error.empty() ? "true" : "false")
+            << ",\"result\":" << json_escape(result) << ",\"error\":" << json_escape(skill_error)
+            << "}\n";
+        send_response(socket_fd, 200, "application/json", out.str(), error);
+        return;
+    }
     if (request.method == "GET" && request.target == "/") {
         send_response(socket_fd, 200, "text/plain",
                       "SkiffLLM local inference server\n"
                       "Endpoints: GET /health, GET /version, GET /v1/models, "
+                      "GET /v1/skills, POST /v1/skills/execute, "
                       "POST /v1/chat/completions\n",
                       error);
         return;

@@ -1307,7 +1307,7 @@ struct AboutSheet: View {
                     Text("SkiffLLM")
                         .font(.title)
                         .foregroundColor(.accentColor)
-                    Text("Version 1.6.0 (iOS)")
+                    Text("Version 1.7.0 (iOS)")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }

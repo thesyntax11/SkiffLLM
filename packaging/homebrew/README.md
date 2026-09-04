@@ -6,11 +6,11 @@ release archive exists.
 ## What is needed
 
 1. A real GitHub release with an archive asset, for example:
-   `https://github.com/thesyntax11/SkiffLLM/archive/refs/tags/v1.6.0.tar.gz`
+   `https://github.com/thesyntax11/SkiffLLM/archive/refs/tags/v1.7.0.tar.gz`
 2. The SHA-256 of that archive:
    ```bash
-   curl -L https://github.com/thesyntax11/SkiffLLM/archive/refs/tags/v1.6.0.tar.gz -o v1.6.0.tar.gz
-   sha256sum v1.6.0.tar.gz
+   curl -L https://github.com/thesyntax11/SkiffLLM/archive/refs/tags/v1.7.0.tar.gz -o v1.7.0.tar.gz
+   sha256sum v1.7.0.tar.gz
    ```
 
 ## Adding a tap
@@ -22,7 +22,7 @@ shape and replace the URL, SHA-256, and version fields:
 class Skifflm < Formula
   desc "Offline-first local LLM terminal assistant built on llama.cpp"
   homepage "https://github.com/thesyntax11/SkiffLLM"
-  url "https://github.com/thesyntax11/SkiffLLM/archive/refs/tags/v1.6.0.tar.gz"
+  url "https://github.com/thesyntax11/SkiffLLM/archive/refs/tags/v1.7.0.tar.gz"
   sha256 "REPLACE_WITH_REAL_SHA256"
   license "MIT"
 

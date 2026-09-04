@@ -13,7 +13,7 @@ android {
         minSdk = 26
         targetSdk = 34
         versionCode = 10600
-        versionName = "1.6.0"
+        versionName = "1.7.0"
 
         ndkVersion = "26.3.11579264"
 

@@ -9,6 +9,7 @@
 #include "skiffllm/config.hpp"
 #include "skiffllm/http_auth.hpp"
 #include "skiffllm/session.hpp"
+#include "skiffllm/skills.hpp"
 #include "skiffllm/tools.hpp"
 
 void run_extra_tests();
@@ -510,6 +511,78 @@ void test_session_resolution() {
     check(cfg.history_path.filename() == "writing.skif", "session history should use the name");
 }
 
+void test_skills_engine() {
+    std::vector<skiffllm::SkillRequest> requests;
+    std::string error;
+    const std::string invocation =
+        "{{skill:{\"name\":\"read_file\",\"args\":{\"path\":\"a.txt\"}}}}\n"
+        "{{skill:{\"name\":\"current_time\",\"args\":{}}}}";
+    check(skiffllm::parse_skill_requests(invocation, requests, error),
+          "skill markers should parse");
+    check(requests.size() == 2, "two skill requests should be found");
+    check(requests[0].name == "read_file", "first skill name should match");
+    check(requests[0].args.at("path") == "a.txt", "skill args should read");
+    check(requests[1].name == "current_time", "second skill name should match");
+    const std::string stripped = skiffllm::strip_skill_markers(invocation);
+    check(stripped.find("{{skill:") == std::string::npos, "skill markers should be stripped");
+
+    const std::vector<std::string> enabled = {"read_file", "write_file", "list_files"};
+    check(skiffllm::skill_available("read_file", enabled), "enabled skill should be available");
+    check(!skiffllm::skill_available("fetch_url", enabled), "disabled skill should be unavailable");
+    check(skiffllm::skill_catalog().size() >= 10, "skill catalog should expose the built-ins");
+
+    const auto dir = std::filesystem::temp_directory_path() / "skiffllm-skills-test";
+    std::filesystem::remove_all(dir);
+    std::filesystem::create_directories(dir);
+
+    skiffllm::Config cfg = skiffllm::default_config();
+    cfg.memory_path = dir / "memories.txt";
+
+    skiffllm::SkillRequest write_request;
+    write_request.name = "write_file";
+    write_request.args["path"] = (dir / "hello.txt").string();
+    write_request.args["content"] = "hello skills";
+    check(skiffllm::execute_skill(cfg, write_request, error).find("File written:") !=
+              std::string::npos,
+          "write_file should return a success message");
+
+    skiffllm::SkillRequest read_request;
+    read_request.name = "read_file";
+    read_request.args["path"] = (dir / "hello.txt").string();
+    const std::string read_result = skiffllm::execute_skill(cfg, read_request, error);
+    check(read_result.find("hello skills") != std::string::npos, "read_file should return content");
+
+    skiffllm::SkillRequest list_request;
+    list_request.name = "list_files";
+    list_request.args["path"] = dir.string();
+    const std::string list_result = skiffllm::execute_skill(cfg, list_request, error);
+    check(list_result.find("hello.txt") != std::string::npos, "list_files should list the file");
+
+    skiffllm::SkillRequest save_request;
+    save_request.name = "memory_save";
+    save_request.args["text"] = "favorite color is blue";
+    check(skiffllm::execute_skill(cfg, save_request, error).find("Saved") != std::string::npos,
+          "memory_save should succeed");
+    skiffllm::SkillRequest recall_request;
+    recall_request.name = "memory_recall";
+    const std::string recall = skiffllm::execute_skill(cfg, recall_request, error);
+    check(recall.find("favorite color is blue") != std::string::npos,
+          "memory_recall should return saved facts");
+    skiffllm::SkillRequest clear_request;
+    clear_request.name = "memory_clear";
+    check(skiffllm::execute_skill(cfg, clear_request, error).find("cleared") != std::string::npos,
+          "memory_clear should succeed");
+
+    skiffllm::SkillRequest unknown;
+    unknown.name = "not_a_skill";
+    std::string unknown_error;
+    check(skiffllm::execute_skill(cfg, unknown, unknown_error).empty(),
+          "unknown skills should return empty output");
+    check(!unknown_error.empty(), "unknown skills should report an error");
+
+    std::filesystem::remove_all(dir);
+}
+
 void test_cli_utils() {
     bool ok = false;
     check(approx(static_cast<float>(skiffllm::cli::parse_double("0.42", ok)), 0.42f),
@@ -552,6 +625,7 @@ int main() {
     test_config_and_stats_features();
     test_ui_and_backend_flags();
     test_openai_passthrough_flags();
+    test_skills_engine();
     test_cli_utils();
     run_extra_tests();
     return 0;

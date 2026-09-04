@@ -74,7 +74,7 @@ ctest --test-dir build/release --output-on-failure
 ### Or install a published release
 
 ```bash
-bash scripts/install-from-release.sh --version v1.6.0
+bash scripts/install-from-release.sh --version v1.7.0
 ```
 
 The helper maps your OS/arch to the release archive. It fails fast when a
@@ -474,7 +474,7 @@ make help
 ```
 
 Prebuilt archives follow `skiffllm-<version>-<os>-<arch>.tar.gz` (for example
-`skiffllm-v1.6.0-linux-x86_64.tar.gz`, `.zip` on Windows) with a `checksums.txt`
+`skiffllm-v1.7.0-linux-x86_64.tar.gz`, `.zip` on Windows) with a `checksums.txt`
 when published. See [docs/INSTALL.md](docs/INSTALL.md).
 Shell completions are in [scripts/completions](scripts/completions/).
 

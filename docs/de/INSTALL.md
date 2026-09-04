@@ -12,14 +12,14 @@ Wenn eine Version veröffentlicht wird, enthält sie Plattformarchive namens
 
 ```bash
 # Linux / macOS
-tar -xzf skiffllm-v1.6.0-linux-x86_64.tar.gz
+tar -xzf skiffllm-v1.7.0-linux-x86_64.tar.gz
 sudo install -m 0755 bin/skiffllm /usr/local/bin/skiffllm
 ```
 
 Ein gebrauchsfertiges Hilfsskript ist enthalten:
 
 ```bash
-bash scripts/install-from-release.sh --version v1.6.0
+bash scripts/install-from-release.sh --version v1.7.0
 bash scripts/install-from-release.sh --help
 ```
 

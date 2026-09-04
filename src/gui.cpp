@@ -20,7 +20,9 @@
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
+#include <ctime>
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <sstream>
@@ -32,6 +34,8 @@
 #include "skiffllm/config.hpp"
 #include "skiffllm/engine.hpp"
 #include "skiffllm/messages.hpp"
+#include "skiffllm/skills.hpp"
+#include "skiffllm/tools.hpp"
 
 using skiffllm::ChatMessage;
 using skiffllm::Config;
@@ -412,6 +416,9 @@ struct AppState {
     std::string stream;
     std::string status;
     std::string system_prompt;
+    std::vector<std::string> enabled_skills;
+    bool skills_enabled = false;
+    std::string current_conversation = "default";
 };
 
 using AppStatePtr = std::shared_ptr<AppState>;
@@ -473,10 +480,145 @@ std::string models_json(const AppStatePtr& state) {
 }
 
 std::string conversations_json(const AppStatePtr& state) {
-    if (state->messages.empty()) {
-        return "[]";
+    std::string error;
+    const auto files = skiffllm::list_session_files(state->cfg, error);
+    std::ostringstream out;
+    out << "[";
+    bool first = true;
+    for (const auto& file : files) {
+        if (!first) {
+            out << ",";
+        }
+        first = false;
+        out << json_escape(file.stem().string());
     }
-    return "[\"Current conversation\"]";
+    if (state->current_conversation != "default" &&
+        state->current_conversation != "Current conversation") {
+        const std::string candidate = state->current_conversation;
+        bool found = false;
+        for (const auto& file : files) {
+            if (file.stem().string() == candidate) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            if (!first) {
+                out << ",";
+            }
+            out << json_escape(candidate);
+        }
+    }
+    out << "]";
+    return out.str();
+}
+
+std::string skills_json(const AppStatePtr& state) {
+    std::ostringstream out;
+    out << "{\"enabled\":";
+    out << (state->skills_enabled ? "true" : "false");
+    out << ",\"catalog\":[";
+    const auto catalog = skiffllm::skill_catalog();
+    bool first = true;
+    for (const auto& name : catalog) {
+        if (!first) {
+            out << ",";
+        }
+        first = false;
+        out << "{\"name\":";
+        out << json_escape(name);
+        out << ",\"description\":";
+        out << json_escape(skiffllm::skill_description(name));
+        out << ",\"example\":";
+        out << json_escape(skiffllm::skill_example(name));
+        out << ",\"enabled\":";
+        out << (skiffllm::skill_available(name, state->enabled_skills) ? "true" : "false");
+        out << "}";
+    }
+    out << "]}";
+    return out.str();
+}
+
+void apply_skill_settings(AppStatePtr state, const JsonValue& params) {
+    std::lock_guard<std::mutex> guard(state->mutex);
+    const JsonValue* enabled = json_find(params, "enabled");
+    const JsonValue* list = json_find(params, "list");
+    if (enabled != nullptr) {
+        state->skills_enabled = json_bool(*enabled, state->skills_enabled);
+    }
+    state->enabled_skills.clear();
+    if (list != nullptr && list->type == JsonValue::Type::Array) {
+        for (const auto& item : list->array) {
+            if (item.type == JsonValue::Type::String) {
+                state->enabled_skills.push_back(item.string);
+            }
+        }
+    } else if (state->skills_enabled) {
+        state->enabled_skills = skiffllm::skill_catalog();
+    }
+}
+
+std::string conversation_name(const std::string& input) {
+    std::string name = skiffllm::trim(input);
+    if (name.empty()) {
+        name = "conversation-" + std::to_string(std::time(nullptr));
+    }
+    return name;
+}
+
+bool save_conversation(AppStatePtr state, const std::string& name, const JsonValue& messages_value,
+                       std::string& error) {
+    std::lock_guard<std::mutex> guard(state->mutex);
+    Config session_cfg = state->cfg;
+    session_cfg.history_path = skiffllm::session_file_for(state->cfg, conversation_name(name));
+    skiffllm::Session session(session_cfg);
+    session.set_system_prompt(state->system_prompt);
+    if (messages_value.type == JsonValue::Type::Array) {
+        for (const auto& item : messages_value.array) {
+            const JsonValue* role = json_find(item, "role");
+            const JsonValue* content = json_find(item, "content");
+            if (role != nullptr && content != nullptr) {
+                session.messages().push_back({json_string(*role), json_string(*content)});
+            }
+        }
+    }
+    if (!session.save(error)) {
+        return false;
+    }
+    state->current_conversation = conversation_name(name);
+    return true;
+}
+
+bool load_conversation(AppStatePtr state, const std::string& name,
+                       std::vector<ChatMessage>& messages, std::string& error) {
+    std::lock_guard<std::mutex> guard(state->mutex);
+    Config session_cfg = state->cfg;
+    session_cfg.history_path = skiffllm::session_file_for(state->cfg, name);
+    skiffllm::Session session(session_cfg);
+    if (!session.load(error)) {
+        return false;
+    }
+    messages = session.messages();
+    state->system_prompt = session.system_prompt();
+    state->current_conversation = name;
+    return true;
+}
+
+bool delete_conversation(AppStatePtr state, const std::string& name, std::string& error) {
+    std::lock_guard<std::mutex> guard(state->mutex);
+    const auto path = skiffllm::session_file_for(state->cfg, name);
+    std::error_code ec;
+    if (!std::filesystem::exists(path, ec)) {
+        return true;
+    }
+    if (!std::filesystem::remove(path, ec) || ec) {
+        error = "cannot remove conversation: " + ec.message();
+        return false;
+    }
+    if (state->current_conversation == name) {
+        state->current_conversation = "default";
+    }
+    return true;
 }
 
 void post_event(std::string event) {
@@ -620,16 +762,45 @@ std::string format_stats(const GenerationResult& result) {
     return out.str();
 }
 
+std::string skill_call_json(const std::string& name,
+                            const std::map<std::string, std::string>& args) {
+    std::ostringstream out;
+    out << "{\"name\":";
+    out << json_escape(name);
+    out << ",\"args\":{";
+    bool first = true;
+    for (const auto& entry : args) {
+        if (!first) {
+            out << ",";
+        }
+        first = false;
+        out << json_escape(entry.first) << ":" << json_escape(entry.second);
+    }
+    out << "}}";
+    return out.str();
+}
+
 void generate_messages(AppStatePtr state, const JsonValue& messages_value,
                        const JsonValue& settings) {
     std::vector<ChatMessage> ask;
+    bool skills_enabled = false;
+    std::vector<std::string> enabled_skills;
     {
         std::lock_guard<std::mutex> guard(state->mutex);
         if (!state->loaded.load() || state->generating.load() || state->loading.load()) {
             return;
         }
-        if (!state->system_prompt.empty()) {
-            ask.push_back({"system", state->system_prompt});
+        if (state->skills_enabled && !state->enabled_skills.empty()) {
+            skills_enabled = true;
+            enabled_skills = state->enabled_skills;
+        }
+        std::string system = state->system_prompt;
+        if (skills_enabled) {
+            const std::string instructions = skiffllm::skill_instructions(enabled_skills);
+            system = system.empty() ? instructions : system + "\n\n" + instructions;
+        }
+        if (!system.empty()) {
+            ask.push_back({"system", system});
         }
         for (const auto& item : messages_value.array) {
             const JsonValue* role = json_find(item, "role");
@@ -665,7 +836,7 @@ void generate_messages(AppStatePtr state, const JsonValue& messages_value,
         gen.max_tokens = static_cast<int>(json_number(*value, 512.0));
     }
 
-    std::thread([state, ask, gen]() {
+    std::thread([state, ask, gen, skills_enabled, enabled_skills]() {
         std::shared_ptr<Config> cfg;
         std::shared_ptr<SkiffEngine> engine;
         {
@@ -693,42 +864,100 @@ void generate_messages(AppStatePtr state, const JsonValue& messages_value,
         options.reserve_ctx = cfg->reserve_ctx;
         options.n_keep = cfg->n_keep;
         options.stop_sequences = cfg->stop_sequences;
-        options.token_callback = [state](const std::string& part) {
-            std::string stream;
+
+        std::vector<ChatMessage> conversation = ask;
+        std::string final_text;
+        GenerationResult final_result;
+        bool ok = true;
+        std::string last_error;
+        bool used_skills = false;
+
+        for (int round = 0; round < 10; ++round) {
             {
                 std::lock_guard<std::mutex> guard(state->mutex);
-                state->stream += part;
-                stream = state->stream;
+                state->stream.clear();
             }
-            std::string event = "{\"type\":\"token\",\"text\":";
-            event += json_escape(stream);
-            event += "}";
-            post_event(event);
-        };
-        GenerationResult result;
-        std::string error;
-        const bool ok = engine->generate(
-            ask, options, result, [state]() { return state->stop_requested.load(); }, error);
+            options.token_callback = [state](const std::string& part) {
+                std::string stream;
+                {
+                    std::lock_guard<std::mutex> guard(state->mutex);
+                    state->stream += part;
+                    stream = state->stream;
+                }
+                std::string event = "{\"type\":\"token\",\"text\":";
+                event += json_escape(stream);
+                event += "}";
+                post_event(event);
+            };
+            const bool generated = engine->generate(
+                conversation, options, final_result,
+                [state]() { return state->stop_requested.load(); }, last_error);
+            if (!generated) {
+                ok = false;
+                break;
+            }
+            final_text = final_result.text;
+            if (!skills_enabled) {
+                break;
+            }
+            std::vector<skiffllm::SkillRequest> requests;
+            std::string skill_error;
+            if (!skiffllm::parse_skill_requests(final_text, requests, skill_error) ||
+                requests.empty()) {
+                break;
+            }
+            conversation.push_back({"assistant", final_text});
+            bool executed = false;
+            for (const auto& request : requests) {
+                std::string result;
+                std::string error;
+                if (!skiffllm::skill_available(request.name, enabled_skills)) {
+                    result = "Error: skill is not enabled";
+                    error = "skill is not enabled";
+                } else {
+                    result = skiffllm::execute_skill(*cfg, request, error);
+                }
+                used_skills = true;
+                std::string event = "{\"type\":\"skill\",\"call\":";
+                event += skill_call_json(request.name, request.args);
+                event += ",\"result\":";
+                event += json_escape(error.empty() ? result : "Error: " + error);
+                event += ",\"error\":";
+                event += json_escape(error);
+                event += "}";
+                post_event(event);
+                conversation.push_back({"user", "Skill result for " + request.name + ":\n" +
+                                                    (error.empty() ? result : "Error: " + error)});
+                executed = true;
+            }
+            if (!executed) {
+                break;
+            }
+        }
+
+        if (ok && used_skills) {
+            final_text = skiffllm::strip_skill_markers(final_text);
+        }
         {
             std::lock_guard<std::mutex> guard(state->mutex);
-            if (ok && !result.text.empty()) {
-                state->messages.push_back({"assistant", result.text});
+            if (ok && !final_text.empty()) {
+                state->messages.push_back({"assistant", final_text});
             }
             state->generating.store(false);
             state->stop_requested.store(false);
             state->status = ok ? "Generation complete" : "Generation interrupted";
         }
-        if (ok && !result.text.empty()) {
+        if (ok && !final_text.empty()) {
             std::string event = "{\"type\":\"generated\",\"text\":";
-            event += json_escape(result.text);
+            event += json_escape(final_text);
             event += ",\"stats\":";
-            event += json_escape(format_stats(result));
+            event += json_escape(format_stats(final_result));
             event += "}";
             post_event(event);
             post_event("{\"type\":\"status\",\"text\":\"Generation complete\",\"kind\":\"ok\"}");
         } else {
             std::string event = "{\"type\":\"error\",\"error\":";
-            event += json_escape(error.empty() ? "Generation interrupted" : error);
+            event += json_escape(last_error.empty() ? "Generation interrupted" : last_error);
             event += "}";
             post_event(event);
         }
@@ -741,14 +970,18 @@ void handle_skiff(const char* id, const std::string& method, const JsonValue& pa
         discover_models(state);
         std::string result;
         result += "{\"models\":";
-        std::lock_guard<std::mutex> guard(state->mutex);
-        result += models_json(state);
-        result += ",\"conversations\":";
-        result += conversations_json(state);
-        result += ",\"version\":";
-        result += json_escape("1.6.0");
-        result += ",\"backend\":\"WebView2 - llama.cpp\",\"system_prompt\":";
-        result += json_escape(state->system_prompt);
+        {
+            std::lock_guard<std::mutex> guard(state->mutex);
+            result += models_json(state);
+            result += ",\"conversations\":";
+            result += conversations_json(state);
+            result += ",\"skills\":";
+            result += skills_json(state);
+            result += ",\"version\":";
+            result += json_escape("1.7.0");
+            result += ",\"backend\":\"WebView2 - llama.cpp\",\"system_prompt\":";
+            result += json_escape(state->system_prompt);
+        }
         result += "}";
         reply(id, result);
         return;
@@ -801,33 +1034,126 @@ void handle_skiff(const char* id, const std::string& method, const JsonValue& pa
     if (method == "newConversation") {
         std::lock_guard<std::mutex> guard(state->mutex);
         state->messages.clear();
+        state->current_conversation = "default";
         reply(id, "{\"ok\":true}");
         return;
     }
     if (method == "loadConversation") {
-        std::lock_guard<std::mutex> guard(state->mutex);
+        const JsonValue* name = json_find(params, "name");
+        if (name == nullptr || json_string(*name).empty()) {
+            reply_error(id, "No conversation name provided");
+            return;
+        }
+        std::vector<ChatMessage> loaded;
+        std::string error;
+        if (!load_conversation(state, json_string(*name), loaded, error)) {
+            reply_error(id, error);
+            return;
+        }
         std::ostringstream out;
         out << "{\"ok\":true,\"messages\":[";
-        for (size_t i = 0; i < state->messages.size(); ++i) {
+        for (size_t i = 0; i < loaded.size(); ++i) {
             if (i != 0) {
                 out << ",";
             }
             out << "{\"role\":";
-            out << json_escape(state->messages[i].role);
+            out << json_escape(loaded[i].role);
             out << ",\"content\":";
-            out << json_escape(state->messages[i].content);
+            out << json_escape(loaded[i].content);
             out << "}";
         }
-        out << "]}";
+        out << "],\"system_prompt\":";
+        out << json_escape(state->system_prompt);
+        out << "}";
+        reply(id, out.str());
+        return;
+    }
+    if (method == "saveConversation") {
+        const JsonValue* name = json_find(params, "name");
+        const JsonValue* messages = json_find(params, "messages");
+        if (name == nullptr || messages == nullptr || messages->type != JsonValue::Type::Array) {
+            reply_error(id, "saveConversation requires name and messages");
+            return;
+        }
+        std::string error;
+        if (!save_conversation(state, json_string(*name), *messages, error)) {
+            reply_error(id, error);
+            return;
+        }
+        reply(id, "{\"ok\":true}");
+        return;
+    }
+    if (method == "listConversations") {
+        std::lock_guard<std::mutex> guard(state->mutex);
+        std::ostringstream out;
+        out << "{\"conversations\":";
+        out << conversations_json(state);
+        out << "}";
         reply(id, out.str());
         return;
     }
     if (method == "deleteConversation") {
+        const JsonValue* name = json_find(params, "name");
+        if (name == nullptr || json_string(*name).empty()) {
+            reply_error(id, "No conversation name provided");
+            return;
+        }
+        std::string error;
+        if (!delete_conversation(state, json_string(*name), error)) {
+            reply_error(id, error);
+            return;
+        }
         reply(id, "{\"ok\":true}");
         return;
     }
+    if (method == "skills") {
+        std::lock_guard<std::mutex> guard(state->mutex);
+        reply(id, skills_json(state));
+        return;
+    }
+    if (method == "setSkills") {
+        apply_skill_settings(state, params);
+        std::lock_guard<std::mutex> guard(state->mutex);
+        reply(id, skills_json(state));
+        return;
+    }
+    if (method == "executeSkill") {
+        const JsonValue* name = json_find(params, "name");
+        if (name == nullptr || json_string(*name).empty()) {
+            reply_error(id, "No skill name provided");
+            return;
+        }
+        skiffllm::SkillRequest request;
+        request.name = json_string(*name);
+        if (const JsonValue* args = json_find(params, "args")) {
+            if (args->type == JsonValue::Type::Object) {
+                for (const auto& entry : args->object) {
+                    request.args[entry.first] =
+                        entry.second.type == JsonValue::Type::String
+                            ? entry.second.string
+                            : (entry.second.type == JsonValue::Type::Number
+                                   ? std::to_string(entry.second.number)
+                                   : (entry.second.type == JsonValue::Type::Bool
+                                          ? (entry.second.boolean ? "true" : "false")
+                                          : ""));
+                }
+            }
+        }
+        std::string error;
+        const std::string result = skiffllm::execute_skill(state->cfg, request, error);
+        std::ostringstream out;
+        out << "{\"ok\":";
+        out << (error.empty() ? "true" : "false");
+        out << ",\"result\":";
+        out << json_escape(result);
+        out << ",\"error\":";
+        out << json_escape(error);
+        out << "}";
+        reply(id, out.str());
+        return;
+    }
     if (method == "version") {
-        reply(id, "{\"version\":\"1.6.0\"}");
+        reply(id, "{\"version\":\"1.7.0\"}");
         return;
     }
     reply_error(id, "Unknown method");
@@ -899,11 +1225,19 @@ int WINAPI WinMain(HINSTANCE h_instance, HINSTANCE, LPSTR, int) {
             appdata = std::getenv("USERPROFILE");
         }
         if (appdata != nullptr && *appdata) {
-            state->cfg.model_dir = std::filesystem::path(appdata) / "SkiffLLM" / "models";
+            const auto root = std::filesystem::path(appdata) / "SkiffLLM";
+            state->cfg.model_dir = root / "models";
+            state->cfg.history_path = root / "history.skif";
+            state->cfg.memory_path = root / "memories.txt";
         }
     }
     std::error_code ec;
     std::filesystem::create_directories(state->cfg.model_dir, ec);
+    if (!state->cfg.history_path.empty()) {
+        std::filesystem::create_directories(state->cfg.history_path.parent_path(), ec);
+    }
+    state->enabled_skills = skiffllm::skill_catalog();
+    state->skills_enabled = true;
     g_cached_model_dir = state->cfg.model_dir.string();
     g_state = state;
 

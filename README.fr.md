@@ -20,7 +20,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="Licence MIT"/>
-  <img src="https://img.shields.io/badge/version-v1.6.0-blue" alt="Version v1.6.0"/>
+  <img src="https://img.shields.io/badge/version-v1.7.0-blue" alt="Version v1.7.0"/>
   <img src="https://img.shields.io/badge/c%2B%2B-17-blue.svg" alt="C++17"/>
   <img src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows%20%7C%20Android%20%7C%20iOS-lightgrey" alt="Plateformes"/>
   <img src="https://img.shields.io/badge/runtime-offline-green" alt="Hors ligne"/>
@@ -65,7 +65,7 @@ ctest --test-dir build/release --output-on-failure
 ### Ou installer une version publiée
 
 ```bash
-bash scripts/install-from-release.sh --version v1.6.0
+bash scripts/install-from-release.sh --version v1.7.0
 ```
 
 Le script associe votre système d'exploitation et votre architecture à
@@ -414,7 +414,7 @@ make help
 ```
 
 Les archives précompilées suivent le motif `skiffllm-<version>-<os>-<arch>.tar.gz`
-(par exemple `skiffllm-v1.6.0-linux-x86_64.tar.gz`, `.zip` sous Windows) avec
+(par exemple `skiffllm-v1.7.0-linux-x86_64.tar.gz`, `.zip` sous Windows) avec
 `checksums.txt` lorsqu'elles sont publiées. Voir
 [docs/fr/INSTALL.md](docs/fr/INSTALL.md). Les complétions de shell se trouvent
 dans [scripts/completions](scripts/completions/).

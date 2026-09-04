@@ -14,6 +14,7 @@
 #include "skiffllm/engine.hpp"
 #include "skiffllm/server.hpp"
 #include "skiffllm/session.hpp"
+#include "skiffllm/skills.hpp"
 #include "skiffllm/terminal.hpp"
 #include "skiffllm/tools.hpp"
 
@@ -31,7 +32,7 @@ using skiffllm::cli::read_stdin;
 using skiffllm::cli::write_text_file;
 
 #ifndef SKIFFLLM_VERSION
-#define SKIFFLLM_VERSION "1.6.0"
+#define SKIFFLLM_VERSION "1.7.0"
 #endif
 const char* kVersion = SKIFFLLM_VERSION;
 volatile std::sig_atomic_t g_interrupted = 0;
@@ -407,6 +408,75 @@ bool ask_model(skiffllm::SkiffEngine& engine, const skiffllm::GenerationOptions&
         terminal.write_raw("\n");
     }
     terminal.print_stats(result, "Generated");
+    return true;
+}
+
+bool resolve_skill_calls(const skiffllm::Config& cfg, skiffllm::SkiffEngine& engine,
+                         const skiffllm::GenerationOptions& options,
+                         std::vector<skiffllm::ChatMessage>& conversation, std::string& answer,
+                         skiffllm::Terminal& terminal, bool quiet = false) {
+    const std::vector<std::string> enabled = skiffllm::skill_catalog();
+    for (int round = 0; round < 8; ++round) {
+        std::vector<skiffllm::SkillRequest> requests;
+        std::string parse_error;
+        if (!skiffllm::parse_skill_requests(answer, requests, parse_error) || requests.empty()) {
+            answer = skiffllm::strip_skill_markers(answer);
+            return true;
+        }
+        conversation.push_back({"assistant", answer});
+        bool used_skill = false;
+        for (const auto& request : requests) {
+            std::string result;
+            std::string error;
+            if (!skiffllm::skill_available(request.name, enabled)) {
+                result = "Error: skill is not enabled";
+            } else {
+                result = skiffllm::execute_skill(cfg, request, error);
+                if (!quiet) {
+                    terminal.info("Running skill: " + request.name);
+                }
+                if (!error.empty() && !quiet) {
+                    terminal.warning(request.name + ": " + error);
+                }
+            }
+            const std::string payload = "Skill result for " + request.name + ":\n" +
+                                        (error.empty() ? result : "Error: " + error);
+            conversation.push_back({"user", payload});
+            used_skill = true;
+        }
+        if (!used_skill) {
+            answer = skiffllm::strip_skill_markers(answer);
+            return true;
+        }
+        skiffllm::GenerationResult next;
+        skiffllm::GenerationOptions next_options = options;
+        std::unique_ptr<LiveStreamer> streamer;
+        if (!quiet) {
+            streamer = std::make_unique<LiveStreamer>(terminal);
+            streamer->reset();
+            next_options.token_callback = [&streamer](const std::string& part) {
+                streamer->write(part);
+            };
+        }
+        std::string generate_error;
+        if (!engine.generate(
+                conversation, next_options, next, []() { return g_interrupted != 0; },
+                generate_error)) {
+            if (!quiet) {
+                terminal.error(generate_error);
+            }
+            return false;
+        }
+        if (streamer) {
+            streamer->finish();
+        }
+        if (next.text.empty()) {
+            answer = skiffllm::strip_skill_markers(answer);
+            return true;
+        }
+        answer = next.text;
+    }
+    answer = skiffllm::strip_skill_markers(answer);
     return true;
 }
 
@@ -948,7 +1018,14 @@ int run_interactive(skiffllm::Config& cfg, std::unique_ptr<skiffllm::SkiffEngine
             continue;
         }
 
-        session.messages().push_back({"assistant", result.text});
+        std::vector<skiffllm::ChatMessage> skill_conversation = ask;
+        std::string assistant_answer = result.text;
+        if (!resolve_skill_calls(cfg, *engine, options, skill_conversation, assistant_answer,
+                                 terminal)) {
+            session.messages().pop_back();
+            continue;
+        }
+        session.messages().push_back({"assistant", assistant_answer});
         if (cfg.save_history) {
             std::string error;
             if (!session.save(error)) {
@@ -1172,10 +1249,17 @@ int run_one_shot(skiffllm::Config& cfg, std::unique_ptr<skiffllm::SkiffEngine>& 
         return 1;
     }
 
+    std::vector<skiffllm::ChatMessage> skill_conversation = ask;
+    std::string assistant_answer = result.text;
+    if (!resolve_skill_calls(cfg, *engine, options, skill_conversation, assistant_answer, terminal,
+                             cfg.json_output)) {
+        return 1;
+    }
+
     if (cfg.json_output) {
         std::ostringstream out;
         out << "{\n";
-        out << "  \"text\":" << json_escape(result.text) << ",\n";
+        out << "  \"text\":" << json_escape(assistant_answer) << ",\n";
         out << "  \"model\":" << json_escape(cfg.model_path.string()) << ",\n";
         out << "  \"prompt_tokens\":" << result.prompt_tokens << ",\n";
         out << "  \"generated_tokens\":" << result.generated_tokens << ",\n";
@@ -1186,7 +1270,7 @@ int run_one_shot(skiffllm::Config& cfg, std::unique_ptr<skiffllm::SkiffEngine>& 
         out << "}\n";
         std::cout << out.str();
     } else {
-        if (!result.text.empty() && result.text.back() != '\n') {
+        if (!assistant_answer.empty() && assistant_answer.back() != '\n') {
             terminal.write_raw("\n");
         }
         terminal.print_stats(result, "Generated");
@@ -1204,7 +1288,7 @@ int run_one_shot(skiffllm::Config& cfg, std::unique_ptr<skiffllm::SkiffEngine>& 
 
     if (!cfg.output_path.empty()) {
         std::string write_error;
-        if (!write_text_file(cfg.output_path, result.text, write_error)) {
+        if (!write_text_file(cfg.output_path, assistant_answer, write_error)) {
             terminal.error(write_error);
         } else if (!cfg.json_output) {
             terminal.success("Answer written to " + cfg.output_path.string());
@@ -1212,7 +1296,7 @@ int run_one_shot(skiffllm::Config& cfg, std::unique_ptr<skiffllm::SkiffEngine>& 
     }
 
     session.messages().push_back({"user", prompt_text});
-    session.messages().push_back({"assistant", result.text});
+    session.messages().push_back({"assistant", assistant_answer});
     if (cfg.save_history) {
         std::string save_error;
         if (!session.save(save_error)) {

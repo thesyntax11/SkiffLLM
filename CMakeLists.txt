@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(SkiffLLM VERSION 1.6.0 LANGUAGES C CXX)
+project(SkiffLLM VERSION 1.7.0 LANGUAGES C CXX)
 
 if(WIN32)
     add_compile_definitions(NOMINMAX)
@@ -131,6 +131,7 @@ add_library(skiffllm_core
     src/http_auth.cpp
     src/server.cpp
     src/session.cpp
+    src/skills.cpp
     src/terminal.cpp
     src/tools.cpp
 )
