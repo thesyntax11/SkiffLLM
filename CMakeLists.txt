@@ -207,7 +207,7 @@ target_compile_definitions(skiffllm PRIVATE SKIFFLLM_VERSION="${PROJECT_VERSION}
 skiffllm_apply_toolchain(skiffllm)
 skiffllm_apply_link_options(skiffllm)
 if(WIN32 AND SKIFFLLM_BUILD_GUI)
-    target_link_libraries(skiffllm PRIVATE comctl32)
+    target_link_libraries(skiffllm PRIVATE comctl32 comdlg32)
     target_sources(skiffllm_cli PRIVATE "${SKIFFLLM_RC_FILE}")
     target_compile_definitions(skiffllm_cli PRIVATE SKIFFLLM_VERSION="${PROJECT_VERSION}")
     target_link_libraries(skiffllm_cli PRIVATE skiffllm_core)

@@ -10,6 +10,7 @@
 #include <windows.h>
 
 #include <commctrl.h>
+#include <commdlg.h>
 
 #include <algorithm>
 #include <atomic>
@@ -189,7 +190,7 @@ void refresh_models(GuiStatePtr state) {
     std::vector<std::filesystem::path> models = skiffllm::discover_models(state->cfg, error);
     {
         std::lock_guard<std::mutex> guard(state->mutex);
-        state->models = std::move(models);
+        state->models = models;
         state->selected_model = 0;
         state->status =
             error.empty() ? (state->models.empty() ? "No models found" : "Select a model") : error;
@@ -832,6 +833,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR cmd_line, int) {
     wc.lpfnWndProc = WndProc;
     wc.hInstance = hInstance;
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
+    wc.hbrBackground = g_background;
     wc.lpszClassName = L"SkiffLLMWindow";
     RegisterClassExW(&wc);
 
