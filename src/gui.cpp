@@ -48,6 +48,8 @@ using skiffllm::SkiffEngine;
 
 namespace {
 
+std::string desktop_backend_name();
+
 constexpr int kWebResourceId = 100;
 
 struct JsonValue {
@@ -1484,3 +1486,5 @@ int main(int, char**) {
     return run_app();
 }
 #endif
+
+}
