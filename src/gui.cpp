@@ -422,7 +422,7 @@ std::string g_cached_model_dir;
 
 std::string read_resource(int id) {
     HMODULE module = GetModuleHandleW(nullptr);
-    HRSRC found = FindResourceW(module, MAKEINTRESOURCEW(id), RT_RCDATA);
+    HRSRC found = FindResourceW(module, MAKEINTRESOURCEW(id), MAKEINTRESOURCEW(10));
     if (found == nullptr) {
         return {};
     }
@@ -860,19 +860,21 @@ void skiff_callback(const char* id, const char* req, void*) {
 }
 
 struct MaximizePayload {
-    HICON big;
-    HICON small;
+    HICON icon_large;
+    HICON icon_small;
 };
 
 void maximize_trampoline(webview_t view, void* raw) {
     auto* payload = static_cast<MaximizePayload*>(raw);
     HWND window = reinterpret_cast<HWND>(webview_get_window(view));
     if (window != nullptr) {
-        if (payload->big != nullptr) {
-            SendMessageW(window, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(payload->big));
+        if (payload->icon_large != nullptr) {
+            SendMessageW(window, WM_SETICON, ICON_BIG,
+                         reinterpret_cast<LPARAM>(payload->icon_large));
         }
-        if (payload->small != nullptr) {
-            SendMessageW(window, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(payload->small));
+        if (payload->icon_small != nullptr) {
+            SendMessageW(window, WM_SETICON, ICON_SMALL,
+                         reinterpret_cast<LPARAM>(payload->icon_small));
         }
         ShowWindow(window, SW_MAXIMIZE);
     }
@@ -924,10 +926,10 @@ int WINAPI WinMain(HINSTANCE h_instance, HINSTANCE, LPSTR, int) {
     webview_set_size(view, 1280, 800, WEBVIEW_HINT_NONE);
 
     auto* maximize = new MaximizePayload;
-    maximize->big = static_cast<HICON>(LoadImageW(h_instance, MAKEINTRESOURCEW(1), IMAGE_ICON,
-                                                  GetSystemMetrics(SM_CXICON),
-                                                  GetSystemMetrics(SM_CYICON), LR_DEFAULTCOLOR));
-    maximize->small = static_cast<HICON>(
+    maximize->icon_large = static_cast<HICON>(
+        LoadImageW(h_instance, MAKEINTRESOURCEW(1), IMAGE_ICON, GetSystemMetrics(SM_CXICON),
+                   GetSystemMetrics(SM_CYICON), LR_DEFAULTCOLOR));
+    maximize->icon_small = static_cast<HICON>(
         LoadImageW(h_instance, MAKEINTRESOURCEW(1), IMAGE_ICON, GetSystemMetrics(SM_CXSMICON),
                    GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR));
     webview_dispatch(view, maximize_trampoline, maximize);
