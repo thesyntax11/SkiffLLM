@@ -52,22 +52,22 @@ std::string desktop_backend_name();
 
 constexpr int kWebResourceId = 100;
 
-struct JsonValue {
-    enum class Type { Null, Bool, Number, String, Array, Object };
+struct GuiJsonValue {
+    enum class Kind { NullValue, BoolValue, NumberValue, StringValue, ArrayValue, ObjectValue };
 
-    Type type = Type::Null;
-    bool boolean = false;
-    double number = 0.0;
-    std::string string;
-    std::vector<JsonValue> array;
-    std::vector<std::pair<std::string, JsonValue>> object;
+    Kind kind = Kind::NullValue;
+    bool bool_value = false;
+    double number_value = 0.0;
+    std::string string_value;
+    std::vector<GuiJsonValue> array_values;
+    std::vector<std::pair<std::string, GuiJsonValue>> object_values;
 };
 
-const JsonValue* json_find(const JsonValue& value, const std::string& key) {
-    if (value.type != JsonValue::Type::Object) {
+const GuiJsonValue* json_find(const GuiJsonValue& value, const std::string& key) {
+    if (value.kind != GuiJsonValue::Kind::ObjectValue) {
         return nullptr;
     }
-    for (const auto& entry : value.object) {
+    for (const auto& entry : value.object_values) {
         if (entry.first == key) {
             return &entry.second;
         }
@@ -75,16 +75,16 @@ const JsonValue* json_find(const JsonValue& value, const std::string& key) {
     return nullptr;
 }
 
-bool json_bool(const JsonValue& value, bool fallback) {
-    return value.type == JsonValue::Type::Bool ? value.boolean : fallback;
+bool json_bool(const GuiJsonValue& value, bool fallback) {
+    return value.kind == GuiJsonValue::Kind::BoolValue ? value.bool_value : fallback;
 }
 
-double json_number(const JsonValue& value, double fallback) {
-    return value.type == JsonValue::Type::Number ? value.number : fallback;
+double json_number(const GuiJsonValue& value, double fallback) {
+    return value.kind == GuiJsonValue::Kind::NumberValue ? value.number_value : fallback;
 }
 
-std::string json_string(const JsonValue& value, const std::string& fallback = "") {
-    return value.type == JsonValue::Type::String ? value.string : fallback;
+std::string json_string(const GuiJsonValue& value, const std::string& fallback = "") {
+    return value.kind == GuiJsonValue::Kind::StringValue ? value.string_value : fallback;
 }
 
 std::string json_escape(const std::string& value) {
@@ -132,7 +132,7 @@ class JsonParser {
    public:
     explicit JsonParser(const std::string& input) : text_(input), index_(0) {}
 
-    bool parse(JsonValue& output, std::string& error) {
+    bool parse(GuiJsonValue& output, std::string& error) {
         skip_space();
         if (!parse_value(output)) {
             error = error_;
@@ -147,7 +147,7 @@ class JsonParser {
     }
 
    private:
-    bool parse_value(JsonValue& output) {
+    bool parse_value(GuiJsonValue& output) {
         skip_space();
         if (index_ >= text_.size()) {
             error_ = "unexpected end";
@@ -155,16 +155,16 @@ class JsonParser {
         }
         const char ch = text_[index_];
         if (ch == '"') {
-            output.type = JsonValue::Type::String;
-            return parse_string(output.string);
+            output.kind = GuiJsonValue::Kind::StringValue;
+            return parse_string(output.string_value);
         }
         if (ch == '{') {
-            output.type = JsonValue::Type::Object;
-            return parse_object(output.object);
+            output.kind = GuiJsonValue::Kind::ObjectValue;
+            return parse_object(output.object_values);
         }
         if (ch == '[') {
-            output.type = JsonValue::Type::Array;
-            return parse_array(output.array);
+            output.kind = GuiJsonValue::Kind::ArrayValue;
+            return parse_array(output.array_values);
         }
         if (ch == 't') {
             if (text_.compare(index_, 4, "true") != 0) {
@@ -172,8 +172,8 @@ class JsonParser {
                 return false;
             }
             index_ += 4;
-            output.type = JsonValue::Type::Bool;
-            output.boolean = true;
+            output.kind = GuiJsonValue::Kind::BoolValue;
+            output.bool_value = true;
             return true;
         }
         if (ch == 'f') {
@@ -182,8 +182,8 @@ class JsonParser {
                 return false;
             }
             index_ += 5;
-            output.type = JsonValue::Type::Bool;
-            output.boolean = false;
+            output.kind = GuiJsonValue::Kind::BoolValue;
+            output.bool_value = false;
             return true;
         }
         if (ch == 'n') {
@@ -192,12 +192,12 @@ class JsonParser {
                 return false;
             }
             index_ += 4;
-            output.type = JsonValue::Type::Null;
+            output.kind = GuiJsonValue::Kind::NullValue;
             return true;
         }
         if (ch == '-' || (ch >= '0' && ch <= '9')) {
-            output.type = JsonValue::Type::Number;
-            return parse_number(output.number);
+            output.kind = GuiJsonValue::Kind::NumberValue;
+            return parse_number(output.number_value);
         }
         error_ = "unexpected character";
         return false;
@@ -317,7 +317,7 @@ class JsonParser {
         return true;
     }
 
-    bool parse_object(std::vector<std::pair<std::string, JsonValue>>& output) {
+    bool parse_object(std::vector<std::pair<std::string, GuiJsonValue>>& output) {
         ++index_;
         skip_space();
         if (index_ < text_.size() && text_[index_] == '}') {
@@ -340,7 +340,7 @@ class JsonParser {
                 return false;
             }
             ++index_;
-            JsonValue value;
+            GuiJsonValue value;
             if (!parse_value(value)) {
                 return false;
             }
@@ -361,7 +361,7 @@ class JsonParser {
         return false;
     }
 
-    bool parse_array(std::vector<JsonValue>& output) {
+    bool parse_array(std::vector<GuiJsonValue>& output) {
         ++index_;
         skip_space();
         if (index_ < text_.size() && text_[index_] == ']') {
@@ -369,7 +369,7 @@ class JsonParser {
             return true;
         }
         while (index_ < text_.size()) {
-            JsonValue value;
+            GuiJsonValue value;
             if (!parse_value(value)) {
                 return false;
             }
@@ -566,21 +566,21 @@ std::string skills_json(const AppStatePtr& state) {
     return out.str();
 }
 
-void apply_skill_settings(AppStatePtr state, const JsonValue& params) {
+void apply_skill_settings(AppStatePtr state, const GuiJsonValue& params) {
     std::lock_guard<std::mutex> guard(state->mutex);
-    const JsonValue* enabled = json_find(params, "enabled");
-    const JsonValue* list = json_find(params, "list");
+    const GuiJsonValue* enabled = json_find(params, "enabled");
+    const GuiJsonValue* list = json_find(params, "list");
     if (enabled != nullptr) {
         state->skills_enabled = json_bool(*enabled, state->skills_enabled);
     }
     std::vector<std::string> chosen;
-    if (list != nullptr && list->type == JsonValue::Type::Array) {
+    if (list != nullptr && list->kind == GuiJsonValue::Kind::ArrayValue) {
         const auto catalog = skiffllm::skill_catalog();
-        for (const auto& item : list->array) {
-            if (item.type == JsonValue::Type::String &&
-                std::find(catalog.begin(), catalog.end(), item.string) != catalog.end() &&
-                std::find(chosen.begin(), chosen.end(), item.string) == chosen.end()) {
-                chosen.push_back(item.string);
+        for (const auto& item : list->array_values) {
+            if (item.kind == GuiJsonValue::Kind::StringValue &&
+                std::find(catalog.begin(), catalog.end(), item.string_value) != catalog.end() &&
+                std::find(chosen.begin(), chosen.end(), item.string_value) == chosen.end()) {
+                chosen.push_back(item.string_value);
             }
         }
     }
@@ -602,17 +602,17 @@ std::string conversation_name(const std::string& input) {
     return name;
 }
 
-bool save_conversation(AppStatePtr state, const std::string& name, const JsonValue& messages_value,
-                       std::string& error) {
+bool save_conversation(AppStatePtr state, const std::string& name,
+                       const GuiJsonValue& messages_value, std::string& error) {
     std::lock_guard<std::mutex> guard(state->mutex);
     Config session_cfg = state->cfg;
     session_cfg.history_path = skiffllm::session_file_for(state->cfg, conversation_name(name));
     skiffllm::Session session(session_cfg);
     session.set_system_prompt(state->system_prompt);
-    if (messages_value.type == JsonValue::Type::Array) {
-        for (const auto& item : messages_value.array) {
-            const JsonValue* role = json_find(item, "role");
-            const JsonValue* content = json_find(item, "content");
+    if (messages_value.kind == GuiJsonValue::Kind::ArrayValue) {
+        for (const auto& item : messages_value.array_values) {
+            const GuiJsonValue* role = json_find(item, "role");
+            const GuiJsonValue* content = json_find(item, "content");
             if (role != nullptr && content != nullptr) {
                 session.messages().push_back({json_string(*role), json_string(*content)});
             }
@@ -726,20 +726,21 @@ std::string browse_model() {
 #endif
 }
 
-void load_model_from_path(AppStatePtr state, const std::string& path, const JsonValue& settings) {
+void load_model_from_path(AppStatePtr state, const std::string& path,
+                          const GuiJsonValue& settings) {
     {
         std::lock_guard<std::mutex> guard(state->mutex);
         if (state->loading.load() || state->loaded.load()) {
             return;
         }
         state->cfg.model_path = skiffllm::expand_path(path);
-        if (const JsonValue* value = json_find(settings, "context")) {
+        if (const GuiJsonValue* value = json_find(settings, "context")) {
             state->cfg.context_size = static_cast<int>(json_number(*value, 4096.0));
         }
-        if (const JsonValue* value = json_find(settings, "threads")) {
+        if (const GuiJsonValue* value = json_find(settings, "threads")) {
             state->cfg.n_threads = static_cast<int>(json_number(*value, 8.0));
         }
-        if (const JsonValue* value = json_find(settings, "system_prompt")) {
+        if (const GuiJsonValue* value = json_find(settings, "system_prompt")) {
             state->system_prompt = json_string(*value, "");
         }
         state->loading.store(true);
@@ -827,7 +828,7 @@ std::filesystem::path gui_settings_path(const Config& cfg) {
     return std::filesystem::path("skiffllm-gui.json");
 }
 
-bool save_gui_settings(const AppStatePtr& state, const JsonValue& params, std::string& error) {
+bool save_gui_settings(const AppStatePtr& state, const GuiJsonValue& params, std::string& error) {
     const auto path = gui_settings_path(state->cfg);
     std::error_code ec;
     if (!path.parent_path().empty()) {
@@ -842,12 +843,12 @@ bool save_gui_settings(const AppStatePtr& state, const JsonValue& params, std::s
         error = "cannot open settings file: " + path.string();
         return false;
     }
-    const JsonValue* system = json_find(params, "system_prompt");
-    const JsonValue* temperature = json_find(params, "temperature");
-    const JsonValue* top_p = json_find(params, "top_p");
-    const JsonValue* max_tokens = json_find(params, "max_tokens");
-    const JsonValue* context = json_find(params, "context");
-    const JsonValue* threads = json_find(params, "threads");
+    const GuiJsonValue* system = json_find(params, "system_prompt");
+    const GuiJsonValue* temperature = json_find(params, "temperature");
+    const GuiJsonValue* top_p = json_find(params, "top_p");
+    const GuiJsonValue* max_tokens = json_find(params, "max_tokens");
+    const GuiJsonValue* context = json_find(params, "context");
+    const GuiJsonValue* threads = json_find(params, "threads");
     out << "{\"system_prompt\":";
     out << json_escape(system == nullptr ? std::string() : json_string(*system));
     out << ",\"temperature\":" << (temperature == nullptr ? 0.7 : json_number(*temperature, 0.7));
@@ -878,8 +879,8 @@ std::string load_gui_settings(const AppStatePtr& state) {
     return "{}";
 }
 
-void generate_messages(AppStatePtr state, const JsonValue& messages_value,
-                       const JsonValue& settings) {
+void generate_messages(AppStatePtr state, const GuiJsonValue& messages_value,
+                       const GuiJsonValue& settings) {
     std::vector<ChatMessage> ask;
     bool skills_enabled = false;
     std::vector<std::string> enabled_skills;
@@ -900,9 +901,9 @@ void generate_messages(AppStatePtr state, const JsonValue& messages_value,
         if (!system.empty()) {
             ask.push_back({"system", system});
         }
-        for (const auto& item : messages_value.array) {
-            const JsonValue* role = json_find(item, "role");
-            const JsonValue* content = json_find(item, "content");
+        for (const auto& item : messages_value.array_values) {
+            const GuiJsonValue* role = json_find(item, "role");
+            const GuiJsonValue* content = json_find(item, "content");
             if (role != nullptr && content != nullptr) {
                 ask.push_back({json_string(*role), json_string(*content)});
             }
@@ -924,13 +925,13 @@ void generate_messages(AppStatePtr state, const JsonValue& messages_value,
     };
 
     GenerationSettings gen;
-    if (const JsonValue* value = json_find(settings, "temperature")) {
+    if (const GuiJsonValue* value = json_find(settings, "temperature")) {
         gen.temperature = static_cast<float>(json_number(*value, 0.7));
     }
-    if (const JsonValue* value = json_find(settings, "top_p")) {
+    if (const GuiJsonValue* value = json_find(settings, "top_p")) {
         gen.top_p = static_cast<float>(json_number(*value, 0.95));
     }
-    if (const JsonValue* value = json_find(settings, "max_tokens")) {
+    if (const GuiJsonValue* value = json_find(settings, "max_tokens")) {
         gen.max_tokens = static_cast<int>(json_number(*value, 512.0));
     }
 
@@ -1062,7 +1063,7 @@ void generate_messages(AppStatePtr state, const JsonValue& messages_value,
     }).detach();
 }
 
-void handle_skiff(const char* id, const std::string& method, const JsonValue& params) {
+void handle_skiff(const char* id, const std::string& method, const GuiJsonValue& params) {
     AppStatePtr state = g_state;
     if (method == "init") {
         discover_models(state);
@@ -1097,13 +1098,13 @@ void handle_skiff(const char* id, const std::string& method, const JsonValue& pa
         return;
     }
     if (method == "loadModel") {
-        const JsonValue* path = json_find(params, "path");
-        const JsonValue* settings = json_find(params, "settings");
+        const GuiJsonValue* path = json_find(params, "path");
+        const GuiJsonValue* settings = json_find(params, "settings");
         if (path == nullptr || json_string(*path).empty()) {
             reply_error(id, "No model path provided");
             return;
         }
-        const JsonValue empty_settings;
+        const GuiJsonValue empty_settings;
         load_model_from_path(state, json_string(*path),
                              settings == nullptr ? empty_settings : *settings);
         reply(id, "{\"ok\":true}");
@@ -1115,13 +1116,13 @@ void handle_skiff(const char* id, const std::string& method, const JsonValue& pa
         return;
     }
     if (method == "generate") {
-        const JsonValue* messages = json_find(params, "messages");
-        const JsonValue* settings = json_find(params, "settings");
-        if (messages == nullptr || messages->type != JsonValue::Type::Array) {
+        const GuiJsonValue* messages = json_find(params, "messages");
+        const GuiJsonValue* settings = json_find(params, "settings");
+        if (messages == nullptr || messages->kind != GuiJsonValue::Kind::ArrayValue) {
             reply_error(id, "No messages provided");
             return;
         }
-        const JsonValue empty_settings;
+        const GuiJsonValue empty_settings;
         generate_messages(state, *messages, settings == nullptr ? empty_settings : *settings);
         reply(id, "{\"ok\":true}");
         return;
@@ -1139,7 +1140,7 @@ void handle_skiff(const char* id, const std::string& method, const JsonValue& pa
         return;
     }
     if (method == "loadConversation") {
-        const JsonValue* name = json_find(params, "name");
+        const GuiJsonValue* name = json_find(params, "name");
         if (name == nullptr || json_string(*name).empty()) {
             reply_error(id, "No conversation name provided");
             return;
@@ -1169,9 +1170,10 @@ void handle_skiff(const char* id, const std::string& method, const JsonValue& pa
         return;
     }
     if (method == "saveConversation") {
-        const JsonValue* name = json_find(params, "name");
-        const JsonValue* messages = json_find(params, "messages");
-        if (name == nullptr || messages == nullptr || messages->type != JsonValue::Type::Array) {
+        const GuiJsonValue* name = json_find(params, "name");
+        const GuiJsonValue* messages = json_find(params, "messages");
+        if (name == nullptr || messages == nullptr ||
+            messages->kind != GuiJsonValue::Kind::ArrayValue) {
             reply_error(id, "saveConversation requires name and messages");
             return;
         }
@@ -1193,7 +1195,7 @@ void handle_skiff(const char* id, const std::string& method, const JsonValue& pa
         return;
     }
     if (method == "deleteConversation") {
-        const JsonValue* name = json_find(params, "name");
+        const GuiJsonValue* name = json_find(params, "name");
         if (name == nullptr || json_string(*name).empty()) {
             reply_error(id, "No conversation name provided");
             return;
@@ -1218,23 +1220,23 @@ void handle_skiff(const char* id, const std::string& method, const JsonValue& pa
         return;
     }
     if (method == "executeSkill") {
-        const JsonValue* name = json_find(params, "name");
+        const GuiJsonValue* name = json_find(params, "name");
         if (name == nullptr || json_string(*name).empty()) {
             reply_error(id, "No skill name provided");
             return;
         }
         skiffllm::SkillRequest request;
         request.name = json_string(*name);
-        if (const JsonValue* args = json_find(params, "args")) {
-            if (args->type == JsonValue::Type::Object) {
-                for (const auto& entry : args->object) {
+        if (const GuiJsonValue* args = json_find(params, "args")) {
+            if (args->kind == GuiJsonValue::Kind::ObjectValue) {
+                for (const auto& entry : args->object_values) {
                     request.args[entry.first] =
-                        entry.second.type == JsonValue::Type::String
-                            ? entry.second.string
-                            : (entry.second.type == JsonValue::Type::Number
-                                   ? std::to_string(entry.second.number)
-                                   : (entry.second.type == JsonValue::Type::Bool
-                                          ? (entry.second.boolean ? "true" : "false")
+                        entry.second.kind == GuiJsonValue::Kind::StringValue
+                            ? entry.second.string_value
+                            : (entry.second.kind == GuiJsonValue::Kind::NumberValue
+                                   ? std::to_string(entry.second.number_value)
+                                   : (entry.second.kind == GuiJsonValue::Kind::BoolValue
+                                          ? (entry.second.bool_value ? "true" : "false")
                                           : ""));
                 }
             }
@@ -1287,7 +1289,7 @@ void handle_skiff(const char* id, const std::string& method, const JsonValue& pa
         return;
     }
     if (method == "saveMemory") {
-        const JsonValue* text = json_find(params, "text");
+        const GuiJsonValue* text = json_find(params, "text");
         if (text == nullptr || json_string(*text).empty()) {
             reply_error(id, "No memory text provided");
             return;
@@ -1351,22 +1353,22 @@ void skiff_callback(const char* id, const char* req, void*) {
         return;
     }
     const std::string request = req == nullptr ? "[]" : req;
-    JsonValue root;
+    GuiJsonValue root;
     std::string error;
     JsonParser request_parser(request);
-    if (!request_parser.parse(root, error) || root.type != JsonValue::Type::Array ||
-        root.array.empty() || root.array[0].type != JsonValue::Type::String) {
+    if (!request_parser.parse(root, error) || root.kind != GuiJsonValue::Kind::ArrayValue ||
+        root.array_values.empty() || root.array_values[0].kind != GuiJsonValue::Kind::StringValue) {
         reply_error(id, "Invalid request");
         return;
     }
-    const std::string method = root.array[0].string;
-    JsonValue params;
-    if (root.array.size() > 1) {
-        if (root.array[1].type == JsonValue::Type::String) {
-            JsonParser params_parser(root.array[1].string);
+    const std::string method = root.array_values[0].string_value;
+    GuiJsonValue params;
+    if (root.array_values.size() > 1) {
+        if (root.array_values[1].kind == GuiJsonValue::Kind::StringValue) {
+            JsonParser params_parser(root.array_values[1].string_value);
             params_parser.parse(params, error);
         } else {
-            params = root.array[1];
+            params = root.array_values[1];
         }
     }
     handle_skiff(id, method, params);
@@ -1474,6 +1476,8 @@ int run_app() {
     return 0;
 }
 
+}
+
 #ifdef _WIN32
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
@@ -1486,5 +1490,3 @@ int main(int, char**) {
     return run_app();
 }
 #endif
-
-}
