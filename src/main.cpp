@@ -32,7 +32,7 @@ using skiffllm::cli::read_stdin;
 using skiffllm::cli::write_text_file;
 
 #ifndef SKIFFLLM_VERSION
-#define SKIFFLLM_VERSION "1.7.0"
+#define SKIFFLLM_VERSION "1.8.0"
 #endif
 const char* kVersion = SKIFFLLM_VERSION;
 volatile std::sig_atomic_t g_interrupted = 0;
@@ -397,8 +397,8 @@ bool ask_model(skiffllm::SkiffEngine& engine, const skiffllm::GenerationOptions&
     streamer.reset();
     skiffllm::GenerationOptions current = options;
     current.token_callback = [&streamer](const std::string& part) { streamer.write(part); };
-    const bool ok = engine.generate(
-        messages, current, result, []() { return g_interrupted != 0; }, error);
+    const bool ok =
+        engine.generate(messages, current, result, []() { return g_interrupted != 0; }, error);
     streamer.finish();
     if (!ok) {
         terminal.error(error);
@@ -519,8 +519,8 @@ bool compact_session(const skiffllm::Config& cfg, skiffllm::SkiffEngine& engine,
     terminal.write("Compacting conversation...\n", skiffllm::Color::Cyan);
 
     std::string error;
-    const bool ok = engine.generate(
-        ask, compact_options, result, []() { return g_interrupted != 0; }, error);
+    const bool ok =
+        engine.generate(ask, compact_options, result, []() { return g_interrupted != 0; }, error);
     streamer.finish();
     if (!ok) {
         terminal.error(error);
@@ -574,8 +574,8 @@ bool regenerate_session(const skiffllm::Config& cfg, skiffllm::SkiffEngine& engi
     terminal.write("Regenerating response...\n", skiffllm::Color::Cyan);
 
     std::string error;
-    const bool ok = engine.generate(
-        ask, regen_options, result, []() { return g_interrupted != 0; }, error);
+    const bool ok =
+        engine.generate(ask, regen_options, result, []() { return g_interrupted != 0; }, error);
     streamer.finish();
     if (!ok) {
         terminal.error(error);
@@ -1094,8 +1094,8 @@ int run_benchmark(skiffllm::Config& cfg, std::unique_ptr<skiffllm::SkiffEngine>&
         skiffllm::GenerationResult result;
         run_options.token_callback = nullptr;
         std::string error;
-        const bool ok = engine->generate(
-            ask, run_options, result, []() { return g_interrupted != 0; }, error);
+        const bool ok =
+            engine->generate(ask, run_options, result, []() { return g_interrupted != 0; }, error);
         if (!ok) {
             if (cfg.json_output) {
                 std::cout << "{\"error\":" << json_escape(error) << "}\n";
@@ -1235,8 +1235,8 @@ int run_one_shot(skiffllm::Config& cfg, std::unique_ptr<skiffllm::SkiffEngine>& 
 
     skiffllm::GenerationResult result;
     std::string error;
-    const bool ok = engine->generate(
-        ask, current, result, []() { return g_interrupted != 0; }, error);
+    const bool ok =
+        engine->generate(ask, current, result, []() { return g_interrupted != 0; }, error);
     streamer.finish();
     if (!ok) {
         if (cfg.json_output) {

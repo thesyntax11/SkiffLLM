@@ -978,7 +978,7 @@ void handle_skiff(const char* id, const std::string& method, const JsonValue& pa
             result += ",\"skills\":";
             result += skills_json(state);
             result += ",\"version\":";
-            result += json_escape("1.7.0");
+            result += json_escape(SKIFFLLM_VERSION);
             result += ",\"backend\":\"WebView2 - llama.cpp\",\"system_prompt\":";
             result += json_escape(state->system_prompt);
         }
@@ -1152,8 +1152,82 @@ void handle_skiff(const char* id, const std::string& method, const JsonValue& pa
         reply(id, out.str());
         return;
     }
+    if (method == "modelInfo") {
+        std::lock_guard<std::mutex> guard(state->mutex);
+        std::ostringstream out;
+        if (!state->engine || !state->loaded.load()) {
+            out << "{\"loaded\":false}";
+            reply(id, out.str());
+            return;
+        }
+        const auto& info = state->engine->info();
+        out << "{\"loaded\":true,\"path\":";
+        out << json_escape(state->cfg.model_path.string());
+        out << ",\"description\":";
+        out << json_escape(info.description);
+        out << ",\"file_type\":";
+        out << json_escape(info.file_type);
+        out << ",\"params\":" << info.n_params;
+        out << ",\"size_bytes\":" << info.size_bytes;
+        out << ",\"context_capacity\":" << state->engine->context_capacity();
+        out << ",\"context\":" << state->cfg.context_size;
+        out << ",\"threads\":" << state->cfg.n_threads;
+        out << ",\"backend\":";
+        out << json_escape(state->engine->active_backends());
+        out << "}";
+        reply(id, out.str());
+        return;
+    }
+    if (method == "getMemories") {
+        std::lock_guard<std::mutex> guard(state->mutex);
+        std::string out = "{\"memories\":";
+        out += json_escape(skiffllm::load_memories(state->cfg));
+        out += "}";
+        reply(id, out);
+        return;
+    }
+    if (method == "saveMemory") {
+        const JsonValue* text = json_find(params, "text");
+        if (text == nullptr || json_string(*text).empty()) {
+            reply_error(id, "No memory text provided");
+            return;
+        }
+        std::string error;
+        if (!skiffllm::append_memory(state->cfg, json_string(*text), error)) {
+            reply_error(id, error);
+            return;
+        }
+        reply(id, "{\"ok\":true}");
+        return;
+    }
+    if (method == "clearMemories") {
+        std::string error;
+        if (!skiffllm::clear_memories(state->cfg, error)) {
+            reply_error(id, error);
+            return;
+        }
+        reply(id, "{\"ok\":true}");
+        return;
+    }
+    if (method == "getStats") {
+        skiffllm::UsageStats stats;
+        std::string error;
+        const bool ok = skiffllm::load_usage_stats(state->cfg, stats, error);
+        std::ostringstream out;
+        out << "{\"ok\":" << (ok ? "true" : "false");
+        out << ",\"sessions\":" << stats.sessions;
+        out << ",\"messages\":" << stats.messages;
+        out << ",\"prompt_tokens\":" << stats.prompt_tokens;
+        out << ",\"generated_tokens\":" << stats.generated_tokens;
+        out << ",\"total_prompt_ms\":" << stats.total_prompt_ms;
+        out << ",\"total_generation_ms\":" << stats.total_generation_ms;
+        out << ",\"error\":" << json_escape(error);
+        out << "}";
+        reply(id, out.str());
+        return;
+    }
     if (method == "version") {
-        reply(id, "{\"version\":\"1.7.0\"}");
+        reply(id, std::string("{\"version\":") + json_escape(SKIFFLLM_VERSION) + "}");
         return;
     }
     reply_error(id, "Unknown method");

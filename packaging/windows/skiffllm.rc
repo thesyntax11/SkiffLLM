@@ -17,11 +17,11 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "SkiffLLM Contributors"
             VALUE "FileDescription", "SkiffLLM"
-            VALUE "FileVersion", "1.7.0"
+            VALUE "FileVersion", "1.8.0"
             VALUE "InternalName", "skiffllm"
             VALUE "OriginalFilename", "skiffllm.exe"
             VALUE "ProductName", "SkiffLLM"
-            VALUE "ProductVersion", "1.7.0"
+            VALUE "ProductVersion", "1.8.0"
         END
     END
     BLOCK "VarFileInfo"

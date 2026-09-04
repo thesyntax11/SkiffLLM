@@ -563,8 +563,7 @@ bool SkiffEngine::warmup(std::string& error) {
     warm.stop_sequences.clear();
 
     GenerationResult result;
-    return generate(
-        ask, warm, result, []() { return false; }, error);
+    return generate(ask, warm, result, []() { return false; }, error);
 }
 
 }

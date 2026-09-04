@@ -488,7 +488,7 @@ std::string run_command(const std::string& command, std::string& error) {
 std::string current_time() {
     std::time_t now = std::time(nullptr);
     char buffer[64] = {};
-    struct tm local {};
+    struct tm local{};
 #ifdef _WIN32
     localtime_s(&local, &now);
     std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S %Z", &local);
