@@ -182,6 +182,19 @@ target_compile_features(skiffllm_core PUBLIC cxx_std_17)
 skiffllm_apply_toolchain(skiffllm_core)
 
 if(WIN32 AND SKIFFLLM_BUILD_GUI)
+    include(FetchContent)
+    set(WEBVIEW_BUILD ON CACHE BOOL "" FORCE)
+    set(WEBVIEW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+    set(WEBVIEW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    set(WEBVIEW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(WEBVIEW_BUILD_SHARED_LIBRARY OFF CACHE BOOL "" FORCE)
+    set(WEBVIEW_BUILD_STATIC_LIBRARY OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(webview
+        GIT_REPOSITORY https://github.com/webview/webview.git
+        GIT_TAG 0.12.0
+        GIT_SHALLOW TRUE
+    )
+    FetchContent_MakeAvailable(webview)
     add_executable(skiffllm src/gui.cpp)
     add_executable(skiffllm_cli src/main.cpp)
     set_target_properties(skiffllm PROPERTIES WIN32_EXECUTABLE TRUE)
@@ -194,6 +207,7 @@ endif()
 if(WIN32)
     enable_language(RC)
     set(APP_ICON_PATH "${CMAKE_CURRENT_SOURCE_DIR}/packaging/windows/skiffllm.ico")
+    set(WEB_HTML_PATH "${CMAKE_CURRENT_SOURCE_DIR}/web/index.html")
     set(SKIFFLLM_RC_FILE "${CMAKE_CURRENT_BINARY_DIR}/skiffllm.rc")
     configure_file(
         packaging/windows/skiffllm.rc
@@ -207,7 +221,7 @@ target_compile_definitions(skiffllm PRIVATE SKIFFLLM_VERSION="${PROJECT_VERSION}
 skiffllm_apply_toolchain(skiffllm)
 skiffllm_apply_link_options(skiffllm)
 if(WIN32 AND SKIFFLLM_BUILD_GUI)
-    target_link_libraries(skiffllm PRIVATE comctl32 comdlg32)
+    target_link_libraries(skiffllm PRIVATE webview::core comdlg32)
     target_sources(skiffllm_cli PRIVATE "${SKIFFLLM_RC_FILE}")
     target_compile_definitions(skiffllm_cli PRIVATE SKIFFLLM_VERSION="${PROJECT_VERSION}")
     target_link_libraries(skiffllm_cli PRIVATE skiffllm_core)
