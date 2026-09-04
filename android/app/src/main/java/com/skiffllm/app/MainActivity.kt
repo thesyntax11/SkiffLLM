@@ -57,10 +57,27 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import android.widget.Toast
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+data class SkillItem(
+    val name: String,
+    val description: String,
+    val example: String
+)
+
+data class UsageSummary(
+    val sessions: Long,
+    val messages: Long,
+    val promptTokens: Long,
+    val generatedTokens: Long,
+    val promptMs: Double,
+    val generationMs: Double
+)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -92,45 +109,57 @@ class MainActivity : ComponentActivity() {
 private fun SkiffTheme(themeName: String = "dark", content: @Composable () -> Unit) {
     val scheme = when (themeName) {
         "light" -> lightColorScheme(
-            primary = Color(0xFF3B82F6),
-            secondary = Color(0xFF7C5CFF),
-            background = Color(0xFFF4F6FB),
-            surface = Color(0xFFFFFFFF),
+            primary = Color(0xFFC4552D),
             onPrimary = Color(0xFFFFFFFF),
-            onBackground = Color(0xFF10141C),
-            onSurface = Color(0xFF10141C)
+            secondary = Color(0xFF6F665C),
+            onSecondary = Color(0xFFFFFFFF),
+            background = Color(0xFFF6F4F0),
+            onBackground = Color(0xFF211D19),
+            surface = Color(0xFFFFFFFF),
+            onSurface = Color(0xFF211D19),
+            surfaceVariant = Color(0xFFEFECE5),
+            onSurfaceVariant = Color(0xFF6F665C)
         )
         "system" -> (
             if (isSystemInDarkTheme()) {
                 darkColorScheme(
-                    primary = Color(0xFF6EA8FF),
-                    secondary = Color(0xFF9B6DFF),
-                    background = Color(0xFF0A0E17),
-                    surface = Color(0xFF111726),
-                    onPrimary = Color(0xFF0A0E17),
-                    onBackground = Color(0xFFE8EDF6),
-                    onSurface = Color(0xFFE8EDF6)
+                    primary = Color(0xFFD97952),
+                    onPrimary = Color(0xFF1C130E),
+                    secondary = Color(0xFFA79D90),
+                    onSecondary = Color(0xFF1C130E),
+                    background = Color(0xFF141210),
+                    onBackground = Color(0xFFEFE9DF),
+                    surface = Color(0xFF1D1A17),
+                    onSurface = Color(0xFFEFE9DF),
+                    surfaceVariant = Color(0xFF312C26),
+                    onSurfaceVariant = Color(0xFFA79D90)
                 )
             } else {
                 lightColorScheme(
-                    primary = Color(0xFF3B82F6),
-                    secondary = Color(0xFF7C5CFF),
-                    background = Color(0xFFF4F6FB),
-                    surface = Color(0xFFFFFFFF),
+                    primary = Color(0xFFC4552D),
                     onPrimary = Color(0xFFFFFFFF),
-                    onBackground = Color(0xFF10141C),
-                    onSurface = Color(0xFF10141C)
+                    secondary = Color(0xFF6F665C),
+                    onSecondary = Color(0xFFFFFFFF),
+                    background = Color(0xFFF6F4F0),
+                    onBackground = Color(0xFF211D19),
+                    surface = Color(0xFFFFFFFF),
+                    onSurface = Color(0xFF211D19),
+                    surfaceVariant = Color(0xFFEFECE5),
+                    onSurfaceVariant = Color(0xFF6F665C)
                 )
             }
             )
         else -> darkColorScheme(
-            primary = Color(0xFF6EA8FF),
-            secondary = Color(0xFF9B6DFF),
-            background = Color(0xFF0A0E17),
-            surface = Color(0xFF111726),
-            onPrimary = Color(0xFF0A0E17),
-            onBackground = Color(0xFFE8EDF6),
-            onSurface = Color(0xFFE8EDF6)
+            primary = Color(0xFFD97952),
+            onPrimary = Color(0xFF1C130E),
+            secondary = Color(0xFFA79D90),
+            onSecondary = Color(0xFF1C130E),
+            background = Color(0xFF141210),
+            onBackground = Color(0xFFEFE9DF),
+            surface = Color(0xFF1D1A17),
+            onSurface = Color(0xFFEFE9DF),
+            surfaceVariant = Color(0xFF312C26),
+            onSurfaceVariant = Color(0xFFA79D90)
         )
     }
     MaterialTheme(
@@ -180,6 +209,10 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
     var showModels by remember { mutableStateOf(false) }
     var showConversations by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
+    var showTools by remember { mutableStateOf(false) }
+    var showSkills by remember { mutableStateOf(false) }
+    var showMemory by remember { mutableStateOf(false) }
+    var showUsage by remember { mutableStateOf(false) }
     var modelInfo by remember { mutableStateOf<String?>(null) }
     var sessionStats by remember { mutableStateOf(SessionStats()) }
     var warmingUp by remember { mutableStateOf(false) }
@@ -675,6 +708,7 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
                     conversationName = conversationName.value,
                     onConversations = { showConversations = true },
                     onSettings = { showSettings = true },
+                    onTools = { showTools = true },
                     onCopy = { copyLastAnswer() },
                     onExport = { shareConversation() },
                     onClear = { clearConversation() }
@@ -729,7 +763,7 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
                         "${it.generatedTokens} tokens in ${"%.1f".format(it.generationMs / 1000.0)} s " +
                         "at ${"%.1f".format(it.tokensPerSecond)} tok/s",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF8A94A6)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             if (sessionStats.generatedTokens > 0L || sessionStats.messageCount > 0) {
@@ -739,7 +773,7 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
                         "${sessionStats.generatedTokens} generated · " +
                         "avg ${"%.1f".format(sessionStats.avgTokensPerSecond)} tok/s",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF8A94A6)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             benchmarkResult?.let { result ->
@@ -779,7 +813,7 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
                         Text(
                             shared.replace("\n", " ").take(160),
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF8A94A6),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 3,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -1061,6 +1095,343 @@ private fun ChatScreen(themeName: String, onThemeName: (String) -> Unit) {
             onDismiss = { showModels = false }
         )
     }
+
+    if (showTools) {
+        ToolsDialog(
+            onSkills = {
+                showTools = false
+                showSkills = true
+            },
+            onMemory = {
+                showTools = false
+                showMemory = true
+            },
+            onUsage = {
+                showTools = false
+                showUsage = true
+            },
+            onDismiss = { showTools = false }
+        )
+    }
+
+    if (showSkills) {
+        SkillsDialog(controller, onDismiss = { showSkills = false })
+    }
+
+    if (showMemory) {
+        MemoryDialog(controller, onDismiss = { showMemory = false })
+    }
+
+    if (showUsage) {
+        UsageDialog(controller, onDismiss = { showUsage = false })
+    }
+}
+
+@Composable
+private fun ToolsDialog(
+    onSkills: () -> Unit,
+    onMemory: () -> Unit,
+    onUsage: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        },
+        title = { Text("Tools") },
+        text = {
+            Column {
+                TextButton(onClick = onSkills) {
+                    Text("Skills")
+                }
+                TextButton(onClick = onMemory) {
+                    Text("Memory")
+                }
+                TextButton(onClick = onUsage) {
+                    Text("Usage")
+                }
+            }
+        }
+    )
+}
+
+@Composable
+private fun SkillsDialog(
+    controller: EngineController,
+    onDismiss: () -> Unit
+) {
+    val skills = remember { mutableStateListOf<SkillItem>() }
+    val selected = remember { mutableStateOf<String?>(null) }
+    val argsJson = remember { mutableStateOf("") }
+    val resultText = remember { mutableStateOf("") }
+    val errorText = remember { mutableStateOf("") }
+
+    fun loadCatalog() {
+        controller.skillCatalog(
+            onResult = { raw ->
+                errorText.value = ""
+                try {
+                    val array = JSONArray(raw)
+                    skills.clear()
+                    for (i in 0 until array.length()) {
+                        val item = array.getJSONObject(i)
+                        skills.add(
+                            SkillItem(
+                                name = item.optString("name"),
+                                description = item.optString("description"),
+                                example = item.optString("example")
+                            )
+                        )
+                    }
+                } catch (t: Throwable) {
+                    errorText.value = t.message ?: "Could not read skill catalog"
+                }
+            },
+            onError = { errorText.value = it }
+        )
+    }
+
+    LaunchedEffect(Unit) {
+        loadCatalog()
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        },
+        title = { Text("Skills") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 480.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                skills.forEach { skill ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(skill.name, style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                skill.description,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        TextButton(onClick = { selected.value = skill.name }) {
+                            Text("Use")
+                        }
+                    }
+                }
+                OutlinedTextField(
+                    value = selected.value ?: "",
+                    onValueChange = {},
+                    label = { Text("Selected skill") },
+                    readOnly = true,
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = argsJson.value,
+                    onValueChange = { argsJson.value = it },
+                    label = { Text("Args (JSON, optional)") },
+                    placeholder = { Text("{\"path\":\"/data/notes.md\"}") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                TextButton(
+                    onClick = {
+                        val name = selected.value ?: return@TextButton
+                        val raw = argsJson.value.trim()
+                        controller.executeSkill(
+                            name,
+                            raw.ifEmpty { "{}" },
+                            onResult = { resultText.value = it },
+                            onError = { resultText.value = it }
+                        )
+                    }
+                ) {
+                    Text("Run selected skill")
+                }
+                if (errorText.value.isNotBlank()) {
+                    Text(
+                        errorText.value,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+                if (resultText.value.isNotBlank()) {
+                    Text(
+                        resultText.value,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+    )
+}
+
+@Composable
+private fun MemoryDialog(
+    controller: EngineController,
+    onDismiss: () -> Unit
+) {
+    val memoryText = remember { mutableStateOf("") }
+    val input = remember { mutableStateOf("") }
+    val message = remember { mutableStateOf("") }
+
+    fun refresh() {
+        controller.memoryLoad(
+            onResult = { memoryText.value = it },
+            onError = { message.value = it }
+        )
+    }
+
+    LaunchedEffect(Unit) {
+        refresh()
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        },
+        title = { Text("Memory") },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 460.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                OutlinedTextField(
+                    value = input.value,
+                    onValueChange = { input.value = it },
+                    label = { Text("New fact") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row {
+                    TextButton(onClick = {
+                        val text = input.value.trim()
+                        if (text.isNotEmpty()) {
+                            controller.memoryAppend(
+                                text,
+                                onResult = { ok ->
+                                    message.value = if (ok) "Saved" else "Could not save"
+                                    if (ok) {
+                                        input.value = ""
+                                        refresh()
+                                    }
+                                },
+                                onError = { message.value = it }
+                            )
+                        }
+                    }) {
+                        Text("Save")
+                    }
+                    TextButton(onClick = {
+                        controller.memoryClear(
+                            onResult = { ok ->
+                                message.value = if (ok) "Cleared" else "Could not clear"
+                                if (ok) refresh()
+                            },
+                            onError = { message.value = it }
+                        )
+                    }) {
+                        Text("Clear all")
+                    }
+                }
+                if (message.value.isNotBlank()) {
+                    Text(
+                        message.value,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Text(
+                    memoryText.value.ifBlank { "No saved facts yet." },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+    )
+}
+
+@Composable
+private fun UsageDialog(
+    controller: EngineController,
+    onDismiss: () -> Unit
+) {
+    var summary by remember { mutableStateOf<UsageSummary?>(null) }
+    val message = remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        controller.usageStats(
+            onResult = { raw ->
+                try {
+                    val obj = JSONObject(raw)
+                    summary = if (obj.optBoolean("ok")) {
+                        UsageSummary(
+                            sessions = obj.optLong("sessions"),
+                            messages = obj.optLong("messages"),
+                            promptTokens = obj.optLong("prompt_tokens"),
+                            generatedTokens = obj.optLong("generated_tokens"),
+                            promptMs = obj.optDouble("total_prompt_ms"),
+                            generationMs = obj.optDouble("total_generation_ms")
+                        )
+                    } else null
+                    message.value = obj.optString("error")
+                } catch (t: Throwable) {
+                    message.value = t.message ?: "Could not read usage"
+                }
+            },
+            onError = { message.value = it }
+        )
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        },
+        title = { Text("Usage") },
+        text = {
+            Column {
+                summary?.let { value ->
+                    Text("Sessions: ${value.sessions}")
+                    Text("Generations: ${value.messages}")
+                    Text("Prompt tokens: ${value.promptTokens}")
+                    Text("Generated tokens: ${value.generatedTokens}")
+                    val seconds = value.promptMs + value.generationMs
+                    Text("Total time: ${"%.1f".format(seconds / 1000.0)} s")
+                    val tokens = value.generatedTokens
+                    val tps = if (seconds > 0.0) tokens / (seconds / 1000.0) else 0.0
+                    Text("Average speed: ${"%.1f".format(tps)} tok/s")
+                } ?: Text(
+                    message.value.ifBlank { "No usage data yet." },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    )
 }
 
 @Composable
@@ -1071,6 +1442,7 @@ private fun ChatTopBar(
     conversationName: String,
     onConversations: () -> Unit,
     onSettings: () -> Unit,
+    onTools: () -> Unit,
     onCopy: () -> Unit,
     onExport: () -> Unit,
     onClear: () -> Unit
@@ -1100,6 +1472,9 @@ private fun ChatTopBar(
                 TextButton(onClick = { onConversations() }) {
                     Text("Chats")
                 }
+                TextButton(onClick = { onTools() }) {
+                    Text("Tools")
+                }
                 TextButton(onClick = { onCopy() }) {
                     Text("Copy")
                 }
@@ -1116,14 +1491,14 @@ private fun ChatTopBar(
             Text(
                 modelName?.let { "Model: $it" } ?: statusText,
                 style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF8A94A6),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1
             )
             modelInfo?.let {
                 Text(
                     it,
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF8A94A6),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -1242,7 +1617,7 @@ private fun SettingsDialog(
                 Text(
                     "Model settings apply the next time a model is loaded.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF8A94A6)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
@@ -1258,7 +1633,7 @@ private fun SettingsDialog(
                 Text(
                     "Applies the sampling values shown below immediately. Fine-tune after choosing a preset.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF8A94A6)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(8.dp))
                 NumberField(
@@ -1338,7 +1713,7 @@ private fun SettingsDialog(
                 Text(
                     "Keep facts like \"user prefers concise answers\" here. They stay on this device and are applied every turn.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF8A94A6)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
@@ -1350,7 +1725,7 @@ private fun SettingsDialog(
                     Text(
                         "No quick prompts yet. Add one below.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF8A94A6)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 } else {
                     quickPrompts.forEach { prompt ->
@@ -1402,7 +1777,7 @@ private fun SettingsDialog(
                     Text(
                         "No stop sequences yet. Add one below.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF8A94A6)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 } else {
                     stopSequences.forEach { sequence ->
@@ -1451,7 +1826,7 @@ private fun SettingsDialog(
                 Text(
                     "Compacts the current conversation into a bullet summary using the loaded model.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF8A94A6)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(8.dp))
                 Button(onClick = onWarmup) {
@@ -1460,7 +1835,7 @@ private fun SettingsDialog(
                 Text(
                     "Runs one short decode pass to reduce first-answer latency.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF8A94A6)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(6.dp))
                 Button(onClick = onBenchmark) {
@@ -1469,7 +1844,7 @@ private fun SettingsDialog(
                 Text(
                     "Runs three real generations and reports measured tokens, time, and tok/s.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF8A94A6)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
@@ -1494,7 +1869,7 @@ private fun SettingsDialog(
                 Text(
                     "Appends the safe-code instructions to the system prompt. Outputs are proposals; apply them manually.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF8A94A6)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
@@ -1525,7 +1900,7 @@ private fun SettingsDialog(
                 Text(
                     "Use Models to download a recommended Q4_K_M GGUF from Hugging Face, or load your own file from the device. Downloads use HTTPS only and no telemetry is sent.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF8A94A6)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -1578,7 +1953,7 @@ private fun ConversationsDialog(
                 Text(
                     "Backup exports the active conversation locally; import creates a new conversation from a .json backup.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF8A94A6)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(8.dp))
                 conversations.forEach { name ->
@@ -1603,7 +1978,7 @@ private fun ConversationsDialog(
                             Text(
                                 "Active",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF8A94A6)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         } else {
                             TextButton(onClick = { onOpen(name) }) {
@@ -1672,7 +2047,7 @@ private fun ConversationsDialog(
                 Text(
                     "Conversations stay on this device. Clear removes the current messages.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF8A94A6)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -1716,7 +2091,7 @@ private fun ModelsDialog(
                     Text(
                         "No models downloaded yet. Pick one below or load a GGUF from your device.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color(0xFF8A94A6)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(Modifier.height(8.dp))
                 } else {
@@ -1776,7 +2151,7 @@ private fun ModelsDialog(
                                 Text(
                                     "${entry.sizeText} · ${entry.ramNote}",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = Color(0xFF8A94A6)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                             if (isDownloaded) {
@@ -1804,14 +2179,14 @@ private fun ModelsDialog(
                                 Text(
                                     "${(progress * 100).toInt()}%",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = Color(0xFF8A94A6)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             } else {
                                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                                 Text(
                                     "Downloading…",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = Color(0xFF8A94A6)
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
@@ -1819,19 +2194,19 @@ private fun ModelsDialog(
                             Text(
                                 "Recommended · ${entry.description}",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF8A94A6)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         } else {
                             Text(
                                 entry.description,
                                 style = MaterialTheme.typography.bodySmall,
-                                color = Color(0xFF8A94A6)
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Text(
                             "License: ${entry.license}",
                             style = MaterialTheme.typography.bodySmall,
-                            color = Color(0xFF8A94A6)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         downloadErrors[entry.id]?.let { error ->
                             Text(
@@ -1886,7 +2261,7 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                         "The only network use is optional HTTPS model downloads from Hugging Face. " +
                         "No prompts, history, analytics, or crash reports are sent.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF8A94A6)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
@@ -1898,13 +2273,13 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                     "Use the Models dialog to download a recommended Q4_K_M GGUF " +
                         "or load your own file from the device.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF8A94A6)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
                     "License: MIT",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF8A94A6)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

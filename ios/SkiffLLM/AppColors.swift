@@ -1,25 +1,45 @@
 import SwiftUI
+import UIKit
 
 extension Color {
-    static let skiffBackground = Color(red: 10.0 / 255.0, green: 14.0 / 255.0, blue: 23.0 / 255.0)
-    static let skiffSurface = Color(red: 17.0 / 255.0, green: 23.0 / 255.0, blue: 38.0 / 255.0)
-    static let skiffSurfaceAlt = Color(red: 23.0 / 255.0, green: 31.0 / 255.0, blue: 49.0 / 255.0)
-    static let skiffAccent = Color(red: 110.0 / 255.0, green: 168.0 / 255.0, blue: 255.0 / 255.0)
-    static let skiffViolet = Color(red: 155.0 / 255.0, green: 109.0 / 255.0, blue: 255.0 / 255.0)
-    static let skiffText = Color(red: 232.0 / 255.0, green: 237.0 / 255.0, blue: 246.0 / 255.0)
-    static let skiffMuted = Color(red: 147.0 / 255.0, green: 161.0 / 255.0, blue: 184.0 / 255.0)
-}
+    private static func adapt(light: UIColor, dark: UIColor) -> Color {
+        Color(UIColor { trait in
+            trait.userInterfaceStyle == .dark ? dark : light
+        })
+    }
 
-extension LinearGradient {
-    static let skiffAccent = LinearGradient(
-        colors: [Color.skiffAccent, Color.skiffViolet],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
+    static let skiffBackground = adapt(
+        light: UIColor(red: 246.0 / 255.0, green: 244.0 / 255.0, blue: 240.0 / 255.0, alpha: 1),
+        dark: UIColor(red: 20.0 / 255.0, green: 18.0 / 255.0, blue: 16.0 / 255.0, alpha: 1)
+    )
+    static let skiffSurface = adapt(
+        light: UIColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 1),
+        dark: UIColor(red: 29.0 / 255.0, green: 26.0 / 255.0, blue: 23.0 / 255.0, alpha: 1)
+    )
+    static let skiffSurfaceAlt = adapt(
+        light: UIColor(red: 239.0 / 255.0, green: 236.0 / 255.0, blue: 229.0 / 255.0, alpha: 1),
+        dark: UIColor(red: 49.0 / 255.0, green: 44.0 / 255.0, blue: 38.0 / 255.0, alpha: 1)
+    )
+    static let skiffAccent = adapt(
+        light: UIColor(red: 196.0 / 255.0, green: 85.0 / 255.0, blue: 45.0 / 255.0, alpha: 1),
+        dark: UIColor(red: 217.0 / 255.0, green: 121.0 / 255.0, blue: 82.0 / 255.0, alpha: 1)
+    )
+    static let skiffAccentForeground = adapt(
+        light: UIColor.white,
+        dark: UIColor(red: 28.0 / 255.0, green: 19.0 / 255.0, blue: 14.0 / 255.0, alpha: 1)
+    )
+    static let skiffText = adapt(
+        light: UIColor(red: 33.0 / 255.0, green: 29.0 / 255.0, blue: 25.0 / 255.0, alpha: 1),
+        dark: UIColor(red: 239.0 / 255.0, green: 233.0 / 255.0, blue: 223.0 / 255.0, alpha: 1)
+    )
+    static let skiffMuted = adapt(
+        light: UIColor(red: 111.0 / 255.0, green: 102.0 / 255.0, blue: 92.0 / 255.0, alpha: 1),
+        dark: UIColor(red: 167.0 / 255.0, green: 157.0 / 255.0, blue: 144.0 / 255.0, alpha: 1)
     )
 }
 
 extension View {
     func skiffCardBackground() -> some View {
-        background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.skiffSurface))
+        background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.skiffSurface))
     }
 }

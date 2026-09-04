@@ -32,7 +32,7 @@ using skiffllm::cli::read_stdin;
 using skiffllm::cli::write_text_file;
 
 #ifndef SKIFFLLM_VERSION
-#define SKIFFLLM_VERSION "1.8.0"
+#define SKIFFLLM_VERSION "1.9.0"
 #endif
 const char* kVersion = SKIFFLLM_VERSION;
 volatile std::sig_atomic_t g_interrupted = 0;

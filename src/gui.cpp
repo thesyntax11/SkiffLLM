@@ -1,3 +1,4 @@
+#ifdef _WIN32
 #ifndef _WIN32_WINNT
 #define _WIN32_WINNT 0x0601
 #endif
@@ -8,9 +9,9 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
-
 #include <commdlg.h>
 #include <objbase.h>
+#endif
 
 #include <webview/webview.h>
 
@@ -22,6 +23,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <filesystem>
+#include <fstream>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -427,6 +429,7 @@ AppStatePtr g_state;
 webview_t g_view = nullptr;
 std::string g_cached_model_dir;
 
+#ifdef _WIN32
 std::string read_resource(int id) {
     HMODULE module = GetModuleHandleW(nullptr);
     HRSRC found = FindResourceW(module, MAKEINTRESOURCEW(id), MAKEINTRESOURCEW(10));
@@ -445,16 +448,6 @@ std::string read_resource(int id) {
     return std::string(data, size);
 }
 
-std::wstring utf8_to_wide(const std::string& value) {
-    if (value.empty()) {
-        return {};
-    }
-    const int size = MultiByteToWideChar(CP_UTF8, 0, value.c_str(), -1, nullptr, 0);
-    std::wstring result(static_cast<size_t>(size - 1), L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, value.c_str(), -1, result.data(), size);
-    return result;
-}
-
 std::string wide_to_utf8(const std::wstring& value) {
     if (value.empty()) {
         return {};
@@ -464,6 +457,37 @@ std::string wide_to_utf8(const std::wstring& value) {
     std::string result(static_cast<size_t>(size - 1), '\0');
     WideCharToMultiByte(CP_UTF8, 0, value.c_str(), -1, result.data(), size, nullptr, nullptr);
     return result;
+}
+#endif
+
+std::string read_ui_html() {
+#ifdef _WIN32
+    return read_resource(kWebResourceId);
+#else
+    const char* override_path = std::getenv("SKIFFLLM_WEB_HTML");
+    std::vector<std::string> candidates;
+    if (override_path != nullptr && *override_path != '\0') {
+        candidates.emplace_back(override_path);
+    }
+    candidates.emplace_back(SKIFFLLM_WEB_HTML);
+    std::error_code path_error;
+    const auto executable = std::filesystem::canonical("/proc/self/exe", path_error);
+    const auto directory = executable.parent_path();
+    candidates.push_back((directory / "web" / "index.html").string());
+    candidates.push_back(
+        (directory.parent_path() / "share" / "skiffllm" / "web" / "index.html").string());
+    candidates.push_back((directory.parent_path() / "share" / "skiffllm" / "index.html").string());
+    for (const auto& path : candidates) {
+        std::ifstream file(path, std::ios::binary);
+        if (!file) {
+            continue;
+        }
+        std::ostringstream out;
+        out << file.rdbuf();
+        return out.str();
+    }
+    return {};
+#endif
 }
 
 std::string models_json(const AppStatePtr& state) {
@@ -668,6 +692,7 @@ void discover_models(AppStatePtr state) {
 }
 
 std::string browse_model() {
+#ifdef _WIN32
     wchar_t path[MAX_PATH] = {};
     OPENFILENAMEW ofn = {};
     ofn.lStructSize = sizeof(ofn);
@@ -684,6 +709,9 @@ std::string browse_model() {
     result += json_escape(wide_to_utf8(path));
     result += "}";
     return result;
+#else
+    return "{\"ok\":false,\"error\":\"Type the model path in the sidebar\"}";
+#endif
 }
 
 void load_model_from_path(AppStatePtr state, const std::string& path, const JsonValue& settings) {
@@ -1259,6 +1287,7 @@ void skiff_callback(const char* id, const char* req, void*) {
     handle_skiff(id, method, params);
 }
 
+#ifdef _WIN32
 struct MaximizePayload {
     HICON icon_large;
     HICON icon_small;
@@ -1280,31 +1309,50 @@ void maximize_trampoline(webview_t view, void* raw) {
     }
     delete payload;
 }
+#endif
 
 void discard_log(enum ggml_log_level, const char*, void*) {}
 
+std::filesystem::path desktop_storage_root() {
+#ifdef _WIN32
+    const char* appdata = std::getenv("LOCALAPPDATA");
+    if (appdata == nullptr || !*appdata) {
+        appdata = std::getenv("USERPROFILE");
+    }
+    if (appdata != nullptr && *appdata) {
+        return std::filesystem::path(appdata) / "SkiffLLM";
+    }
+    return std::filesystem::temp_directory_path() / "SkiffLLM";
+#elif defined(__APPLE__)
+    const char* home = std::getenv("HOME");
+    if (home != nullptr && *home) {
+        return std::filesystem::path(home) / "Library" / "Application Support" / "SkiffLLM";
+    }
+    return std::filesystem::temp_directory_path() / "SkiffLLM";
+#else
+    const char* xdg = std::getenv("XDG_DATA_HOME");
+    if (xdg != nullptr && *xdg) {
+        return std::filesystem::path(xdg) / "skiffllm";
+    }
+    const char* home = std::getenv("HOME");
+    if (home != nullptr && *home) {
+        return std::filesystem::path(home) / ".local" / "share" / "skiffllm";
+    }
+    return std::filesystem::temp_directory_path() / "skiffllm";
+#endif
 }
 
-int WINAPI WinMain(HINSTANCE h_instance, HINSTANCE, LPSTR, int) {
-    CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+int run_app() {
     llama_backend_init();
     llama_log_set(discard_log, nullptr);
 
     AppStatePtr state = std::make_shared<AppState>();
     state->cfg = skiffllm::default_config();
     skiffllm::apply_environment(state->cfg);
-    {
-        const char* appdata = std::getenv("LOCALAPPDATA");
-        if (appdata == nullptr || !*appdata) {
-            appdata = std::getenv("USERPROFILE");
-        }
-        if (appdata != nullptr && *appdata) {
-            const auto root = std::filesystem::path(appdata) / "SkiffLLM";
-            state->cfg.model_dir = root / "models";
-            state->cfg.history_path = root / "history.skif";
-            state->cfg.memory_path = root / "memories.txt";
-        }
-    }
+    const auto root = desktop_storage_root();
+    state->cfg.model_dir = root / "models";
+    state->cfg.history_path = root / "history.skif";
+    state->cfg.memory_path = root / "memories.txt";
     std::error_code ec;
     std::filesystem::create_directories(state->cfg.model_dir, ec);
     if (!state->cfg.history_path.empty()) {
@@ -1315,32 +1363,29 @@ int WINAPI WinMain(HINSTANCE h_instance, HINSTANCE, LPSTR, int) {
     g_cached_model_dir = state->cfg.model_dir.string();
     g_state = state;
 
-    const std::string html = read_resource(kWebResourceId);
+    const std::string html = read_ui_html();
 
     webview_t view = webview_create(0, nullptr);
     g_view = view;
     if (view == nullptr) {
-        std::string message =
-            "SkiffLLM needs the Microsoft Edge WebView2 Runtime.\n\n"
-            "Install it from https://developer.microsoft.com/microsoft-edge/webview2/ and try "
-            "again.";
-        MessageBoxA(nullptr, message.c_str(), "SkiffLLM", MB_OK | MB_ICONWARNING);
         llama_backend_free();
-        CoUninitialize();
         return 1;
     }
 
     webview_set_title(view, "SkiffLLM");
     webview_set_size(view, 1280, 800, WEBVIEW_HINT_NONE);
 
+#ifdef _WIN32
+    HINSTANCE instance = GetModuleHandleW(nullptr);
     auto* maximize = new MaximizePayload;
     maximize->icon_large = static_cast<HICON>(
-        LoadImageW(h_instance, MAKEINTRESOURCEW(1), IMAGE_ICON, GetSystemMetrics(SM_CXICON),
+        LoadImageW(instance, MAKEINTRESOURCEW(1), IMAGE_ICON, GetSystemMetrics(SM_CXICON),
                    GetSystemMetrics(SM_CYICON), LR_DEFAULTCOLOR));
     maximize->icon_small = static_cast<HICON>(
-        LoadImageW(h_instance, MAKEINTRESOURCEW(1), IMAGE_ICON, GetSystemMetrics(SM_CXSMICON),
+        LoadImageW(instance, MAKEINTRESOURCEW(1), IMAGE_ICON, GetSystemMetrics(SM_CXSMICON),
                    GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR));
     webview_dispatch(view, maximize_trampoline, maximize);
+#endif
 
     webview_bind(view, "skiff", skiff_callback, nullptr);
     if (!html.empty()) {
@@ -1360,6 +1405,18 @@ int WINAPI WinMain(HINSTANCE h_instance, HINSTANCE, LPSTR, int) {
     webview_destroy(view);
     g_view = nullptr;
     llama_backend_free();
-    CoUninitialize();
     return 0;
 }
+
+#ifdef _WIN32
+int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
+    CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+    const int result = run_app();
+    CoUninitialize();
+    return result;
+}
+#else
+int main(int, char**) {
+    return run_app();
+}
+#endif

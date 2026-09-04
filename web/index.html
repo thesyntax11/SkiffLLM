@@ -171,19 +171,20 @@ a:hover{text-decoration:underline}
 .btn.ghost:hover{background:var(--surface-3);color:var(--ink)}
 .btn:disabled{opacity:.45;cursor:not-allowed}
 .model-path{
-  display:flex;
-  align-items:center;
-  gap:6px;
+  display:block;
+  width:100%;
   margin:10px 0 0;
   padding:8px 10px;
-  border:1px dashed var(--border-strong);
+  border:1px solid var(--border-strong);
   border-radius:var(--radius-sm);
   font-size:11.5px;
-  color:var(--muted);
+  color:var(--ink);
+  background:var(--surface);
   overflow:hidden;
   text-overflow:ellipsis;
   white-space:nowrap;
 }
+.model-path:focus{outline:none;border-color:var(--accent)}
 .setting{
   display:grid;
   grid-template-columns:1fr auto;
@@ -422,7 +423,8 @@ textarea:focus{outline:none;border-color:var(--accent)}
           <button class="btn small" id="refreshBtn">Refresh</button>
           <button class="btn small" id="browseBtn">Browse</button>
         </div>
-        <div class="model-path" id="modelPath"></div>
+        <input class="model-path" id="modelPath" placeholder="Path to a .gguf file" spellcheck="false">
+        <div class="section-label" style="margin-top:8px">Tip: paste a GGUF path if Browse is unavailable</div>
         <button class="btn primary block" id="loadBtn">Load model</button>
         <button class="btn danger block" id="unloadBtn">Unload</button>
         <div class="model-info" id="modelInfo"></div>
@@ -734,7 +736,7 @@ textarea:focus{outline:none;border-color:var(--accent)}
       var b=document.createElement("button");b.className="model-item"+(i===state.selected?" active":"");
       b.textContent=m;b.addEventListener("click",function(){state.selected=i;renderModels();});list.appendChild(b);
     });
-    if(state.models[state.selected]){el("modelPath").textContent=state.models[state.selected];state.path=state.models[state.selected];}
+    if(state.models[state.selected]){var path=state.models[state.selected];el("modelPath").value=path;state.path=path;}
   }
   function renderPersonas(){
     var row=el("personaRow");row.innerHTML="";
@@ -907,6 +909,8 @@ textarea:focus{outline:none;border-color:var(--accent)}
     document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(a.href);
   }
   function loadModel(){
+    var typed=el("modelPath").value.trim();
+    if(typed){state.path=typed;}
     if(!state.path){setStatus("Choose a model first","warn");return;}
     setStatus("Loading model…","warn");
     return native("loadModel",{path:state.path,settings:state.settings}).then(function(res){
@@ -1008,9 +1012,17 @@ textarea:focus{outline:none;border-color:var(--accent)}
     });
     el("browseBtn").addEventListener("click",function(){
       native("browseModel",{}).then(function(res){
-        var data=parse(res);if(data.path){state.path=data.path;el("modelPath").textContent=data.path;toast("Model selected");}
+        var data=parse(res);
+        if(data.path){
+          state.path=data.path;el("modelPath").value=data.path;toast("Model selected");
+        } else {
+          el("modelPath").focus();
+          toast(data.error||"No model picked");
+        }
       });
     });
+    el("modelPath").addEventListener("input",function(){state.path=el("modelPath").value.trim();});
+    el("modelPath").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();loadModel();}});
     el("saveSettingsBtn").addEventListener("click",saveSettings);
     el("skillsSwitch").addEventListener("click",toggleSkills);
     el("memorySaveBtn").addEventListener("click",saveMemory);

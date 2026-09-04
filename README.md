@@ -102,6 +102,13 @@ offers a model picker, live generation settings, streaming chat output, and a
 Stop button. The command-line build is also shipped as `skiffllm-cli.exe` so
 the same release can be scripted from PowerShell or a terminal.
 
+Linux and macOS use the same desktop GUI with the same embedded web frontend.
+Build it with `-DSKIFFLLM_BUILD_GUI=ON`; Linux needs GTK3 and WebKit2GTK
+(`libgtk-3-dev` plus `libwebkit2gtk-4.0-dev` or `libwebkit2gtk-4.1-dev`),
+macOS uses the system WebKit. When the GUI is enabled the CLI is also shipped
+as `skiffllm-cli` so releases can still be scripted. Without the GUI option the
+default build is the standalone command-line program.
+
 On Linux and macOS, mark a standalone executable with `chmod +x` after
 downloading it. The iOS `.ipa` is produced as an unsigned app container unless
 the repository
@@ -474,7 +481,7 @@ make help
 ```
 
 Prebuilt archives follow `skiffllm-<version>-<os>-<arch>.tar.gz` (for example
-`skiffllm-v1.7.0-linux-x86_64.tar.gz`, `.zip` on Windows) with a `checksums.txt`
+`skiffllm-v1.9.0-linux-x86_64.tar.gz`, `.zip` on Windows) with a `checksums.txt`
 when published. See [docs/INSTALL.md](docs/INSTALL.md).
 Shell completions are in [scripts/completions](scripts/completions/).
 
@@ -483,6 +490,7 @@ Shell completions are in [scripts/completions](scripts/completions/).
 | Option | Default | Description |
 | --- | --- | --- |
 | `SKIFFLLM_BUILD_TESTS` | `ON` | Build and register the test suite |
+| `SKIFFLLM_BUILD_GUI` | `ON` | Build the desktop GUI and CLI (`skiffllm-cli`) |
 | `SKIFFLLM_FETCH_LLAMA` | `ON` | Download and build a pinned llama.cpp |
 | `SKIFFLLM_LLAMA_SOURCE_DIR` | empty | Use an existing llama.cpp checkout |
 | `SKIFFLLM_BUILD_SHARED_LLAMA` | `OFF` | Build llama.cpp as a shared library |

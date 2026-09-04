@@ -149,7 +149,8 @@ class EngineController(private val appContext: Context) {
                     params.contextSize,
                     params.threads,
                     params.gpuLayers,
-                    params.chatTemplate.takeIf { it.isNotBlank() }
+                    params.chatTemplate.takeIf { it.isNotBlank() },
+                    appContext.filesDir.absolutePath
                 )
                 if (handle == 0L) {
                     uiHandler.post { onError("Unable to initialize the native engine") }
@@ -179,6 +180,89 @@ class EngineController(private val appContext: Context) {
         }
     }
 
+    private fun ensureHandle(): Long {
+        if (handle != 0L) return handle
+        handle = SkiffNative.create(
+            2048,
+            4,
+            0,
+            "",
+            appContext.filesDir.absolutePath
+        )
+        return handle
+    }
+
+    fun skillCatalog(onResult: (String) -> Unit, onError: (String) -> Unit) {
+        executor.execute {
+            try {
+                val result = SkiffNative.skillCatalog(ensureHandle()) ?: "[]"
+                uiHandler.post { onResult(result) }
+            } catch (t: Throwable) {
+                uiHandler.post { onError(t.message ?: "Skill catalog unavailable") }
+            }
+        }
+    }
+
+    fun executeSkill(
+        name: String,
+        argsJson: String,
+        onResult: (String) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        executor.execute {
+            try {
+                val result = SkiffNative.executeSkill(ensureHandle(), name, argsJson) ?: "{}"
+                uiHandler.post { onResult(result) }
+            } catch (t: Throwable) {
+                uiHandler.post { onError(t.message ?: "Skill failed") }
+            }
+        }
+    }
+
+    fun memoryLoad(onResult: (String) -> Unit, onError: (String) -> Unit) {
+        executor.execute {
+            try {
+                val result = SkiffNative.memoryLoad(ensureHandle()) ?: ""
+                uiHandler.post { onResult(result) }
+            } catch (t: Throwable) {
+                uiHandler.post { onError(t.message ?: "Memory unavailable") }
+            }
+        }
+    }
+
+    fun memoryAppend(text: String, onResult: (Boolean) -> Unit, onError: (String) -> Unit) {
+        executor.execute {
+            try {
+                val done = SkiffNative.memoryAppend(ensureHandle(), text)
+                uiHandler.post { onResult(done) }
+            } catch (t: Throwable) {
+                uiHandler.post { onError(t.message ?: "Could not save memory") }
+            }
+        }
+    }
+
+    fun memoryClear(onResult: (Boolean) -> Unit, onError: (String) -> Unit) {
+        executor.execute {
+            try {
+                val done = SkiffNative.memoryClear(ensureHandle())
+                uiHandler.post { onResult(done) }
+            } catch (t: Throwable) {
+                uiHandler.post { onError(t.message ?: "Could not clear memory") }
+            }
+        }
+    }
+
+    fun usageStats(onResult: (String) -> Unit, onError: (String) -> Unit) {
+        executor.execute {
+            try {
+                val result = SkiffNative.usageStats(ensureHandle()) ?: "{}"
+                uiHandler.post { onResult(result) }
+            } catch (t: Throwable) {
+                uiHandler.post { onError(t.message ?: "Usage stats unavailable") }
+            }
+        }
+    }
+
     fun generate(
         messages: List<ChatMessage>,
         params: SamplingParams,
@@ -195,9 +279,6 @@ class EngineController(private val appContext: Context) {
         val contents = messages.map { it.content }.toTypedArray()
         val callback = object : SkiffNative.Callback {
             override fun onToken(text: String) {
-                // Batch tokens into small UI-frame-sized updates instead of
-                // posting once per generated token. This keeps the main thread
-                // responsive on low-end devices.
                 synchronized(tokenLock) {
                     tokenBuffer.append(text)
                     if (!tokenFlushScheduled) {

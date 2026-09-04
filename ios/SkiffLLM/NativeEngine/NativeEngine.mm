@@ -4,6 +4,10 @@
 
 #include <llama.h>
 
+#include "skiffllm/config.hpp"
+#include "skiffllm/skills.hpp"
+#include "skiffllm/tools.hpp"
+
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -11,6 +15,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
+#include <map>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -39,6 +45,90 @@ NSString *utf8_to_ns(const std::string &value) {
     return [NSString stringWithUTF8String:value.c_str()];
 }
 
+std::string json_escape(const std::string &value) {
+    std::ostringstream out;
+    out << '"';
+    for (const unsigned char ch : value) {
+        switch (ch) {
+            case '"':
+                out << "\\\"";
+                break;
+            case '\\':
+                out << "\\\\";
+                break;
+            case '\n':
+                out << "\\n";
+                break;
+            case '\r':
+                out << "\\r";
+                break;
+            case '\t':
+                out << "\\t";
+                break;
+            default:
+                if (ch < 0x20) {
+                    char buffer[8] = {};
+                    std::snprintf(buffer, sizeof(buffer), "\\u%04x", ch);
+                    out << buffer;
+                } else {
+                    out << static_cast<char>(ch);
+                }
+                break;
+        }
+    }
+    out << '"';
+    return out.str();
+}
+
+std::map<std::string, std::string> parse_args_json(const std::string &input) {
+    std::map<std::string, std::string> args;
+    size_t i = 0;
+    while (i < input.size()) {
+        while (i < input.size() &&
+               (input[i] == ' ' || input[i] == '{' || input[i] == ',')) {
+            ++i;
+        }
+        if (i >= input.size()) {
+            break;
+        }
+        if (input[i] != '"') {
+            ++i;
+            continue;
+        }
+        ++i;
+        std::string key;
+        while (i < input.size() && input[i] != '"') {
+            key += input[i++];
+        }
+        ++i;
+        while (i < input.size() && (input[i] == ' ' || input[i] == ':')) {
+            ++i;
+        }
+        if (i >= input.size()) {
+            break;
+        }
+        std::string value;
+        if (input[i] == '"') {
+            ++i;
+            while (i < input.size() && input[i] != '"') {
+                if (input[i] == '\\' && i + 1 < input.size()) {
+                    ++i;
+                }
+                value += input[i++];
+            }
+            ++i;
+        } else {
+            while (i < input.size() && input[i] != ',' && input[i] != '}') {
+                value += input[i++];
+            }
+        }
+        if (!key.empty()) {
+            args[key] = value;
+        }
+    }
+    return args;
+}
+
 }
 
 @implementation LlamaGenerationResult
@@ -51,6 +141,7 @@ NSString *utf8_to_ns(const std::string &value) {
     llama_sampler *_sampler;
     std::atomic<bool> _stopping;
     std::string _chatTemplate;
+    skiffllm::Config _config;
 }
 
 - (instancetype)init {
@@ -66,6 +157,18 @@ NSString *utf8_to_ns(const std::string &value) {
         _sampler = nullptr;
         _stopping.store(false);
         _chatTemplate.clear();
+        NSArray<NSString *> *paths = NSSearchPathForDirectoriesInDomains(
+            NSApplicationSupportDirectory, NSUserDomainMask, YES);
+        NSString *support = paths.firstObject ?: NSTemporaryDirectory();
+        NSString *root = [support stringByAppendingPathComponent:@"SkiffLLM"];
+        [[NSFileManager defaultManager] createDirectoryAtPath:root
+                                  withIntermediateDirectories:YES
+                                                   attributes:nil
+                                                        error:nil];
+        _config = skiffllm::default_config();
+        _config.model_path.clear();
+        _config.history_path = std::filesystem::path(ns_to_utf8(root)) / "history.skif";
+        _config.memory_path = std::filesystem::path(ns_to_utf8(root)) / "memories.txt";
     }
     return self;
 }
@@ -196,7 +299,6 @@ NSString *utf8_to_ns(const std::string &value) {
         return NO;
     }
 
-    // Use the template chosen by the caller, or fall back to the embedded/model default.
     _chatTemplate = ns_to_utf8(chatTemplate);
     return YES;
 }
@@ -444,7 +546,6 @@ NSString *utf8_to_ns(const std::string &value) {
             if ((uint32_t)prompt.size() <= maxPrompt || workingMessages.count <= 2) {
                 break;
             }
-            // Auto-trim: drop the oldest non-system message and rebuild.
             NSUInteger removeIndex = [[workingMessages.firstObject objectForKey:@"role"] isEqual:@"system"] ? 1 : 0;
             if (removeIndex >= workingMessages.count) break;
             [workingMessages removeObjectAtIndex:removeIndex];
@@ -547,6 +648,8 @@ NSString *utf8_to_ns(const std::string &value) {
             ? (double)generated / (result.generationMs / 1000.0)
             : 0.0;
         result.stopped = stopped;
+        skiffllm::record_generation(_config, result.promptTokens, result.generatedTokens,
+                                    result.promptMs, result.generationMs, result.tokensPerSecond);
 
         if (completion) {
             dispatch_async(dispatch_get_main_queue(), ^{
@@ -554,6 +657,88 @@ NSString *utf8_to_ns(const std::string &value) {
             });
         }
     });
+}
+
+- (NSString *)skillCatalogJSON {
+    std::ostringstream out;
+    out << "[";
+    const auto catalog = skiffllm::skill_catalog();
+    bool first = true;
+    for (const auto &name : catalog) {
+        if (!first) out << ",";
+        first = false;
+        out << "{\"name\":" << json_escape(name);
+        out << ",\"description\":" << json_escape(skiffllm::skill_description(name));
+        out << ",\"example\":" << json_escape(skiffllm::skill_example(name));
+        out << "}";
+    }
+    out << "]";
+    return utf8_to_ns(out.str());
+}
+
+- (NSString *)executeSkill:(NSString *)name
+                   argsJSON:(NSString *)argsJSON
+                      error:(NSError **)error {
+    skiffllm::SkillRequest request;
+    request.name = ns_to_utf8(name);
+    request.args = parse_args_json(ns_to_utf8(argsJSON));
+    std::string error_text;
+    const std::string result = skiffllm::execute_skill(_config, request, error_text);
+    std::ostringstream out;
+    out << "{\"ok\":" << (error_text.empty() ? "true" : "false");
+    out << ",\"result\":" << json_escape(result);
+    out << ",\"error\":" << json_escape(error_text);
+    out << "}";
+    if (!error_text.empty() && error) {
+        *error = [NSError errorWithDomain:@"SkiffLLM" code:20
+                                 userInfo:@{NSLocalizedDescriptionKey: utf8_to_ns(error_text)}];
+    }
+    return utf8_to_ns(out.str());
+}
+
+- (NSString *)memoryLoad {
+    return utf8_to_ns(skiffllm::load_memories(_config));
+}
+
+- (BOOL)memoryAppend:(NSString *)text error:(NSError **)error {
+    std::string error_text;
+    if (!skiffllm::append_memory(_config, ns_to_utf8(text), error_text)) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"SkiffLLM" code:21
+                                     userInfo:@{NSLocalizedDescriptionKey: utf8_to_ns(error_text)}];
+        }
+        return NO;
+    }
+    return YES;
+}
+
+- (BOOL)memoryClear:(NSError **)error {
+    std::string error_text;
+    if (!skiffllm::clear_memories(_config, error_text)) {
+        if (error) {
+            *error = [NSError errorWithDomain:@"SkiffLLM" code:22
+                                     userInfo:@{NSLocalizedDescriptionKey: utf8_to_ns(error_text)}];
+        }
+        return NO;
+    }
+    return YES;
+}
+
+- (NSString *)usageStatsJSON {
+    skiffllm::UsageStats stats;
+    std::string error_text;
+    const bool ok = skiffllm::load_usage_stats(_config, stats, error_text);
+    std::ostringstream out;
+    out << "{\"ok\":" << (ok ? "true" : "false");
+    out << ",\"sessions\":" << stats.sessions;
+    out << ",\"messages\":" << stats.messages;
+    out << ",\"prompt_tokens\":" << stats.prompt_tokens;
+    out << ",\"generated_tokens\":" << stats.generated_tokens;
+    out << ",\"total_prompt_ms\":" << stats.total_prompt_ms;
+    out << ",\"total_generation_ms\":" << stats.total_generation_ms;
+    out << ",\"error\":" << json_escape(error_text);
+    out << "}";
+    return utf8_to_ns(out.str());
 }
 
 - (void)stop {

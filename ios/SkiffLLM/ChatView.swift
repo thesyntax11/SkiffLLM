@@ -37,6 +37,10 @@ final class AppState: ObservableObject {
     @Published var showSettings = false
     @Published var showModels = false
     @Published var showConversations = false
+    @Published var showTools = false
+    @Published var showSkills = false
+    @Published var showMemory = false
+    @Published var showUsage = false
 
     init() {
         let threads = max(2, ProcessInfo.processInfo.activeProcessorCount)
@@ -639,6 +643,18 @@ struct ChatView: View {
                 showBackupImporter = true
             })
         }
+        .sheet(isPresented: $app.showTools) {
+            ToolsSheet(app: app)
+        }
+        .sheet(isPresented: $app.showSkills) {
+            SkillsSheet(app: app)
+        }
+        .sheet(isPresented: $app.showMemory) {
+            MemorySheet(app: app)
+        }
+        .sheet(isPresented: $app.showUsage) {
+            UsageSheet(app: app)
+        }
         .fileImporter(isPresented: $showFileImporter,
                       allowedContentTypes: [.data],
                       allowsMultipleSelection: false) { result in
@@ -760,6 +776,9 @@ struct ChatView: View {
             Spacer()
             Button { app.showConversations = true } label: {
                 Image(systemName: "bubble.left.and.bubble.right")
+            }
+            Button { app.showTools = true } label: {
+                Image(systemName: "wrench.and.screwdriver")
             }
             Button { app.copyLastAnswer() } label: {
                 Image(systemName: "doc.on.doc")
@@ -949,10 +968,10 @@ struct MessageBubble: View {
             Text(message.content)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
-                .foregroundColor(isUser ? .white : Color.skiffText)
+                .foregroundColor(isUser ? Color.skiffAccentForeground : Color.skiffText)
                 .background(
                     isUser
-                        ? AnyShapeStyle(LinearGradient.skiffAccent)
+                        ? AnyShapeStyle(Color.skiffAccent)
                         : AnyShapeStyle(Color.skiffSurface)
                 )
                 .clipShape(RoundedRectangle(
@@ -971,6 +990,250 @@ struct MessageBubble: View {
         .padding(.horizontal, 12)
     }
 }
+
+struct SkillDetail: Identifiable {
+    let name: String
+    let description: String
+    let example: String
+    var id: String { name }
+}
+
+struct ToolsSheet: View {
+    @ObservedObject var app: AppState
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Button {
+                    app.showTools = false
+                    app.showSkills = true
+                } label: {
+                    Label("Skills", systemImage: "wrench.and.screwdriver")
+                }
+                Button {
+                    app.showTools = false
+                    app.showMemory = true
+                } label: {
+                    Label("Memory", systemImage: "internaldrive")
+                }
+                Button {
+                    app.showTools = false
+                    app.showUsage = true
+                } label: {
+                    Label("Usage", systemImage: "chart.bar")
+                }
+            }
+            .navigationTitle("Tools")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { app.showTools = false }
+                }
+            }
+        }
+    }
+}
+
+struct SkillsSheet: View {
+    @ObservedObject var app: AppState
+    @State private var skills: [SkillDetail] = []
+    @State private var selected = ""
+    @State private var args = "{}"
+    @State private var output = ""
+    @State private var status = ""
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Available skills") {
+                    let filtered = skills.filter { selected.isEmpty || $0.name == selected }
+                    if filtered.isEmpty {
+                        Text(status.isEmpty ? "No skills available." : status)
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
+                    } else {
+                        ForEach(filtered) { skill in
+                            Button(selected == skill.name ? "\(skill.name) ✓" : skill.name) {
+                                selected = skill.name
+                            }
+                            Text(skill.description)
+                                .font(.footnote)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+                Section("Run") {
+                    TextField("Skill name", text: $selected)
+                    TextField("Args (JSON)", text: $args)
+                        .font(.caption)
+                    Button("Run selected skill") {
+                        var error: NSError?
+                        let raw = app.engine.executeSkill(selected,
+                                                          argsJSON: args,
+                                                          error: &error)
+                        output = raw ?? ""
+                        if let error {
+                            status = error.localizedDescription
+                        }
+                    }
+                }
+                if !output.isEmpty {
+                    Section("Output") {
+                        Text(output)
+                            .font(.caption)
+                            .textSelection(.enabled)
+                    }
+                }
+            }
+            .navigationTitle("Skills")
+            .onAppear {
+                status = ""
+                let raw = app.engine.skillCatalogJSON() ?? "[]"
+                if let data = raw.data(using: .utf8),
+                   let array = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+                    skills = array.compactMap { dict in
+                        guard let name = dict["name"] as? String else { return nil }
+                        return SkillDetail(
+                            name: name,
+                            description: dict["description"] as? String ?? "",
+                            example: dict["example"] as? String ?? ""
+                        )
+                    }
+                } else {
+                    status = "Could not read the skill catalog."
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { app.showSkills = false }
+                }
+            }
+        }
+    }
+}
+
+struct MemorySheet: View {
+    @ObservedObject var app: AppState
+    @State private var content = ""
+    @State private var newFact = ""
+    @State private var status = ""
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Add fact") {
+                    TextField("New fact", text: $newFact)
+                    Button("Save") {
+                        var error: NSError?
+                        if app.engine.memoryAppend(newFact, error: &error) {
+                            status = "Saved"
+                            newFact = ""
+                            content = app.engine.memoryLoad() ?? ""
+                        } else {
+                            status = error?.localizedDescription ?? "Could not save"
+                        }
+                    }
+                }
+                Section("Saved facts") {
+                    if content.isEmpty {
+                        Text("No saved facts yet.")
+                            .foregroundColor(.secondary)
+                    } else {
+                        Text(content)
+                            .font(.caption)
+                            .textSelection(.enabled)
+                    }
+                    Button("Clear all") {
+                        var error: NSError?
+                        if app.engine.memoryClear(&error) {
+                            status = "Cleared"
+                            content = ""
+                        } else {
+                            status = error?.localizedDescription ?? "Could not clear"
+                        }
+                    }
+                    .foregroundColor(.red)
+                }
+                if !status.isEmpty {
+                    Section {
+                        Text(status)
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .navigationTitle("Memory")
+            .onAppear {
+                content = app.engine.memoryLoad() ?? ""
+            }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { app.showMemory = false }
+                }
+            }
+        }
+    }
+}
+
+struct UsageSheet: View {
+    @ObservedObject var app: AppState
+    @State private var rows: [(String, String)] = []
+    @State private var status = ""
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                if rows.isEmpty {
+                    Section {
+                        Text(status.isEmpty ? "No usage data yet." : status)
+                            .foregroundColor(.secondary)
+                    }
+                } else {
+                    ForEach(rows, id: \.0) { row in
+                        Section {
+                            HStack {
+                                Text(row.0)
+                                Spacer()
+                                Text(row.1)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Usage")
+            .onAppear {
+                let raw = app.engine.usageStatsJSON() ?? "{}"
+                if let data = raw.data(using: .utf8),
+                   let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    let sessions = (obj["sessions"] as? NSNumber)?.int64Value ?? 0
+                    let messages = (obj["messages"] as? NSNumber)?.int64Value ?? 0
+                    let prompt = (obj["prompt_tokens"] as? NSNumber)?.int64Value ?? 0
+                    let generated = (obj["generated_tokens"] as? NSNumber)?.int64Value ?? 0
+                    let promptMs = (obj["total_prompt_ms"] as? NSNumber)?.doubleValue ?? 0
+                    let generationMs = (obj["total_generation_ms"] as? NSNumber)?.doubleValue ?? 0
+                    let seconds = (promptMs + generationMs) / 1000.0
+                    let tps = seconds > 0 ? Double(generated) / seconds : 0
+                    rows = [
+                        ("Sessions", String(sessions)),
+                        ("Generations", String(messages)),
+                        ("Prompt tokens", String(prompt)),
+                        ("Generated tokens", String(generated)),
+                        ("Total time", String(format: "%.1f s", seconds)),
+                        ("Average speed", String(format: "%.1f tok/s", tps))
+                    ]
+                } else {
+                    status = "Could not read usage stats."
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { app.showUsage = false }
+                }
+            }
+        }
+    }
+}
+
 
 struct SettingsSheet: View {
     @ObservedObject var app: AppState

@@ -9,7 +9,8 @@ object SkiffNative {
         contextSize: Int,
         threads: Int,
         gpuLayers: Int,
-        chatTemplate: String?
+        chatTemplate: String?,
+        storageRoot: String?
     ): Long
 
     external fun destroy(handle: Long)
@@ -40,6 +41,22 @@ object SkiffNative {
         stopSequences: Array<String>,
         callback: Callback
     ): Boolean
+
+    external fun skillCatalog(handle: Long): String?
+
+    external fun executeSkill(
+        handle: Long,
+        name: String,
+        argsJson: String
+    ): String?
+
+    external fun memoryLoad(handle: Long): String?
+
+    external fun memoryAppend(handle: Long, text: String): Boolean
+
+    external fun memoryClear(handle: Long): Boolean
+
+    external fun usageStats(handle: Long): String?
 
     interface Callback {
         fun onToken(text: String)

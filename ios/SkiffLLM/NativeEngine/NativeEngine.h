@@ -42,6 +42,15 @@ NS_ASSUME_NONNULL_BEGIN
              completion:(void (^_Nullable)(LlamaGenerationResult *_Nullable result,
                                            NSError *_Nullable error))completion;
 
+- (NSString *)skillCatalogJSON;
+- (NSString *)executeSkill:(NSString *)name
+                  argsJSON:(NSString *)argsJSON
+                     error:(NSError **)error NS_SWIFT_NOTHROW;
+- (NSString *)memoryLoad;
+- (BOOL)memoryAppend:(NSString *)text error:(NSError **)error NS_SWIFT_NOTHROW;
+- (BOOL)memoryClear:(NSError **)error NS_SWIFT_NOTHROW;
+- (NSString *)usageStatsJSON;
+
 - (void)stop;
 - (void)close;
 

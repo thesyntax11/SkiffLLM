@@ -1,6 +1,9 @@
 #include <jni.h>
 
 #include <atomic>
+#include <cstdio>
+#include <filesystem>
+#include <map>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -9,6 +12,8 @@
 
 #include "skiffllm/config.hpp"
 #include "skiffllm/engine.hpp"
+#include "skiffllm/skills.hpp"
+#include "skiffllm/tools.hpp"
 
 namespace {
 
@@ -48,10 +53,101 @@ jstring to_jstring(JNIEnv* env, const std::string& value) {
     return env->NewStringUTF(value.c_str());
 }
 
+std::string json_escape(const std::string& value) {
+    std::ostringstream out;
+    out << '"';
+    for (const unsigned char ch : value) {
+        switch (ch) {
+            case '"':
+                out << "\\\"";
+                break;
+            case '\\':
+                out << "\\\\";
+                break;
+            case '\n':
+                out << "\\n";
+                break;
+            case '\r':
+                out << "\\r";
+                break;
+            case '\t':
+                out << "\\t";
+                break;
+            default:
+                if (ch < 0x20) {
+                    char buffer[8] = {};
+                    std::snprintf(buffer, sizeof(buffer), "\\u%04x", ch);
+                    out << buffer;
+                } else {
+                    out << static_cast<char>(ch);
+                }
+                break;
+        }
+    }
+    out << '"';
+    return out.str();
+}
+
+std::filesystem::path storage_root(std::string root) {
+    if (root.empty()) {
+        return std::filesystem::temp_directory_path() / "skiffllm";
+    }
+    return std::filesystem::path(root);
+}
+
+std::map<std::string, std::string> parse_args_json(const std::string& input) {
+    std::map<std::string, std::string> args;
+    size_t i = 0;
+    while (i < input.size()) {
+        while (i < input.size() && (input[i] == ' ' || input[i] == '{' || input[i] == ',')) {
+            ++i;
+        }
+        if (i >= input.size()) {
+            break;
+        }
+        if (input[i] != '"') {
+            ++i;
+            continue;
+        }
+        ++i;
+        std::string key;
+        while (i < input.size() && input[i] != '"') {
+            key += input[i++];
+        }
+        ++i;
+        while (i < input.size() && (input[i] == ' ' || input[i] == ':')) {
+            ++i;
+        }
+        if (i >= input.size()) {
+            break;
+        }
+        std::string value;
+        if (input[i] == '"') {
+            ++i;
+            while (i < input.size() && input[i] != '"') {
+                if (input[i] == '\\' && i + 1 < input.size()) {
+                    ++i;
+                }
+                value += input[i++];
+            }
+            ++i;
+        } else {
+            while (i < input.size() && input[i] != ',' && input[i] != '}') {
+                value += input[i++];
+            }
+        }
+        if (!key.empty()) {
+            args[key] = value;
+        }
+    }
+    return args;
+}
+
 }
 
 extern "C" JNIEXPORT jlong JNICALL Java_com_skiffllm_app_SkiffNative_create(
-    JNIEnv* env, jobject, jint context_size, jint threads, jint gpu_layers, jstring chat_template) {
+    JNIEnv* env, jobject, jint context_size, jint threads, jint gpu_layers, jstring chat_template,
+    jstring storage_root_value) {
     auto state = std::make_unique<NativeState>();
     state->config = skiffllm::default_config();
     state->config.model_path.clear();
@@ -59,7 +155,9 @@ extern "C" JNIEXPORT jlong JNICALL Java_com_skiffllm_app_SkiffNative_create(
     state->config.n_threads = static_cast<int>(threads);
     state->config.n_gpu_layers = static_cast<int>(gpu_layers);
     state->config.chat_template = to_string(env, chat_template);
-    state->config.history_path.clear();
+    const auto root = storage_root(to_string(env, storage_root_value));
+    state->config.history_path = root / "history.skif";
+    state->config.memory_path = root / "memories.txt";
     return reinterpret_cast<jlong>(state.release());
 }
 
@@ -246,6 +344,8 @@ extern "C" JNIEXPORT jboolean JNICALL Java_com_skiffllm_app_SkiffNative_generate
         return JNI_FALSE;
     }
 
+    skiffllm::record_generation(state->config, result.prompt_tokens, result.generated_tokens,
+                                result.prompt_ms, result.generation_ms, result.tokens_per_second);
     env->CallVoidMethod(callback, on_done, static_cast<jint>(result.prompt_tokens),
                         static_cast<jint>(result.generated_tokens),
                         static_cast<jdouble>(result.prompt_ms),
@@ -254,4 +354,100 @@ extern "C" JNIEXPORT jboolean JNICALL Java_com_skiffllm_app_SkiffNative_generate
                         static_cast<jboolean>(result.stopped));
     env->DeleteLocalRef(callback_class);
     return JNI_TRUE;
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_com_skiffllm_app_SkiffNative_skillCatalog(JNIEnv* env,
+                                                                                    jobject,
+                                                                                    jlong handle) {
+    NativeState* state = state_from(handle);
+    std::ostringstream out;
+    out << "[";
+    const auto catalog = skiffllm::skill_catalog();
+    bool first = true;
+    for (const auto& name : catalog) {
+        if (!first) {
+            out << ",";
+        }
+        first = false;
+        out << "{\"name\":" << json_escape(name);
+        out << ",\"description\":" << json_escape(skiffllm::skill_description(name));
+        out << ",\"example\":" << json_escape(skiffllm::skill_example(name));
+        out << "}";
+    }
+    out << "]";
+    return to_jstring(env, (state == nullptr ? std::string("[]") : out.str()));
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_com_skiffllm_app_SkiffNative_executeSkill(
+    JNIEnv* env, jobject, jlong handle, jstring name_value, jstring args_json) {
+    NativeState* state = state_from(handle);
+    if (state == nullptr) {
+        return to_jstring(env, "{\"ok\":false,\"error\":\"engine is not initialized\"}");
+    }
+    skiffllm::SkillRequest request;
+    request.name = to_string(env, name_value);
+    request.args = parse_args_json(to_string(env, args_json));
+    std::string error;
+    const std::string result = skiffllm::execute_skill(state->config, request, error);
+    std::ostringstream out;
+    out << "{\"ok\":" << (error.empty() ? "true" : "false");
+    out << ",\"result\":" << json_escape(result);
+    out << ",\"error\":" << json_escape(error);
+    out << "}";
+    return to_jstring(env, out.str());
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_com_skiffllm_app_SkiffNative_memoryLoad(JNIEnv* env,
+                                                                                  jobject,
+                                                                                  jlong handle) {
+    NativeState* state = state_from(handle);
+    if (state == nullptr) {
+        return to_jstring(env, "");
+    }
+    return to_jstring(env, skiffllm::load_memories(state->config));
+}
+
+extern "C" JNIEXPORT jboolean JNICALL Java_com_skiffllm_app_SkiffNative_memoryAppend(
+    JNIEnv* env, jobject, jlong handle, jstring text_value) {
+    NativeState* state = state_from(handle);
+    if (state == nullptr) {
+        return JNI_FALSE;
+    }
+    std::string error;
+    return skiffllm::append_memory(state->config, to_string(env, text_value), error) ? JNI_TRUE
+                                                                                     : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL Java_com_skiffllm_app_SkiffNative_memoryClear(JNIEnv*,
+                                                                                    jobject,
+                                                                                    jlong handle) {
+    NativeState* state = state_from(handle);
+    if (state == nullptr) {
+        return JNI_FALSE;
+    }
+    std::string error;
+    return skiffllm::clear_memories(state->config, error) ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT jstring JNICALL Java_com_skiffllm_app_SkiffNative_usageStats(JNIEnv* env,
+                                                                                  jobject,
+                                                                                  jlong handle) {
+    NativeState* state = state_from(handle);
+    if (state == nullptr) {
+        return to_jstring(env, "{\"ok\":false}");
+    }
+    skiffllm::UsageStats stats;
+    std::string error;
+    const bool ok = skiffllm::load_usage_stats(state->config, stats, error);
+    std::ostringstream out;
+    out << "{\"ok\":" << (ok ? "true" : "false");
+    out << ",\"sessions\":" << stats.sessions;
+    out << ",\"messages\":" << stats.messages;
+    out << ",\"prompt_tokens\":" << stats.prompt_tokens;
+    out << ",\"generated_tokens\":" << stats.generated_tokens;
+    out << ",\"total_prompt_ms\":" << stats.total_prompt_ms;
+    out << ",\"total_generation_ms\":" << stats.total_generation_ms;
+    out << ",\"error\":" << json_escape(error);
+    out << "}";
+    return to_jstring(env, out.str());
 }

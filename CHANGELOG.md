@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+### Cross-platform desktop parity
+
+- Added the same embedded web GUI to Linux and macOS through the cross-platform
+  `webview` library; the CLI is still shipped as `skiffllm-cli` when the GUI
+  build is enabled.
+- Removed platform-specific AI-slop visual tells: warm neutral palette,
+  terracotta accent, no indigo/violet gradients, and native light/dark themes
+  on Android and iOS.
+- Added model path pasting, a model detail panel, memory add/list/clear, usage
+  stats, personas, and token/character counts to the desktop web UI.
+
+### Mobile tools parity
+
+- Added the skill catalog, manual skill execution, memory management, and
+  usage statistics bridge to Android and iOS.
+- Generation now records local usage metrics on Android and iOS so the usage
+  panel stays consistent with the desktop app.
+
 ### Skills and modern UI
 
 - Added a shared C++ skills engine (`skiffllm::read_file`, `write_file`,

@@ -54,7 +54,8 @@ jobs:
           cmake -S . -B build \
             -DCMAKE_BUILD_TYPE=Release \
             -DSKIFFLLM_BUILD_TESTS=ON \
-            -DSKIFFLLM_WARNINGS_AS_ERRORS=OFF
+            -DSKIFFLLM_WARNINGS_AS_ERRORS=OFF \
+            -DSKIFFLLM_BUILD_GUI=$([ "$RUNNER_OS" = "Windows" ] && echo ON || echo OFF)
         shell: bash
 
       - name: Build
