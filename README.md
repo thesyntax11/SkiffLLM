@@ -74,7 +74,7 @@ ctest --test-dir build/release --output-on-failure
 ### Or install a published release
 
 ```bash
-bash scripts/install-from-release.sh --version v1.7.0
+bash scripts/install-from-release.sh --version v1.9.0
 ```
 
 The helper maps your OS/arch to the release archive. It fails fast when a
@@ -103,11 +103,11 @@ Stop button. The command-line build is also shipped as `skiffllm-cli.exe` so
 the same release can be scripted from PowerShell or a terminal.
 
 Linux and macOS use the same desktop GUI with the same embedded web frontend.
-Build it with `-DSKIFFLLM_BUILD_GUI=ON`; Linux needs GTK3 and WebKit2GTK
-(`libgtk-3-dev` plus `libwebkit2gtk-4.0-dev` or `libwebkit2gtk-4.1-dev`),
-macOS uses the system WebKit. When the GUI is enabled the CLI is also shipped
-as `skiffllm-cli` so releases can still be scripted. Without the GUI option the
-default build is the standalone command-line program.
+The GUI is the default build. Linux needs GTK3 and WebKit2GTK (`libgtk-3-dev`
+plus `libwebkit2gtk-4.0-dev` or `libwebkit2gtk-4.1-dev`); macOS uses the system
+WebKit; Windows uses WebView2. When the GUI is enabled the CLI is also shipped
+as `skiffllm-cli` so releases can still be scripted. Set
+`-DSKIFFLLM_BUILD_GUI=OFF` to build only the standalone command-line program.
 
 On Linux and macOS, mark a standalone executable with `chmod +x` after
 downloading it. The iOS `.ipa` is produced as an unsigned app container unless
@@ -292,6 +292,33 @@ skiffllm --forget concise
 
 Inside the interactive shell use `/remember`, `/forget`, `/memories`,
 `/clear-memories`, `/compact`, `/regenerate`, and `/export`.
+
+## Skills
+
+SkiffLLM ships a small skill catalog for real work: `read_file`, `write_file`,
+`list_files`, `search_files`, `run_command`, `fetch_url`, `current_time`,
+`memory_save`, `memory_recall`, and `memory_clear`. Every tool takes explicit
+arguments: file skills resolve paths against a root the caller passes in,
+remote responses are capped, commands run through the caller-requested shell
+in the current process working directory, and timeouts are explicit.
+
+On the desktop and CLI, automatic skill calls are **opt-in**. The desktop GUI
+and the CLI share the same rule: with `--skills` (or the GUI switch) the model
+may call the enabled tools while generating; text-only is the default. The
+same catalog is always available for manual execution with JSON arguments.
+
+On Android and iOS the Tools screen exposes the same catalog and manual runner.
+This round the mobile surfaces support manual skill execution; attaching the
+automatic skill-call loop to mobile generation is the next cross-platform
+step, and it will reuse the same C++ rules as desktop and CLI.
+
+```bash
+skiffllm skill list
+skiffllm skill show run_command
+skiffllm skill call run_command '{"command": "uname -a"}'
+skiffllm skill enable run_command
+skiffllm skill disable run_command
+```
 
 ---
 

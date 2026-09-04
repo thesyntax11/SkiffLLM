@@ -488,7 +488,7 @@ std::string run_command(const std::string& command, std::string& error) {
 std::string current_time() {
     std::time_t now = std::time(nullptr);
     char buffer[64] = {};
-    struct tm local{};
+    struct tm local {};
 #ifdef _WIN32
     localtime_s(&local, &now);
     std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S %Z", &local);
@@ -593,7 +593,7 @@ std::string fetch_http(const std::string& url, std::string& error) {
     std::ostringstream request;
     request << "GET " << path << " HTTP/1.1\r\n";
     request << "Host: " << host << ":" << port_text << "\r\n";
-    request << "User-Agent: SkiffLLM/1.6\r\n";
+    request << "User-Agent: SkiffLLM/1.9\r\n";
     request << "Accept: */*\r\n";
     request << "Connection: close\r\n\r\n";
     const std::string request_text = request.str();

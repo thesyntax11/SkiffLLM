@@ -15,6 +15,7 @@
 #include "skiffllm/cli_utils.hpp"
 #include "skiffllm/config.hpp"
 #include "skiffllm/http_auth.hpp"
+#include "skiffllm/skills.hpp"
 #include "skiffllm/tools.hpp"
 
 namespace {
@@ -228,6 +229,43 @@ void test_catalog_edges() {
     extra_check(skiffllm::model_catalog().size() >= 5, "catalog should expose multiple models");
 }
 
+void test_skills_config() {
+    const auto catalog = skiffllm::skill_catalog();
+    extra_check(!catalog.empty(), "skill catalog should not be empty");
+    for (const auto& name : catalog) {
+        extra_check(!skiffllm::skill_description(name).empty(),
+                    "every skill should have a description");
+        extra_check(!skiffllm::skill_example(name).empty(), "every skill should have an example");
+    }
+    skiffllm::Config cfg = skiffllm::default_config();
+    extra_check(!cfg.skills_enabled, "skills should be off by default");
+    extra_check(cfg.enabled_skills.empty(), "no skill should be enabled by default");
+
+    std::vector<std::string> storage = {"skiffllm", "--skills", "--enable-skill", catalog.front(),
+                                        "--show-config"};
+    auto args = extra_args_from(storage);
+    std::string error;
+    extra_check(skiffllm::parse_args(static_cast<int>(args.size()), args.data(), cfg, error),
+                "skills flags should parse");
+    extra_check(cfg.skills_enabled, "--skills should enable skills");
+    extra_check(cfg.enabled_skills.size() == 1 && cfg.enabled_skills.front() == catalog.front(),
+                "--enable-skill should add the skill");
+
+    const std::filesystem::path config_path =
+        std::filesystem::temp_directory_path() / "skiffllm-test-skill.cfg";
+    std::error_code ec;
+    std::filesystem::remove(config_path, ec);
+    extra_check(skiffllm::write_config_file(config_path, cfg, error),
+                "skill config should be writable");
+    skiffllm::Config loaded = skiffllm::default_config();
+    extra_check(skiffllm::parse_config_file(config_path, loaded, error),
+                "written skill config should be readable");
+    extra_check(loaded.skills_enabled, "written skill toggle should round trip");
+    extra_check(loaded.enabled_skills == cfg.enabled_skills,
+                "written skill list should round trip");
+    std::filesystem::remove(config_path, ec);
+}
+
 void test_environment() {
     const char* old_model = std::getenv("SKIFFLLM_MODEL");
     const char* old_api = std::getenv("SKIFFLLM_API_KEY");
@@ -261,5 +299,6 @@ void run_extra_tests() {
     test_human_formats();
     test_default_config_paths();
     test_catalog_edges();
+    test_skills_config();
     test_environment();
 }

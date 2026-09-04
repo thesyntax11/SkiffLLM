@@ -135,7 +135,11 @@ if [[ "${BINARY}" == *.exe ]]; then
 fi
 cp "${BINARY}" "${STAGE}/bin/${BINARY_NAME}"
 if [[ -n "${CLI_BINARY}" ]]; then
-    cp "${CLI_BINARY}" "${STAGE}/bin/skiffllm-cli.exe"
+    CLI_NAME="skiffllm-cli"
+    if [[ "${CLI_BINARY}" == *.exe ]]; then
+        CLI_NAME="skiffllm-cli.exe"
+    fi
+    cp "${CLI_BINARY}" "${STAGE}/bin/${CLI_NAME}"
 fi
 cp README.md LICENSE CHANGELOG.md SECURITY.md CONTRIBUTING.md "${STAGE}/"
 cp -r docs "${STAGE}/share/"

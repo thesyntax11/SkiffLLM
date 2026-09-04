@@ -16,12 +16,12 @@ make release
 scripts/ci-local.sh
 scripts/release.sh
 scripts/release.sh --help                          # all options
-scripts/release.sh --output-dir artifacts --version 1.7.0
+scripts/release.sh --output-dir artifacts --version 1.9.0
 scripts/release.sh --output-dir artifacts --verify
 ```
 
 The script creates `skiffllm-<version>-<os>-<arch>.tar.gz` (for example
-`skiffllm-1.7.0-linux-x86_64.tar.gz`, with `macos-arm64` on Apple Silicon and
+`skiffllm-1.9.0-linux-x86_64.tar.gz`, with `macos-arm64` on Apple Silicon and
 `macos-x86_64` on Intel) containing the binary, licenses, docs, completions,
 example config, logo, and helper scripts. It also emits a standalone native
 binary named `skiffllm-<version>-<os>-<arch>[.exe]`, plus `checksums.txt` and a
@@ -33,7 +33,7 @@ Once the archive is published as a GitHub release asset, users can install it
 with:
 
 ```bash
-bash scripts/install-from-release.sh --version v1.7.0
+bash scripts/install-from-release.sh --version v1.9.0
 ```
 
 The installer downloads the matching `<asset>.sha256` sidecar and verifies the
@@ -51,8 +51,8 @@ Given Actions workflow permissions that allow write access (Settings → Actions
 tag:
 
 ```bash
-git tag -a v1.7.0 -m "SkiffLLM 1.7.0"
-git push origin v1.7.0
+git tag -a v1.9.0 -m "SkiffLLM 1.9.0"
+git push origin v1.9.0
 ```
 
 The release workflow in `.github/workflows/release.yml` builds Linux, macOS,

@@ -28,7 +28,7 @@ object SharedIntent {
     }
 
     fun offerUri(uri: Uri?) {
-        // Reserved for future file-sharing flows.
+        // Keep the hook API stable for future file-sharing flows.
     }
 
     fun clear() {

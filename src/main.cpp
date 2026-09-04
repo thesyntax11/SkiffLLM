@@ -397,8 +397,8 @@ bool ask_model(skiffllm::SkiffEngine& engine, const skiffllm::GenerationOptions&
     streamer.reset();
     skiffllm::GenerationOptions current = options;
     current.token_callback = [&streamer](const std::string& part) { streamer.write(part); };
-    const bool ok =
-        engine.generate(messages, current, result, []() { return g_interrupted != 0; }, error);
+    const bool ok = engine.generate(
+        messages, current, result, []() { return g_interrupted != 0; }, error);
     streamer.finish();
     if (!ok) {
         terminal.error(error);
@@ -415,7 +415,11 @@ bool resolve_skill_calls(const skiffllm::Config& cfg, skiffllm::SkiffEngine& eng
                          const skiffllm::GenerationOptions& options,
                          std::vector<skiffllm::ChatMessage>& conversation, std::string& answer,
                          skiffllm::Terminal& terminal, bool quiet = false) {
-    const std::vector<std::string> enabled = skiffllm::skill_catalog();
+    if (!cfg.skills_enabled || cfg.enabled_skills.empty()) {
+        answer = skiffllm::strip_skill_markers(answer);
+        return true;
+    }
+    const std::vector<std::string> enabled = cfg.enabled_skills;
     for (int round = 0; round < 8; ++round) {
         std::vector<skiffllm::SkillRequest> requests;
         std::string parse_error;
@@ -519,8 +523,8 @@ bool compact_session(const skiffllm::Config& cfg, skiffllm::SkiffEngine& engine,
     terminal.write("Compacting conversation...\n", skiffllm::Color::Cyan);
 
     std::string error;
-    const bool ok =
-        engine.generate(ask, compact_options, result, []() { return g_interrupted != 0; }, error);
+    const bool ok = engine.generate(
+        ask, compact_options, result, []() { return g_interrupted != 0; }, error);
     streamer.finish();
     if (!ok) {
         terminal.error(error);
@@ -574,8 +578,8 @@ bool regenerate_session(const skiffllm::Config& cfg, skiffllm::SkiffEngine& engi
     terminal.write("Regenerating response...\n", skiffllm::Color::Cyan);
 
     std::string error;
-    const bool ok =
-        engine.generate(ask, regen_options, result, []() { return g_interrupted != 0; }, error);
+    const bool ok = engine.generate(
+        ask, regen_options, result, []() { return g_interrupted != 0; }, error);
     streamer.finish();
     if (!ok) {
         terminal.error(error);
@@ -1094,8 +1098,8 @@ int run_benchmark(skiffllm::Config& cfg, std::unique_ptr<skiffllm::SkiffEngine>&
         skiffllm::GenerationResult result;
         run_options.token_callback = nullptr;
         std::string error;
-        const bool ok =
-            engine->generate(ask, run_options, result, []() { return g_interrupted != 0; }, error);
+        const bool ok = engine->generate(
+            ask, run_options, result, []() { return g_interrupted != 0; }, error);
         if (!ok) {
             if (cfg.json_output) {
                 std::cout << "{\"error\":" << json_escape(error) << "}\n";
@@ -1235,8 +1239,8 @@ int run_one_shot(skiffllm::Config& cfg, std::unique_ptr<skiffllm::SkiffEngine>& 
 
     skiffllm::GenerationResult result;
     std::string error;
-    const bool ok =
-        engine->generate(ask, current, result, []() { return g_interrupted != 0; }, error);
+    const bool ok = engine->generate(
+        ask, current, result, []() { return g_interrupted != 0; }, error);
     streamer.finish();
     if (!ok) {
         if (cfg.json_output) {
@@ -1417,8 +1421,8 @@ int main(int argc, char** argv) {
     if (argc >= 2) {
         const std::string first(argv[1]);
         if (first == "run" || first == "model" || first == "git" || first == "session" ||
-            first == "chat-template" || first == "openai" || first == "config" ||
-            first == "server") {
+            first == "skill" || first == "chat-template" || first == "openai" ||
+            first == "config" || first == "server") {
             subcommand = first;
             argument_start = 2;
         }
@@ -1442,6 +1446,19 @@ int main(int argc, char** argv) {
     if (!config_path.empty()) {
         cfg.config_path = skiffllm::expand_path(config_path);
     }
+    std::vector<std::string> cleaned_sub_args;
+    for (size_t i = 0; i < sub_args.size(); ++i) {
+        const std::string& arg = sub_args[i];
+        if (arg.compare(0, 9, "--config=") == 0) {
+            continue;
+        }
+        if (arg == "--config") {
+            ++i;
+            continue;
+        }
+        cleaned_sub_args.push_back(arg);
+    }
+    sub_args.swap(cleaned_sub_args);
 
     std::error_code ec;
     if (!subcommand.empty()) {
@@ -1545,6 +1562,16 @@ int main(int argc, char** argv) {
     if (subcommand == "server") {
         error.clear();
         const int status = skiffllm::handle_server_command(cfg, sub_args, error);
+        if (status >= 0) {
+            if (!error.empty()) {
+                std::cerr << error << std::endl;
+            }
+            return status;
+        }
+    }
+    if (subcommand == "skill") {
+        error.clear();
+        const int status = skiffllm::handle_skill_command(cfg, sub_args, error);
         if (status >= 0) {
             if (!error.empty()) {
                 std::cerr << error << std::endl;

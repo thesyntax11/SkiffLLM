@@ -36,6 +36,7 @@
 #include "skiffllm/config.hpp"
 #include "skiffllm/engine.hpp"
 #include "skiffllm/messages.hpp"
+#include "skiffllm/session.hpp"
 #include "skiffllm/skills.hpp"
 #include "skiffllm/tools.hpp"
 
@@ -570,16 +571,25 @@ void apply_skill_settings(AppStatePtr state, const JsonValue& params) {
     if (enabled != nullptr) {
         state->skills_enabled = json_bool(*enabled, state->skills_enabled);
     }
-    state->enabled_skills.clear();
+    std::vector<std::string> chosen;
     if (list != nullptr && list->type == JsonValue::Type::Array) {
+        const auto catalog = skiffllm::skill_catalog();
         for (const auto& item : list->array) {
-            if (item.type == JsonValue::Type::String) {
-                state->enabled_skills.push_back(item.string);
+            if (item.type == JsonValue::Type::String &&
+                std::find(catalog.begin(), catalog.end(), item.string) != catalog.end() &&
+                std::find(chosen.begin(), chosen.end(), item.string) == chosen.end()) {
+                chosen.push_back(item.string);
             }
         }
-    } else if (state->skills_enabled) {
+    }
+    state->enabled_skills = chosen;
+    if (state->skills_enabled && state->enabled_skills.empty()) {
         state->enabled_skills = skiffllm::skill_catalog();
     }
+    state->cfg.skills_enabled = state->skills_enabled;
+    state->cfg.enabled_skills = state->enabled_skills;
+    std::string save_error;
+    skiffllm::write_config_file(state->cfg.config_path, state->cfg, save_error);
 }
 
 std::string conversation_name(const std::string& input) {
@@ -808,6 +818,64 @@ std::string skill_call_json(const std::string& name,
     return out.str();
 }
 
+std::filesystem::path gui_settings_path(const Config& cfg) {
+    if (!cfg.config_path.empty() && !cfg.config_path.parent_path().empty()) {
+        return cfg.config_path.parent_path() / "skiffllm-gui.json";
+    }
+    return std::filesystem::path("skiffllm-gui.json");
+}
+
+bool save_gui_settings(const AppStatePtr& state, const JsonValue& params, std::string& error) {
+    const auto path = gui_settings_path(state->cfg);
+    std::error_code ec;
+    if (!path.parent_path().empty()) {
+        std::filesystem::create_directories(path.parent_path(), ec);
+        if (ec) {
+            error = "cannot create settings directory: " + path.parent_path().string();
+            return false;
+        }
+    }
+    std::ofstream out(path, std::ios::trunc | std::ios::binary);
+    if (!out.is_open()) {
+        error = "cannot open settings file: " + path.string();
+        return false;
+    }
+    const JsonValue* system = json_find(params, "system_prompt");
+    const JsonValue* temperature = json_find(params, "temperature");
+    const JsonValue* top_p = json_find(params, "top_p");
+    const JsonValue* max_tokens = json_find(params, "max_tokens");
+    const JsonValue* context = json_find(params, "context");
+    const JsonValue* threads = json_find(params, "threads");
+    out << "{\"system_prompt\":";
+    out << json_escape(system == nullptr ? std::string() : json_string(*system));
+    out << ",\"temperature\":" << (temperature == nullptr ? 0.7 : json_number(*temperature, 0.7));
+    out << ",\"top_p\":" << (top_p == nullptr ? 0.95 : json_number(*top_p, 0.95));
+    out << ",\"max_tokens\":" << (max_tokens == nullptr ? 512 : json_number(*max_tokens, 512.0));
+    out << ",\"context\":" << (context == nullptr ? 4096 : json_number(*context, 4096.0));
+    out << ",\"threads\":" << (threads == nullptr ? 0 : json_number(*threads, 0.0));
+    out << "}\n";
+    return true;
+}
+
+std::string load_gui_settings(const AppStatePtr& state) {
+    const auto path = gui_settings_path(state->cfg);
+    std::ifstream input(path, std::ios::binary);
+    if (!input.is_open()) {
+        return "{}";
+    }
+    std::string content;
+    char buffer[4096];
+    while (input.read(buffer, sizeof(buffer))) {
+        content.append(buffer, input.gcount());
+    }
+    content.append(buffer, input.gcount());
+    const std::string trimmed = skiffllm::trim(content);
+    if (trimmed.size() >= 2 && trimmed.front() == '{' && trimmed.back() == '}') {
+        return trimmed;
+    }
+    return "{}";
+}
+
 void generate_messages(AppStatePtr state, const JsonValue& messages_value,
                        const JsonValue& settings) {
     std::vector<ChatMessage> ask;
@@ -1007,7 +1075,9 @@ void handle_skiff(const char* id, const std::string& method, const JsonValue& pa
             result += skills_json(state);
             result += ",\"version\":";
             result += json_escape(SKIFFLLM_VERSION);
-            result += ",\"backend\":\"WebView2 - llama.cpp\",\"system_prompt\":";
+            result += ",\"backend\":";
+            result += json_escape(desktop_backend_name());
+            result += ",\"system_prompt\":";
             result += json_escape(state->system_prompt);
         }
         result += "}";
@@ -1254,6 +1324,19 @@ void handle_skiff(const char* id, const std::string& method, const JsonValue& pa
         reply(id, out.str());
         return;
     }
+    if (method == "saveSettings") {
+        std::string error;
+        if (!save_gui_settings(state, params, error)) {
+            reply_error(id, error);
+            return;
+        }
+        reply(id, "{\"ok\":true}");
+        return;
+    }
+    if (method == "loadSettings") {
+        reply(id, load_gui_settings(state));
+        return;
+    }
     if (method == "version") {
         reply(id, std::string("{\"version\":") + json_escape(SKIFFLLM_VERSION) + "}");
         return;
@@ -1313,32 +1396,13 @@ void maximize_trampoline(webview_t view, void* raw) {
 
 void discard_log(enum ggml_log_level, const char*, void*) {}
 
-std::filesystem::path desktop_storage_root() {
+std::string desktop_backend_name() {
 #ifdef _WIN32
-    const char* appdata = std::getenv("LOCALAPPDATA");
-    if (appdata == nullptr || !*appdata) {
-        appdata = std::getenv("USERPROFILE");
-    }
-    if (appdata != nullptr && *appdata) {
-        return std::filesystem::path(appdata) / "SkiffLLM";
-    }
-    return std::filesystem::temp_directory_path() / "SkiffLLM";
+    return "WebView2 - llama.cpp";
 #elif defined(__APPLE__)
-    const char* home = std::getenv("HOME");
-    if (home != nullptr && *home) {
-        return std::filesystem::path(home) / "Library" / "Application Support" / "SkiffLLM";
-    }
-    return std::filesystem::temp_directory_path() / "SkiffLLM";
+    return "WebKit - llama.cpp";
 #else
-    const char* xdg = std::getenv("XDG_DATA_HOME");
-    if (xdg != nullptr && *xdg) {
-        return std::filesystem::path(xdg) / "skiffllm";
-    }
-    const char* home = std::getenv("HOME");
-    if (home != nullptr && *home) {
-        return std::filesystem::path(home) / ".local" / "share" / "skiffllm";
-    }
-    return std::filesystem::temp_directory_path() / "skiffllm";
+    return "WebKitGTK - llama.cpp";
 #endif
 }
 
@@ -1349,17 +1413,17 @@ int run_app() {
     AppStatePtr state = std::make_shared<AppState>();
     state->cfg = skiffllm::default_config();
     skiffllm::apply_environment(state->cfg);
-    const auto root = desktop_storage_root();
-    state->cfg.model_dir = root / "models";
-    state->cfg.history_path = root / "history.skif";
-    state->cfg.memory_path = root / "memories.txt";
+    std::string config_error;
+    if (!state->cfg.config_path.empty() && std::filesystem::exists(state->cfg.config_path)) {
+        skiffllm::parse_config_file(state->cfg.config_path, state->cfg, config_error);
+    }
+    state->skills_enabled = state->cfg.skills_enabled;
+    state->enabled_skills = state->cfg.enabled_skills;
     std::error_code ec;
     std::filesystem::create_directories(state->cfg.model_dir, ec);
     if (!state->cfg.history_path.empty()) {
         std::filesystem::create_directories(state->cfg.history_path.parent_path(), ec);
     }
-    state->enabled_skills = skiffllm::skill_catalog();
-    state->skills_enabled = true;
     g_cached_model_dir = state->cfg.model_dir.string();
     g_state = state;
 

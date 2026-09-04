@@ -9,6 +9,10 @@ _skiffllm() {
         '--context-bar[Show the live context usage bar]'
         '--no-context-bar[Hide the context usage bar]'
         '--backend-info[Print the active llama.cpp backends]'
+        '--skills[Allow the model to call enabled skills]'
+        '--no-skills[Keep the model text-only]'
+        '--enable-skill[Enable a skill]:skill:_files'
+        '--disable-skill[Disable a skill]:skill:_files'
         '--list-models[List discovered GGUF models]'
         '--model-info[Print model metadata]'
         '--doctor[Print system diagnostics]'
@@ -72,7 +76,7 @@ _skiffllm() {
         '--verbose[Verbose logs]'
         '--debug[Debug mode]'
     )
-    _arguments "${opts[@]}" '1:subcommand:(run model chat-template openai config server)' '*:model file:_files'
+    _arguments "${opts[@]}" '1:subcommand:(run model skill chat-template openai config server)' '*:model file:_files'
 }
 
 _skiffllm "$@"

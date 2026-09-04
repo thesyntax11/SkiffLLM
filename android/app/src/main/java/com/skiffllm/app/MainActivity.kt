@@ -35,7 +35,6 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
@@ -1249,14 +1248,16 @@ private fun SkillsDialog(
                 )
                 TextButton(
                     onClick = {
-                        val name = selected.value ?: return@TextButton
-                        val raw = argsJson.value.trim()
-                        controller.executeSkill(
-                            name,
-                            raw.ifEmpty { "{}" },
-                            onResult = { resultText.value = it },
-                            onError = { resultText.value = it }
-                        )
+                        val name = selected.value
+                        if (name?.isNotBlank() == true) {
+                            val raw = argsJson.value.trim()
+                            controller.executeSkill(
+                                name,
+                                raw.ifEmpty { "{}" },
+                                onResult = { resultText.value = it },
+                                onError = { resultText.value = it }
+                            )
+                        }
                     }
                 ) {
                     Text("Run selected skill")
@@ -1414,7 +1415,8 @@ private fun UsageDialog(
         title = { Text("Usage") },
         text = {
             Column {
-                summary?.let { value ->
+                if (summary != null) {
+                    val value = summary!!
                     Text("Sessions: ${value.sessions}")
                     Text("Generations: ${value.messages}")
                     Text("Prompt tokens: ${value.promptTokens}")
@@ -1424,11 +1426,13 @@ private fun UsageDialog(
                     val tokens = value.generatedTokens
                     val tps = if (seconds > 0.0) tokens / (seconds / 1000.0) else 0.0
                     Text("Average speed: ${"%.1f".format(tps)} tok/s")
-                } ?: Text(
-                    message.value.ifBlank { "No usage data yet." },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                } else {
+                    Text(
+                        message.value.ifBlank { "No usage data yet." },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     )
@@ -2240,7 +2244,7 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                     .verticalScroll(rememberScrollState())
             ) {
                 Text(
-                    "Version 1.6.0 (Android)",
+                    "Version 1.9.0 (Android)",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.primary
                 )

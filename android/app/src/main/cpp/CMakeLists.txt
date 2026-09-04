@@ -17,12 +17,9 @@ set(LLAMA_BUILD_APP OFF CACHE BOOL "" FORCE)
 set(GGML_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(GGML_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(GGML_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
-# Do not enable -march=native while cross-compiling for the Android NDK.
 set(GGML_NATIVE OFF CACHE BOOL "" FORCE)
 set(GGML_OPENMP OFF CACHE BOOL "" FORCE)
 
-# Android GPU acceleration. Default is CPU-only; pass
-# -DSKIFFLLM_LLAMA_BACKEND=vulkan or opencl to enable a GPU backend.
 if(SKIFFLLM_LLAMA_BACKEND STREQUAL "vulkan")
     set(GGML_VULKAN ON CACHE BOOL "" FORCE)
 elseif(SKIFFLLM_LLAMA_BACKEND STREQUAL "opencl")
@@ -48,6 +45,9 @@ add_library(skiffllm SHARED
     jni_bridge.cpp
     "${PROJECT_ROOT}/src/config.cpp"
     "${PROJECT_ROOT}/src/engine.cpp"
+    "${PROJECT_ROOT}/src/session.cpp"
+    "${PROJECT_ROOT}/src/skills.cpp"
+    "${PROJECT_ROOT}/src/tools.cpp"
 )
 
 target_include_directories(skiffllm

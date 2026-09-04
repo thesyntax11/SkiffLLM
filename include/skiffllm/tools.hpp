@@ -35,6 +35,7 @@ std::vector<std::filesystem::path> list_session_files(const Config& cfg, std::st
 bool write_config_file(const std::filesystem::path& path, const Config& cfg, std::string& error);
 int handle_config_command(Config& cfg, const std::vector<std::string>& args, std::string& error);
 int handle_server_command(Config& cfg, const std::vector<std::string>& args, std::string& error);
+int handle_skill_command(Config& cfg, const std::vector<std::string>& args, std::string& error);
 int handle_chat_template_command(Config& cfg, const std::vector<std::string>& args,
                                  std::string& error);
 int handle_openai_command(Config& cfg, const std::vector<std::string>& args, std::string& error);

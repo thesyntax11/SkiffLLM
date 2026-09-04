@@ -14,7 +14,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include(GNUInstallDirs)
 
 option(SKIFFLLM_BUILD_TESTS "Build SkiffLLM unit tests" ON)
-option(SKIFFLLM_BUILD_GUI "Build the SkiffLLM desktop GUI on Windows" ON)
+option(SKIFFLLM_BUILD_GUI "Build the SkiffLLM desktop GUI and CLI" ON)
 option(SKIFFLLM_FETCH_LLAMA "Download and build llama.cpp automatically" ON)
 option(SKIFFLLM_BUILD_SHARED_LLAMA "Build llama.cpp as a shared library" OFF)
 option(SKIFFLLM_ENABLE_ROOTFS_CHECK "Allow the CMake configure step to continue when running as root" OFF)

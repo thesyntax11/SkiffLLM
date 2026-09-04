@@ -38,11 +38,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install ccache (Linux)
+      - name: Install desktop GUI dependencies (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y ccache
+          sudo apt-get install -y ccache pkg-config libgtk-3-dev libwebkit2gtk-4.1-dev
 
       - name: Cache ccache (Linux)
         if: runner.os == 'Linux'
@@ -62,7 +62,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DSKIFFLLM_BUILD_TESTS=ON \
             -DSKIFFLLM_WARNINGS_AS_ERRORS=OFF \
-            -DSKIFFLLM_BUILD_GUI=$([ "$RUNNER_OS" = "Windows" ] && echo ON || echo OFF)
+            -DSKIFFLLM_BUILD_GUI=ON
         shell: bash
 
       - name: Build
@@ -105,8 +105,8 @@ jobs:
             ./build/Release/skiffllm-cli --version
             ./build/Release/skiffllm-cli --doctor
           else
-            ./build/skiffllm --version
-            ./build/skiffllm --doctor
+            ./build/skiffllm-cli --version
+            ./build/skiffllm-cli --doctor
           fi
         shell: bash
 
@@ -151,6 +151,7 @@ jobs:
             cp build/Release/skiffllm-cli.exe distribution/skiffllm-cli.exe
           else
             cp build/skiffllm distribution/skiffllm
+            cp build/skiffllm-cli distribution/skiffllm-cli
           fi
 
       - name: Upload desktop artifact
@@ -175,6 +176,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=Debug \
             -DSKIFFLLM_BUILD_TESTS=ON \
             -DSKIFFLLM_WARNINGS_AS_ERRORS=OFF \
+            -DSKIFFLLM_BUILD_GUI=OFF \
             -DSKIFFLLM_ENABLE_SANITIZERS=ON
         shell: bash
 
@@ -305,5 +307,9 @@ jobs:
           grep -q "SKIFFLLM_VERSION \"${EXPECTED_VERSION}\"" src/main.cpp
           grep -q "SkiffLLM ${EXPECTED_VERSION}" docs/skiffllm.1
           grep -q "versionName = \"${EXPECTED_VERSION}\"" android/app/build.gradle.kts
+          grep -q "CFBundleShortVersionString" ios/SkiffLLM/Info.plist
+          grep -q "CFBundleShortVersionString" ios/SkiffLLMShare/Info.plist
+          grep -q "<string>${EXPECTED_VERSION}</string>" ios/SkiffLLM/Info.plist
+          grep -q "<string>${EXPECTED_VERSION}</string>" ios/SkiffLLMShare/Info.plist
           echo "Version ${EXPECTED_VERSION} is consistent."
         shell: bash

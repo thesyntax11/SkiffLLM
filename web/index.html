@@ -981,11 +981,25 @@ textarea:focus{outline:none;border-color:var(--accent)}
   function bindSlider(id,val,fn){
     el(id).addEventListener("input",function(){el(val).textContent=fn(el(id).value);updateSettings();});
   }
+  function applySavedSettings(obj){
+    if(!obj){return false;}
+    var touched=false;
+    if(obj.system_prompt!==undefined){el("systemPrompt").value=obj.system_prompt;touched=true;}
+    if(obj.temperature!==undefined){el("temp").value=Math.round(obj.temperature*100);touched=true;}
+    if(obj.top_p!==undefined){el("topP").value=Math.round(obj.top_p*100);touched=true;}
+    if(obj.max_tokens!==undefined){el("tokens").value=obj.max_tokens;touched=true;}
+    if(obj.context!==undefined){el("ctx").value=obj.context;touched=true;}
+    if(obj.threads!==undefined){el("threads").value=obj.threads;touched=true;}
+    if(touched){updateSettings();}
+    return touched;
+  }
   function saveSettings(){
     updateSettings();
-    var local={system_prompt:state.settings.system_prompt,temp:state.settings.temperature,top_p:state.settings.top_p,max_tokens:state.settings.max_tokens,context:state.settings.context,threads:state.settings.threads};
-    try{localStorage.setItem("skiffllm-settings",JSON.stringify(local));}catch(e){}
-    toast("Settings applied");
+    native("saveSettings",state.settings).then(function(res){
+      var data=parse(res);
+      if(data.ok){toast("Settings applied");}
+      else{toast(data.error||"Settings not saved");}
+    }).catch(function(err){toast("Settings not saved");});
   }
   function applyTheme(){
     document.documentElement.setAttribute("data-theme",state.theme);
@@ -1092,15 +1106,7 @@ textarea:focus{outline:none;border-color:var(--accent)}
       var savedTheme=localStorage.getItem("skiffllm-theme");
       if(savedTheme==="system"||savedTheme==="dark"||savedTheme==="light"){state.theme=savedTheme;}
       var savedSettings=JSON.parse(localStorage.getItem("skiffllm-settings")||"null");
-      if(savedSettings){
-        if(savedSettings.temp!==undefined)el("temp").value=Math.round(savedSettings.temp*100);
-        if(savedSettings.top_p!==undefined)el("topP").value=Math.round(savedSettings.top_p*100);
-        if(savedSettings.max_tokens!==undefined)el("tokens").value=savedSettings.max_tokens;
-        if(savedSettings.context!==undefined)el("ctx").value=savedSettings.context;
-        if(savedSettings.threads!==undefined)el("threads").value=savedSettings.threads;
-        if(savedSettings.system_prompt!==undefined)el("systemPrompt").value=savedSettings.system_prompt;
-        updateSettings();
-      }
+      applySavedSettings(savedSettings);
     }catch(e){}
     applyTheme();bindEvents();renderPersonas();
     native("init",{}).then(function(res){
@@ -1114,6 +1120,7 @@ textarea:focus{outline:none;border-color:var(--accent)}
       }
       if(data.backend){backendChip.textContent=data.backend;}
       if(data.system_prompt!==undefined){el("systemPrompt").value=data.system_prompt;updateSettings();}
+      native("loadSettings",{}).then(function(res){applySavedSettings(parse(res));});
       loadMemories();loadStats();fetchModelInfo();
     });
   }

@@ -156,6 +156,7 @@ extern "C" JNIEXPORT jlong JNICALL Java_com_skiffllm_app_SkiffNative_create(
     state->config.n_gpu_layers = static_cast<int>(gpu_layers);
     state->config.chat_template = to_string(env, chat_template);
     const auto root = storage_root(to_string(env, storage_root_value));
+    state->config.model_dir = root / "models";
     state->config.history_path = root / "history.skif";
     state->config.memory_path = root / "memories.txt";
     return reinterpret_cast<jlong>(state.release());

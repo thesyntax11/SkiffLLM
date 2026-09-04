@@ -15,6 +15,7 @@
 #include "skiffllm/engine.hpp"
 #include "skiffllm/server.hpp"
 #include "skiffllm/session.hpp"
+#include "skiffllm/skills.hpp"
 
 #ifdef _WIN32
 #include <fcntl.h>
@@ -357,6 +358,10 @@ bool write_config_file(const std::filesystem::path& path, const Config& cfg, std
     out << "context-bar=" << (cfg.context_bar ? "yes" : "no") << "\n";
     out << "backend-info=" << (cfg.backend_info ? "yes" : "no") << "\n";
     out << "serve=" << (cfg.serve ? "yes" : "no") << "\n";
+    out << "skills=" << (cfg.skills_enabled ? "yes" : "no") << "\n";
+    for (const auto& skill : cfg.enabled_skills) {
+        out << "enable-skill=" << skill << "\n";
+    }
     out << "host=" << cfg.server_host << "\n";
     out << "port=" << cfg.server_port << "\n";
     if (!cfg.api_key.empty()) {
@@ -442,6 +447,181 @@ int handle_server_command(Config& cfg, const std::vector<std::string>& args, std
         return 0;
     }
     error = "unknown server action: " + args[0] + " (use health or help)";
+    return 2;
+}
+
+namespace {
+
+bool parse_skill_args(const std::string& raw, std::map<std::string, std::string>& out,
+                      std::string& err) {
+    std::string input = raw;
+    if (input.empty() || input == "{}") {
+        return true;
+    }
+    if (input.front() != '{' || input.back() != '}') {
+        err = "arguments must be a JSON object like {\"command\":\"uname -a\"}";
+        return false;
+    }
+    input = input.substr(1, input.size() - 2);
+    size_t i = 0;
+    while (i < input.size()) {
+        while (i < input.size() && (input[i] == ' ' || input[i] == ',' || input[i] == '\t' ||
+                                    input[i] == '\n' || input[i] == '\r')) {
+            ++i;
+        }
+        if (i >= input.size()) {
+            break;
+        }
+        if (input[i] != '"') {
+            err = "expected a quoted argument name";
+            return false;
+        }
+        ++i;
+        std::string key;
+        while (i < input.size() && input[i] != '"') {
+            if (input[i] == '\\' && i + 1 < input.size()) {
+                ++i;
+            }
+            key += input[i++];
+        }
+        if (i >= input.size() || input[i] != '"') {
+            err = "unterminated argument name";
+            return false;
+        }
+        ++i;
+        while (i < input.size() && (input[i] == ' ' || input[i] == ':' || input[i] == '\t' ||
+                                    input[i] == '\n' || input[i] == '\r')) {
+            ++i;
+        }
+        std::string value;
+        if (i < input.size() && input[i] == '"') {
+            ++i;
+            while (i < input.size() && input[i] != '"') {
+                if (input[i] == '\\' && i + 1 < input.size()) {
+                    ++i;
+                    if (input[i] == 'n') {
+                        value += '\n';
+                    } else if (input[i] == 't') {
+                        value += '\t';
+                    } else {
+                        value += input[i];
+                    }
+                    ++i;
+                } else {
+                    value += input[i++];
+                }
+            }
+            if (i >= input.size() || input[i] != '"') {
+                err = "unterminated argument value";
+                return false;
+            }
+            ++i;
+        } else {
+            const size_t start = i;
+            while (i < input.size() && input[i] != ',') {
+                ++i;
+            }
+            value = input.substr(start, i - start);
+        }
+        out[key] = value;
+    }
+    return true;
+}
+
+}
+
+int handle_skill_command(Config& cfg, const std::vector<std::string>& args, std::string& error) {
+    const std::string action = args.empty() ? "list" : args[0];
+    const auto catalog = skill_catalog();
+    auto enabled = [&cfg](const std::string& name) {
+        return skill_available(name, cfg.enabled_skills);
+    };
+    if (action == "list" || action == "ls" || action == "help") {
+        std::cout << "SkiffLLM skills (automatic calls " << (cfg.skills_enabled ? "on" : "off")
+                  << "):\n";
+        for (const auto& name : catalog) {
+            std::cout << "  " << name
+                      << (skill_available(name, cfg.enabled_skills) ? "  enabled" : "  disabled")
+                      << "\n";
+            std::cout << "      " << skill_description(name) << "\n";
+        }
+        std::cout << "\nUse `skiffllm skill show <name>` for details, `skiffllm skill call <name> "
+                     "'{\"key\":\"value\"}'` to run one, and `enable`/`disable` to toggle.\n";
+        return 0;
+    }
+    if (action == "show" || action == "info") {
+        if (args.size() < 2) {
+            error = "usage: skiffllm skill show <name>";
+            return 2;
+        }
+        const std::string name = lower(args[1]);
+        if (std::find(catalog.begin(), catalog.end(), name) == catalog.end()) {
+            error = "unknown skill: " + name + " (use skill list)";
+            return 2;
+        }
+        std::cout << "Skill: " << name << "\n";
+        std::cout << "  Description: " << skill_description(name) << "\n";
+        std::cout << "  Example:     " << skill_example(name) << "\n";
+        std::cout << "  Status:      " << (enabled(name) ? "enabled" : "disabled") << "\n";
+        return 0;
+    }
+    if (action == "call" || action == "run") {
+        if (args.size() < 2) {
+            error = "usage: skiffllm skill call <name> [{\"key\":\"value\"}]";
+            return 2;
+        }
+        const std::string name = lower(args[1]);
+        if (std::find(catalog.begin(), catalog.end(), name) == catalog.end()) {
+            error = "unknown skill: " + name + " (use skill list)";
+            return 2;
+        }
+        SkillRequest request;
+        request.name = name;
+        if (args.size() >= 3) {
+            if (!parse_skill_args(args[2], request.args, error)) {
+                return 2;
+            }
+        }
+        std::string call_error;
+        const std::string result = execute_skill(cfg, request, call_error);
+        if (!call_error.empty()) {
+            std::cerr << call_error << std::endl;
+            return 1;
+        }
+        std::cout << result;
+        if (result.empty() || result.back() != '\n') {
+            std::cout << "\n";
+        }
+        return 0;
+    }
+    if (action == "enable" || action == "disable") {
+        if (args.size() < 2) {
+            error = "usage: skiffllm skill " + action + " <name>";
+            return 2;
+        }
+        const std::string name = lower(args[1]);
+        if (std::find(catalog.begin(), catalog.end(), name) == catalog.end()) {
+            error = "unknown skill: " + name + " (use skill list)";
+            return 2;
+        }
+        const auto found = std::find(cfg.enabled_skills.begin(), cfg.enabled_skills.end(), name);
+        if (action == "enable") {
+            if (found == cfg.enabled_skills.end()) {
+                cfg.enabled_skills.push_back(name);
+            }
+        } else if (found != cfg.enabled_skills.end()) {
+            cfg.enabled_skills.erase(found);
+        }
+        cfg.skills_enabled = !cfg.enabled_skills.empty();
+        std::string write_error;
+        if (!write_config_file(cfg.config_path, cfg, write_error)) {
+            error = write_error;
+            return 1;
+        }
+        std::cout << name << " " << (action == "enable" ? "enabled" : "disabled") << "\n";
+        return 0;
+    }
+    error = "unknown skill action: " + action + " (use list, show, call, enable or disable)";
     return 2;
 }
 

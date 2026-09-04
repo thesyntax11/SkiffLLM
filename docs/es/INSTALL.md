@@ -11,14 +11,14 @@ Cuando se publica una versión, incluye archivos de plataforma llamados
 
 ```bash
 # Linux / macOS
-tar -xzf skiffllm-v1.7.0-linux-x86_64.tar.gz
+tar -xzf skiffllm-v1.9.0-linux-x86_64.tar.gz
 sudo install -m 0755 bin/skiffllm /usr/local/bin/skiffllm
 ```
 
 Se incluye un asistente listo para usar:
 
 ```bash
-bash scripts/install-from-release.sh --version v1.7.0
+bash scripts/install-from-release.sh --version v1.9.0
 bash scripts/install-from-release.sh --help
 ```
 

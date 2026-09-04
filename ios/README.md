@@ -83,6 +83,10 @@ Choose a device/simulator and Run. If you only want the simulator, edit
   generated tokens, and average tokens per second, mirroring desktop `/stats`.
 - Regenerate the last answer with the current sampling settings (desktop
   `/regenerate` / `/retry` equivalent).
+- The Tools screen exposes the same skill catalog as the desktop CLI and
+  Android. This round it supports the manual runner: pick a skill, supply
+  JSON arguments, and run it locally. Automatic skill-call looping during
+  generation is the next cross-platform step.
 - Keep the same short catalog IDs as the desktop CLI.
 
 ## Models

@@ -177,6 +177,13 @@ decisions, preferences, and unfinished work.
 `Settings -> Persistent facts` keeps facts like *"user prefers concise
 answers"*. They are injected on every turn and never leave the phone.
 
+## Skills
+
+The Tools screen exposes the same skill catalog as the desktop CLI and iOS.
+This round the app supports the manual runner: pick a skill, supply JSON
+arguments, and run it locally. Automatic skill-call looping during generation
+is the next cross-platform step and will reuse the desktop/CLI rules.
+
 ## Settings
 
 - Model catalog with one-tap Hugging Face downloads, progress, cancel, use,

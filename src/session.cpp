@@ -1,4 +1,5 @@
 #include "skiffllm/session.hpp"
+#include "skiffllm/skills.hpp"
 
 #include <cstdint>
 #include <filesystem>
@@ -182,6 +183,14 @@ std::vector<ChatMessage> Session::conversation() const {
     result.reserve(messages_.size() + 1);
     if (!system_prompt_.empty()) {
         result.push_back({"system", system_prompt_});
+    }
+    if (config_.skills_enabled && !config_.enabled_skills.empty()) {
+        const std::string instructions = skill_instructions(config_.enabled_skills);
+        if (result.empty()) {
+            result.push_back({"system", instructions});
+        } else if (result[0].role == "system") {
+            result[0].content += "\n\n" + instructions;
+        }
     }
     result.insert(result.end(), messages_.begin(), messages_.end());
     return result;

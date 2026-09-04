@@ -20,7 +20,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License MIT"/>
-  <img src="https://img.shields.io/badge/version-v1.7.0-blue" alt="Version v1.7.0"/>
+  <img src="https://img.shields.io/badge/version-v1.9.0-blue" alt="Version v1.9.0"/>
   <img src="https://img.shields.io/badge/c%2B%2B-17-blue.svg" alt="C++17"/>
   <img src="https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows%20%7C%20Android%20%7C%20iOS-lightgrey" alt="Platforms"/>
   <img src="https://img.shields.io/badge/runtime-offline-green" alt="Offline"/>
@@ -65,7 +65,7 @@ ctest --test-dir build/release --output-on-failure
 ### Ya da yayınlanmış bir sürümü kurun
 
 ```bash
-bash scripts/install-from-release.sh --version v1.7.0
+bash scripts/install-from-release.sh --version v1.9.0
 ```
 
 Bu yardımcı script, işletim sisteminizi ve mimarinizi sürüm arşiviyle eşleştirir.
@@ -401,7 +401,7 @@ make help
 ```
 
 Yayınlandığında hazır arşivler `skiffllm-<version>-<os>-<arch>.tar.gz`
-(ör. `skiffllm-v1.7.0-linux-x86_64.tar.gz`, Windows’ta `.zip`) ve
+(ör. `skiffllm-v1.9.0-linux-x86_64.tar.gz`, Windows’ta `.zip`) ve
 `checksums.txt` biçimindedir. Bkz. [docs/tr/INSTALL.md](docs/tr/INSTALL.md).
 Kabuk tamamlamaları [scripts/completions](scripts/completions/) içindedir.
 

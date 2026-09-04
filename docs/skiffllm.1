@@ -1,4 +1,4 @@
-.TH SKIFFLLM 1 "2026-09-04" "SkiffLLM 1.7.0" "User Commands"
+.TH SKIFFLLM 1 "2026-09-04" "SkiffLLM 1.9.0" "User Commands"
 .SH NAME
 skiffllm \- offline-first local LLM terminal assistant built on llama.cpp
 .SH SYNOPSIS
@@ -185,6 +185,12 @@ Enable or disable the live context usage bar. Enabled by default.
 \fB\-\-backend-info\fR
 Print the llama.cpp backends linked into this build and exit.
 .TP
+\fB\-\-skills / \-\-no-skills\fR
+Allow the model to call enabled skills during generation, or keep it text-only. Text-only is the default.
+.TP
+\fB\-\-enable-skill <name> / \-\-disable-skill <name>\fR
+Add or remove a skill from the set the model may call.
+.TP
 \fB\-\-help\fR
 Show help.
 .TP
@@ -197,6 +203,9 @@ Run a one-shot prompt, e.g. skiffllm run "Merhaba" --ctx 2048 --temp 0.3.
 .TP
 .B skiffllm model list|info|install|remove|verify
 Manage the local model catalog and verify downloaded GGUF files.
+.TP
+.B skiffllm skill list|show|call|enable|disable
+List the local skill catalog, inspect one skill, run it manually, or persist its enabled state.
 .TP
 .B skiffllm chat-template list|detect|info
 List known chat templates or detect the template embedded in a model.

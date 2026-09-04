@@ -11,7 +11,7 @@ Usage: bash scripts/package-ios.sh --app <path> --version <version> [--output-di
 
 Options:
   --app PATH       Path to a built SkiffLLM.app bundle
-  --version VER    Release version, for example 1.6.0
+  --version VER    Release version, for example 1.9.0
   --output-dir DIR Output directory (default: artifacts)
   --help           Show this help
 EOF

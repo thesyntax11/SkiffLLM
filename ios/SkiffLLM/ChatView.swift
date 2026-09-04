@@ -1111,6 +1111,7 @@ struct SkillsSheet: View {
     }
 }
 
+
 struct MemorySheet: View {
     @ObservedObject var app: AppState
     @State private var content = ""
@@ -1188,12 +1189,12 @@ struct UsageSheet: View {
                             .foregroundColor(.secondary)
                     }
                 } else {
-                    ForEach(rows, id: \.0) { row in
+                    ForEach(rows.indices, id: \.self) { index in
                         Section {
                             HStack {
-                                Text(row.0)
+                                Text(rows[index].0)
                                 Spacer()
-                                Text(row.1)
+                                Text(rows[index].1)
                                     .foregroundColor(.secondary)
                             }
                         }
@@ -1570,7 +1571,7 @@ struct AboutSheet: View {
                     Text("SkiffLLM")
                         .font(.title)
                         .foregroundColor(.accentColor)
-                    Text("Version 1.7.0 (iOS)")
+                    Text("Version 1.9.0 (iOS)")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }

@@ -187,7 +187,7 @@ def download(entry: dict, output_dir: Path) -> Path:
     temp = output_dir / (entry["file"] + ".part")
 
     url = f"{BASE_URL}/{entry['repo']}/resolve/main/{entry['file']}"
-    request = urllib.request.Request(url, headers={"User-Agent": "SkiffLLM/1.6.0"})
+    request = urllib.request.Request(url, headers={"User-Agent": "SkiffLLM/1.9.0"})
 
     downloaded = 0
     total = 0

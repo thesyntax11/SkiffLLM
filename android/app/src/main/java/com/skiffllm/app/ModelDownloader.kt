@@ -45,7 +45,7 @@ class ModelDownloader(private val appContext: Context) {
                     instanceFollowRedirects = true
                     connectTimeout = 30_000
                     readTimeout = 30_000
-                    setRequestProperty("User-Agent", "SkiffLLM-Android/1.6.0")
+                    setRequestProperty("User-Agent", "SkiffLLM-Android/1.9.0")
                 }
                 active[entry.id] = connection
 

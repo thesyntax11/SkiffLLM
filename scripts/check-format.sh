@@ -13,6 +13,7 @@ echo "Checking C++ formatting..."
 clang-format --dry-run --Werror \
     include/skiffllm/*.hpp \
     src/*.cpp \
+    android/app/src/main/cpp/jni_bridge.cpp \
     tests/test_main.cpp \
     tests/test_extra.cpp
 

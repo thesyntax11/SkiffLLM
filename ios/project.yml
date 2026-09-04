@@ -17,6 +17,14 @@ targets:
         excludes:
           - "Info.plist"
           - "*.entitlements"
+      - path: ../src
+        excludes:
+          - cli_utils.cpp
+          - http_auth.cpp
+          - main.cpp
+          - gui.cpp
+          - server.cpp
+          - terminal.cpp
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.skiffllm.app
@@ -32,6 +40,7 @@ targets:
         HEADER_SEARCH_PATHS:
           - $(SRCROOT)/third_party/llama/build-apple/llama.xcframework/ios-arm64/llama.framework/Headers
           - $(SRCROOT)/third_party/llama/build-apple/llama.xcframework/ios-arm64_x86_64-simulator/llama.framework/Headers
+          - $(SRCROOT)/../include
     dependencies:
       - framework: third_party/llama/build-apple/llama.xcframework
         embed: true

@@ -1,4 +1,5 @@
 #include "skiffllm/config.hpp"
+#include "skiffllm/skills.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -275,6 +276,9 @@ std::vector<std::filesystem::path> discover_models(const Config& cfg, std::strin
 bool apply_profile(Config& cfg, const std::string& name, std::string& error) {
     const std::string normalized = lower(trim(name));
     cfg.profile_name = normalized;
+    if (normalized.empty()) {
+        return true;
+    }
 
     if (normalized == "balanced") {
         cfg.temperature = 0.70f;
@@ -727,6 +731,33 @@ bool apply_key_value(Config& cfg, const std::string& key, const std::string& val
         if (!set_flag(cfg.backend_info, true, false, value, key)) {
             return false;
         }
+    } else if (key == "skills") {
+        if (!set_flag(cfg.skills_enabled, true, false, value, key)) {
+            return false;
+        }
+    } else if (key == "no-skills") {
+        if (!set_flag(cfg.skills_enabled, true, true, value, key)) {
+            return false;
+        }
+    } else if (key == "enable-skill" || key == "disable-skill") {
+        const std::string skill = lower(trim(value));
+        if (skill.empty()) {
+            error = "skill name cannot be empty";
+            return false;
+        }
+        const auto catalog = skiffllm::skill_catalog();
+        if (std::find(catalog.begin(), catalog.end(), skill) == catalog.end()) {
+            error = "unknown skill: " + skill + " (use skill list)";
+            return false;
+        }
+        const auto found = std::find(cfg.enabled_skills.begin(), cfg.enabled_skills.end(), skill);
+        if (key == "enable-skill") {
+            if (found == cfg.enabled_skills.end()) {
+                cfg.enabled_skills.push_back(skill);
+            }
+        } else if (found != cfg.enabled_skills.end()) {
+            cfg.enabled_skills.erase(found);
+        }
     } else {
         error = "unknown option: " + key;
         return false;
@@ -819,7 +850,8 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
             key == "flash-attn" || key == "no-flash-attn" || key == "numa" || key == "kv-offload" ||
             key == "no-kv-offload" || key == "doctor" || key == "network" || key == "code" ||
             key == "model-info" || key == "smoke" || key == "warmup" || key == "serve" ||
-            key == "context-bar" || key == "no-context-bar" || key == "backend-info") {
+            key == "context-bar" || key == "no-context-bar" || key == "backend-info" ||
+            key == "skills" || key == "no-skills") {
             if (has_value) {
                 error = "option --" + key + " does not take a value";
                 return false;
@@ -836,7 +868,7 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
             key == "file" || key == "chat-template" || key == "prompt" || key == "prompt-file" ||
             key == "project" || key == "summarize" || key == "remember" || key == "forget" ||
             key == "tokenize" || key == "host" || key == "port" || key == "api-key" ||
-            key == "key" || key == "benchmark") {
+            key == "key" || key == "benchmark" || key == "enable-skill" || key == "disable-skill") {
             const std::string value = option_value(i, argc, argv, "--" + key, error);
             if (!error.empty()) {
                 return false;
@@ -1004,6 +1036,10 @@ std::string usage(const std::string& program) {
     out << "  --context-bar                 Show the live context usage bar (default)\n";
     out << "  --no-context-bar              Hide the context usage bar\n";
     out << "  --backend-info                Print the active llama.cpp backends and exit\n";
+    out << "  --skills                      Allow the model to run enabled skills\n";
+    out << "  --no-skills                   Keep the model text-only (default)\n";
+    out << "  --enable-skill <name>         Enable a skill for automatic calls\n";
+    out << "  --disable-skill <name>        Remove a skill from automatic calls\n";
     out << "  --help                        Show this help\n";
     out << "  --version                     Show the version\n";
     out << "\nSubcommands:\n";
@@ -1011,6 +1047,7 @@ std::string usage(const std::string& program) {
            "2048 "
            "--temp 0.3 --threads 4`)\n";
     out << "  model list|info|install|remove|verify\n";
+    out << "  skill list|show|call|enable|disable\n";
     out << "  chat-template list|detect|info\n";
     out << "  openai [prompt] [opts]     Send a prompt to a local OpenAI-compatible server\n";
     out << "  config path|show|init      Manage the config file\n";
@@ -1099,7 +1136,16 @@ void print_config(const Config& cfg, bool as_json) {
                   << (cfg.seed == 0xFFFFFFFFu ? "\"random\"" : std::to_string(cfg.seed)) << ",\n";
         std::cout << "  \"save_history\":" << (cfg.save_history ? "true" : "false") << ",\n";
         std::cout << "  \"auto_trim\":" << (cfg.auto_trim ? "true" : "false") << ",\n";
-        std::cout << "  \"serve\":" << (cfg.serve ? "true" : "false") << "\n";
+        std::cout << "  \"serve\":" << (cfg.serve ? "true" : "false") << ",\n";
+        std::cout << "  \"skills_enabled\":" << (cfg.skills_enabled ? "true" : "false") << ",\n";
+        std::cout << "  \"enabled_skills\":[";
+        for (size_t i = 0; i < cfg.enabled_skills.size(); ++i) {
+            if (i > 0) {
+                std::cout << ",";
+            }
+            std::cout << "\"" << json_escape(cfg.enabled_skills[i]) << "\"";
+        }
+        std::cout << "]\n";
         std::cout << "}\n";
         return;
     }
@@ -1169,6 +1215,19 @@ void print_config(const Config& cfg, bool as_json) {
     std::cout << "smoke            " << (cfg.smoke ? "yes" : "no") << "\n";
     std::cout << "warmup           " << (cfg.warmup ? "yes" : "no") << "\n";
     std::cout << "serve            " << (cfg.serve ? "yes" : "no") << "\n";
+    std::cout << "skills_enabled   " << (cfg.skills_enabled ? "yes" : "no") << "\n";
+    std::cout << "enabled_skills   ";
+    if (cfg.enabled_skills.empty()) {
+        std::cout << "(none)";
+    } else {
+        for (size_t i = 0; i < cfg.enabled_skills.size(); ++i) {
+            if (i != 0) {
+                std::cout << ", ";
+            }
+            std::cout << cfg.enabled_skills[i];
+        }
+    }
+    std::cout << "\n";
     std::cout << "debug            " << (cfg.debug ? "yes" : "no") << "\n";
     std::cout << "context_bar      " << (cfg.context_bar ? "yes" : "no") << "\n";
     std::cout << "backend_info     " << (cfg.backend_info ? "yes" : "no") << "\n";

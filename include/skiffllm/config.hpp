@@ -81,6 +81,8 @@ struct Config {
 
     bool context_bar = true;
     bool backend_info = false;
+    bool skills_enabled = false;
+    std::vector<std::string> enabled_skills;
 };
 
 Config default_config();

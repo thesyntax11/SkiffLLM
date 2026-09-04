@@ -12,8 +12,8 @@ android {
         applicationId = "com.skiffllm.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 10600
-        versionName = "1.7.0"
+        versionCode = 10900
+        versionName = "1.9.0"
 
         ndkVersion = "26.3.11579264"
 

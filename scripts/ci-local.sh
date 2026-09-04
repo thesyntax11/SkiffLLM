@@ -13,11 +13,13 @@ if [[ -n "${SOURCE_DIR}" ]]; then
         -DSKIFFLLM_LLAMA_SOURCE_DIR="${SOURCE_DIR}" \
         -DSKIFFLLM_FETCH_LLAMA=OFF \
         -DSKIFFLLM_BUILD_TESTS=ON \
+        -DSKIFFLLM_BUILD_GUI=${SKIFFLLM_BUILD_GUI:-OFF} \
         -DSKIFFLLM_WARNINGS_AS_ERRORS=OFF
 else
     cmake -S . -B "${BUILD_DIR}" \
         -DCMAKE_BUILD_TYPE=Release \
         -DSKIFFLLM_BUILD_TESTS=ON \
+        -DSKIFFLLM_BUILD_GUI=${SKIFFLLM_BUILD_GUI:-OFF} \
         -DSKIFFLLM_WARNINGS_AS_ERRORS=OFF
 fi
 
@@ -25,13 +27,23 @@ cmake --build "${BUILD_DIR}" --config Release -j
 
 ctest --test-dir "${BUILD_DIR}" --output-on-failure
 
-"${BUILD_DIR}/skiffllm" --version
-"${BUILD_DIR}/skiffllm" --help >/dev/null
-"${BUILD_DIR}/skiffllm" --doctor >/dev/null
-"${BUILD_DIR}/skiffllm" --doctor --network >/dev/null
-"${BUILD_DIR}/skiffllm" model list >/dev/null
-"${BUILD_DIR}/skiffllm" model info qwen2.5-0.5b >/dev/null
-"${BUILD_DIR}/skiffllm" session list >/dev/null
+CLI_BINARY="${BUILD_DIR}/skiffllm"
+if [[ -x "${BUILD_DIR}/skiffllm-cli" ]]; then
+    CLI_BINARY="${BUILD_DIR}/skiffllm-cli"
+fi
+if [[ -x "${BUILD_DIR}/Release/skiffllm-cli.exe" ]]; then
+    CLI_BINARY="${BUILD_DIR}/Release/skiffllm-cli.exe"
+fi
+"${CLI_BINARY}" --version
+"${CLI_BINARY}" --help >/dev/null
+"${CLI_BINARY}" --doctor >/dev/null
+"${CLI_BINARY}" --doctor --network >/dev/null
+"${CLI_BINARY}" model list >/dev/null
+"${CLI_BINARY}" model info qwen2.5-0.5b >/dev/null
+"${CLI_BINARY}" session list >/dev/null
+"${CLI_BINARY}" skill list >/dev/null
+"${CLI_BINARY}" skill show read_file >/dev/null
+"${CLI_BINARY}" skill call current_time '{}' >/dev/null
 
 bash -n scripts/release.sh
 bash -n scripts/package-ios.sh
@@ -54,6 +66,8 @@ fi
 grep -q "SKIFFLLM_VERSION \"${EXPECTED_VERSION}\"" src/main.cpp
 grep -q "SkiffLLM ${EXPECTED_VERSION}" docs/skiffllm.1
 grep -q "versionName = \"${EXPECTED_VERSION}\"" android/app/build.gradle.kts
+grep -q "<string>${EXPECTED_VERSION}</string>" ios/SkiffLLM/Info.plist
+grep -q "<string>${EXPECTED_VERSION}</string>" ios/SkiffLLMShare/Info.plist
 
 bash scripts/check-naming.sh
 
@@ -61,6 +75,7 @@ if command -v clang-format >/dev/null 2>&1; then
     clang-format --dry-run --Werror \
         include/skiffllm/*.hpp \
         src/*.cpp \
+        android/app/src/main/cpp/jni_bridge.cpp \
         tests/test_main.cpp \
         tests/test_extra.cpp
 fi

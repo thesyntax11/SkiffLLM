@@ -7,8 +7,8 @@ set -euo pipefail
 # It intentionally fails fast when a release archive is not published yet.
 #
 # Usage:
-#   bash scripts/install-from-release.sh --version v1.6.0 --os linux --arch x86_64
-#   curl -fsSL https://raw.githubusercontent.com/thesyntax11/SkiffLLM/main/scripts/install-from-release.sh | bash -s -- --version v1.6.0
+#   bash scripts/install-from-release.sh --version v1.9.0 --os linux --arch x86_64
+#   curl -fsSL https://raw.githubusercontent.com/thesyntax11/SkiffLLM/main/scripts/install-from-release.sh | bash -s -- --version v1.9.0
 
 VERSION=""
 RAW_OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
@@ -33,7 +33,7 @@ usage() {
 Usage: bash scripts/install-from-release.sh [options]
 
 Options:
-  --version VER      Required. For example: v1.6.0
+  --version VER      Required. For example: v1.9.0
   --os NAME          linux, darwin, windows (default: current OS)
   --arch NAME        x86_64, arm64, aarch64 (default: current arch)
   --prefix DIR       Install directory (default: $HOME/.local)
@@ -87,8 +87,8 @@ if [[ -z "${VERSION}" ]]; then
     exit 2
 fi
 
-# Release archives are named with the bare version (e.g. "1.6.0") while the
-# GitHub tag is prefixed (e.g. "v1.6.0"). Strip a leading "v" only from the
+# Release archives are named with the bare version (e.g. "1.9.0") while the
+# GitHub tag is prefixed (e.g. "v1.9.0"). Strip a leading "v" only from the
 # asset filename; keep the full tag for the release/download URL.
 ASSET_VERSION="${VERSION#v}"
 

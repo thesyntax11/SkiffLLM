@@ -84,8 +84,7 @@ std::map<std::string, std::string> parse_args_json(const std::string &input) {
     std::map<std::string, std::string> args;
     size_t i = 0;
     while (i < input.size()) {
-        while (i < input.size() &&
-               (input[i] == ' ' || input[i] == '{' || input[i] == ',')) {
+        while (i < input.size() && (input[i] == ' ' || input[i] == '{' || input[i] == ',')) {
             ++i;
         }
         if (i >= input.size()) {
@@ -149,7 +148,7 @@ std::map<std::string, std::string> parse_args_json(const std::string &input) {
     if (self) {
         static dispatch_once_t onceToken;
         dispatch_once(&onceToken, ^{
-            llama_backend_init();
+          llama_backend_init();
         });
         _model = nullptr;
         _ctx = nullptr;
@@ -157,8 +156,9 @@ std::map<std::string, std::string> parse_args_json(const std::string &input) {
         _sampler = nullptr;
         _stopping.store(false);
         _chatTemplate.clear();
-        NSArray<NSString *> *paths = NSSearchPathForDirectoriesInDomains(
-            NSApplicationSupportDirectory, NSUserDomainMask, YES);
+        NSArray<NSString *> *paths =
+            NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, NSUserDomainMask,
+                                                YES);
         NSString *support = paths.firstObject ?: NSTemporaryDirectory();
         NSString *root = [support stringByAppendingPathComponent:@"SkiffLLM"];
         [[NSFileManager defaultManager] createDirectoryAtPath:root
@@ -167,6 +167,7 @@ std::map<std::string, std::string> parse_args_json(const std::string &input) {
                                                         error:nil];
         _config = skiffllm::default_config();
         _config.model_path.clear();
+        _config.model_dir = std::filesystem::path(ns_to_utf8(root)) / "models";
         _config.history_path = std::filesystem::path(ns_to_utf8(root)) / "history.skif";
         _config.memory_path = std::filesystem::path(ns_to_utf8(root)) / "memories.txt";
     }
@@ -202,8 +203,10 @@ std::map<std::string, std::string> parse_args_json(const std::string &input) {
     std::string out;
     bool first = true;
     auto add = [&](const char *name) {
-        if (!name || !*name) return;
-        if (!first) out += ", ";
+        if (!name || !*name)
+            return;
+        if (!first)
+            out += ", ";
         first = false;
         out += name;
     };
@@ -218,14 +221,16 @@ std::map<std::string, std::string> parse_args_json(const std::string &input) {
 }
 
 - (NSString *)modelDescription {
-    if (!_model) return @"";
+    if (!_model)
+        return @"";
     char buffer[4096] = {0};
     int32_t written = llama_model_desc(_model, buffer, sizeof(buffer));
     std::string desc = written > 0 ? std::string(buffer, (size_t)written) : "";
     uint64_t params = llama_model_n_params(_model);
     int32_t ctx = llama_model_n_ctx_train(_model);
     std::string out = desc;
-    if (!out.empty() && out.back() == '\n') out.pop_back();
+    if (!out.empty() && out.back() == '\n')
+        out.pop_back();
     std::ostringstream info;
     if (params >= 1000000000ULL) {
         char buf[64] = {0};
@@ -234,7 +239,8 @@ std::map<std::string, std::string> parse_args_json(const std::string &input) {
     } else if (params > 0) {
         info << (params / 1000000ULL) << "M params";
     }
-    if (ctx > 0) info << " · ctx " << ctx;
+    if (ctx > 0)
+        info << " · ctx " << ctx;
     if (!out.empty() && !info.str().empty()) {
         out += " · ";
     }
@@ -244,18 +250,19 @@ std::map<std::string, std::string> parse_args_json(const std::string &input) {
 
 - (BOOL)loadModelAtPath:(NSString *)path
             contextSize:(int)contextSize
-               threads:(int)threads
-             gpuLayers:(int)gpuLayers
+                threads:(int)threads
+              gpuLayers:(int)gpuLayers
            chatTemplate:(NSString *)chatTemplate
-                 error:(NSError **)error {
+                  error:(NSError **)error {
     [self close];
     _stopping.store(false);
 
     std::string modelPath = ns_to_utf8(path);
     if (modelPath.empty()) {
         if (error) {
-            *error = [NSError errorWithDomain:@"SkiffLLM" code:1
-                                     userInfo:@{NSLocalizedDescriptionKey: @"Empty model path"}];
+            *error = [NSError errorWithDomain:@"SkiffLLM"
+                                         code:1
+                                     userInfo:@{NSLocalizedDescriptionKey : @"Empty model path"}];
         }
         return NO;
     }
@@ -267,8 +274,10 @@ std::map<std::string, std::string> parse_args_json(const std::string &input) {
     _model = llama_model_load_from_file(modelPath.c_str(), mp);
     if (!_model) {
         if (error) {
-            *error = [NSError errorWithDomain:@"SkiffLLM" code:2
-                                     userInfo:@{NSLocalizedDescriptionKey: @"Failed to load GGUF model"}];
+            *error = [NSError
+                errorWithDomain:@"SkiffLLM"
+                           code:2
+                       userInfo:@{NSLocalizedDescriptionKey : @"Failed to load GGUF model"}];
         }
         return NO;
     }
@@ -293,8 +302,12 @@ std::map<std::string, std::string> parse_args_json(const std::string &input) {
     if (!_ctx) {
         [self close];
         if (error) {
-            *error = [NSError errorWithDomain:@"SkiffLLM" code:3
-                                     userInfo:@{NSLocalizedDescriptionKey: @"Failed to create inference context"}];
+            *error = [NSError
+                errorWithDomain:@"SkiffLLM"
+                           code:3
+                       userInfo:@{
+                           NSLocalizedDescriptionKey : @"Failed to create inference context"
+                       }];
         }
         return NO;
     }
@@ -304,22 +317,24 @@ std::map<std::string, std::string> parse_args_json(const std::string &input) {
 }
 
 - (BOOL)buildSamplerWithTemperature:(float)temperature
-                                topP:(float)topP
-                                topK:(int)topK
-                                minP:(float)minP
-                             typicalP:(float)typicalP
-                       repeatPenalty:(float)repeatPenalty
-                       repeatLastN:(int)repeatLastN
-                            seed:(uint32_t)seed
-                            error:(NSError **)error {
+                               topP:(float)topP
+                               topK:(int)topK
+                               minP:(float)minP
+                           typicalP:(float)typicalP
+                      repeatPenalty:(float)repeatPenalty
+                        repeatLastN:(int)repeatLastN
+                               seed:(uint32_t)seed
+                              error:(NSError **)error {
     if (_sampler) {
         llama_sampler_free(_sampler);
         _sampler = nullptr;
     }
     if (!_vocab) {
         if (error) {
-            *error = [NSError errorWithDomain:@"SkiffLLM" code:4
-                                     userInfo:@{NSLocalizedDescriptionKey: @"Vocabulary unavailable"}];
+            *error =
+                [NSError errorWithDomain:@"SkiffLLM"
+                                    code:4
+                                userInfo:@{NSLocalizedDescriptionKey : @"Vocabulary unavailable"}];
         }
         return NO;
     }
@@ -343,12 +358,9 @@ std::map<std::string, std::string> parse_args_json(const std::string &input) {
         llama_sampler_chain_add(_sampler, llama_sampler_init_typical(typicalP, 1));
     }
     if (repeatPenalty > 0.0f && repeatPenalty != 1.0f) {
-        llama_sampler_chain_add(_sampler,
-                                llama_sampler_init_penalties(llama_vocab_n_tokens(_vocab),
-                                                             repeatLastN,
-                                                             repeatPenalty,
-                                                             0.0f,
-                                                             0.0f));
+        llama_sampler_chain_add(_sampler, llama_sampler_init_penalties(llama_vocab_n_tokens(_vocab),
+                                                                       repeatLastN, repeatPenalty,
+                                                                       0.0f, 0.0f));
     }
     if (temperature > 0.0f) {
         llama_sampler_chain_add(_sampler, llama_sampler_init_temp(temperature));
@@ -359,17 +371,18 @@ std::map<std::string, std::string> parse_args_json(const std::string &input) {
     return YES;
 }
 
-- (std::vector<llama_token>)encode:(NSString *)text
-                             error:(NSError **)error {
+- (std::vector<llama_token>)encode:(NSString *)text error:(NSError **)error {
     std::vector<llama_token> tokens;
     if (!_vocab) {
         return tokens;
     }
     std::string content = ns_to_utf8(text);
-    int32_t required = llama_tokenize(_vocab, content.c_str(), (int32_t)content.size(),
-                                      nullptr, 0, true, true);
-    if (required < 0) required = -required;
-    if (required <= 0) return tokens;
+    int32_t required =
+        llama_tokenize(_vocab, content.c_str(), (int32_t)content.size(), nullptr, 0, true, true);
+    if (required < 0)
+        required = -required;
+    if (required <= 0)
+        return tokens;
     tokens.resize((size_t)required);
     int32_t written = llama_tokenize(_vocab, content.c_str(), (int32_t)content.size(),
                                      tokens.data(), required, true, true);
@@ -381,22 +394,26 @@ std::map<std::string, std::string> parse_args_json(const std::string &input) {
     return tokens;
 }
 
-- (BOOL)decode:(const std::vector<llama_token> &)tokens
-         error:(NSError **)error {
+- (BOOL)decode:(const std::vector<llama_token> &)tokens error:(NSError **)error {
     if (!_ctx) {
         if (error) {
-            *error = [NSError errorWithDomain:@"SkiffLLM" code:5
-                                     userInfo:@{NSLocalizedDescriptionKey: @"No inference context"}];
+            *error =
+                [NSError errorWithDomain:@"SkiffLLM"
+                                    code:5
+                                userInfo:@{NSLocalizedDescriptionKey : @"No inference context"}];
         }
         return NO;
     }
-    if (tokens.empty()) return YES;
+    if (tokens.empty())
+        return YES;
     llama_token *ptr = const_cast<llama_token *>(tokens.data());
     llama_batch batch = llama_batch_get_one(ptr, (int32_t)tokens.size());
     if (llama_decode(_ctx, batch) != 0) {
         if (error) {
-            *error = [NSError errorWithDomain:@"SkiffLLM" code:6
-                                     userInfo:@{NSLocalizedDescriptionKey: @"llama_decode failed"}];
+            *error =
+                [NSError errorWithDomain:@"SkiffLLM"
+                                    code:6
+                                userInfo:@{NSLocalizedDescriptionKey : @"llama_decode failed"}];
         }
         return NO;
     }
@@ -406,23 +423,30 @@ std::map<std::string, std::string> parse_args_json(const std::string &input) {
 - (BOOL)warmup:(NSError **)error {
     if (!_model || !_vocab || !_ctx) {
         if (error) {
-            *error = [NSError errorWithDomain:@"SkiffLLM" code:11
-                                     userInfo:@{NSLocalizedDescriptionKey: @"No model loaded"}];
+            *error = [NSError errorWithDomain:@"SkiffLLM"
+                                         code:11
+                                     userInfo:@{NSLocalizedDescriptionKey : @"No model loaded"}];
         }
         return NO;
     }
     NSError *local = nil;
     std::vector<llama_token> tokens = [self encode:@"Hello" error:&local];
-    if (local) tokens.clear();
+    if (local)
+        tokens.clear();
     if (tokens.empty()) {
         if (error) {
-            *error = local ?: [NSError errorWithDomain:@"SkiffLLM" code:12
-                                              userInfo:@{NSLocalizedDescriptionKey: @"Warm-up prompt failed"}];
+            *error =
+                local
+                    ?: [NSError
+                           errorWithDomain:@"SkiffLLM"
+                                      code:12
+                                  userInfo:@{NSLocalizedDescriptionKey : @"Warm-up prompt failed"}];
         }
         return NO;
     }
     if (![self decode:tokens error:&local]) {
-        if (error) *error = local;
+        if (error)
+            *error = local;
         return NO;
     }
     if (llama_memory_t mem = llama_get_memory(_ctx)) {
@@ -435,8 +459,9 @@ std::map<std::string, std::string> parse_args_json(const std::string &input) {
                                 error:(NSError **)error {
     if (messages.count == 0) {
         if (error) {
-            *error = [NSError errorWithDomain:@"SkiffLLM" code:7
-                                     userInfo:@{NSLocalizedDescriptionKey: @"No messages"}];
+            *error = [NSError errorWithDomain:@"SkiffLLM"
+                                         code:7
+                                     userInfo:@{NSLocalizedDescriptionKey : @"No messages"}];
         }
         return {};
     }
@@ -446,7 +471,8 @@ std::map<std::string, std::string> parse_args_json(const std::string &input) {
         const char *tmpl = llama_model_chat_template(_model, nullptr);
         tmplStr = tmpl ? tmpl : "";
     }
-    if (tmplStr.empty()) tmplStr = "chatml";
+    if (tmplStr.empty())
+        tmplStr = "chatml";
 
     std::vector<const char *> roles;
     std::vector<const char *> contents;
@@ -470,192 +496,211 @@ std::map<std::string, std::string> parse_args_json(const std::string &input) {
         raw[i] = {roles[i], contents[i]};
     }
 
-    int32_t required = llama_chat_apply_template(tmplStr.c_str(), raw.data(), raw.size(), true,
-                                                 nullptr, 0);
+    int32_t required =
+        llama_chat_apply_template(tmplStr.c_str(), raw.data(), raw.size(), true, nullptr, 0);
     if (required <= 0) {
         required = llama_chat_apply_template("chatml", raw.data(), raw.size(), true, nullptr, 0);
         tmplStr = "chatml";
     }
     if (required <= 0) {
         if (error) {
-            *error = [NSError errorWithDomain:@"SkiffLLM" code:8
-                                     userInfo:@{NSLocalizedDescriptionKey: @"Chat template failed"}];
+            *error =
+                [NSError errorWithDomain:@"SkiffLLM"
+                                    code:8
+                                userInfo:@{NSLocalizedDescriptionKey : @"Chat template failed"}];
         }
         return {};
     }
     std::string prompt((size_t)required + 1, '\0');
     int32_t written = llama_chat_apply_template(tmplStr.c_str(), raw.data(), raw.size(), true,
                                                 &prompt[0], (int32_t)prompt.size());
-    if (written <= 0) return {};
+    if (written <= 0)
+        return {};
     prompt.resize((size_t)written);
     return prompt;
 }
 
 - (void)deliverCompletionResult:(LlamaGenerationResult *_Nullable)result
                           error:(NSError *_Nullable)error
-                    completion:(void (^_Nullable)(LlamaGenerationResult *_Nullable result,
-                                                  NSError *_Nullable error))completion {
-    if (!completion) return;
+                     completion:(void (^_Nullable)(LlamaGenerationResult *_Nullable result,
+                                                   NSError *_Nullable error))completion {
+    if (!completion)
+        return;
     dispatch_async(dispatch_get_main_queue(), ^{
-        completion(result, error);
+      completion(result, error);
     });
 }
 
 - (void)generateMessages:(NSArray<NSDictionary<NSString *, NSString *> *> *)messages
-              temperature:(float)temperature
+             temperature:(float)temperature
                     topP:(float)topP
                     topK:(int)topK
                     minP:(float)minP
-                 typicalP:(float)typicalP
+                typicalP:(float)typicalP
            repeatPenalty:(float)repeatPenalty
-           repeatLastN:(int)repeatLastN
-              maxTokens:(int)maxTokens
+             repeatLastN:(int)repeatLastN
+               maxTokens:(int)maxTokens
                     seed:(uint32_t)seed
            stopSequences:(NSArray<NSString *> *)stopSequences
            tokenCallback:(void (^_Nullable)(NSString *_Nullable token))tokenCallback
-             completion:(void (^_Nullable)(LlamaGenerationResult *_Nullable result,
-                                           NSError *_Nullable error))completion {
+              completion:(void (^_Nullable)(LlamaGenerationResult *_Nullable result,
+                                            NSError *_Nullable error))completion {
     _stopping.store(false);
     if (!_model || !_vocab || !_ctx) {
-        NSError *e = [NSError errorWithDomain:@"SkiffLLM" code:10
-                                     userInfo:@{NSLocalizedDescriptionKey: @"No model loaded"}];
+        NSError *e = [NSError errorWithDomain:@"SkiffLLM"
+                                         code:10
+                                     userInfo:@{NSLocalizedDescriptionKey : @"No model loaded"}];
         [self deliverCompletionResult:nil error:e completion:completion];
         return;
     }
     dispatch_async(dispatch_get_global_queue(QOS_CLASS_USER_INITIATED, 0), ^{
-        NSError *localError = nil;
-        uint32_t capacity = self->_ctx ? llama_n_ctx(self->_ctx) : 0;
-        uint32_t generationReserve = capacity > 128 ? 64 : 1;
-        uint32_t maxPrompt = capacity > generationReserve ? capacity - generationReserve : capacity;
+      NSError *localError = nil;
+      uint32_t capacity = self->_ctx ? llama_n_ctx(self->_ctx) : 0;
+      uint32_t generationReserve = capacity > 128 ? 64 : 1;
+      uint32_t maxPrompt = capacity > generationReserve ? capacity - generationReserve : capacity;
 
-        NSMutableArray *workingMessages = [messages mutableCopy];
-        std::vector<llama_token> prompt;
-        std::string promptText;
+      NSMutableArray *workingMessages = [messages mutableCopy];
+      std::vector<llama_token> prompt;
+      std::string promptText;
 
-        while (true) {
-            promptText = [self buildPromptForMessages:workingMessages error:&localError];
-            if (localError) {
-                [self deliverCompletionResult:nil error:localError completion:completion];
-                return;
-            }
-            prompt = [self encode:utf8_to_ns(promptText) error:&localError];
-            if (localError) {
-                [self deliverCompletionResult:nil error:localError completion:completion];
-                return;
-            }
-            if ((uint32_t)prompt.size() <= maxPrompt || workingMessages.count <= 2) {
-                break;
-            }
-            NSUInteger removeIndex = [[workingMessages.firstObject objectForKey:@"role"] isEqual:@"system"] ? 1 : 0;
-            if (removeIndex >= workingMessages.count) break;
-            [workingMessages removeObjectAtIndex:removeIndex];
-        }
+      while (true) {
+          promptText = [self buildPromptForMessages:workingMessages error:&localError];
+          if (localError) {
+              [self deliverCompletionResult:nil error:localError completion:completion];
+              return;
+          }
+          prompt = [self encode:utf8_to_ns(promptText) error:&localError];
+          if (localError) {
+              [self deliverCompletionResult:nil error:localError completion:completion];
+              return;
+          }
+          if ((uint32_t)prompt.size() <= maxPrompt || workingMessages.count <= 2) {
+              break;
+          }
+          NSUInteger removeIndex =
+              [[workingMessages.firstObject objectForKey:@"role"] isEqual:@"system"] ? 1 : 0;
+          if (removeIndex >= workingMessages.count)
+              break;
+          [workingMessages removeObjectAtIndex:removeIndex];
+      }
 
-        if ((uint32_t)prompt.size() > maxPrompt) {
-            NSError *e = [NSError errorWithDomain:@"SkiffLLM" code:9
-                                         userInfo:@{NSLocalizedDescriptionKey:
-                                             @"Prompt still exceeds the context window after trimming; increase Context in Settings or shorten the conversation."}];
-            [self deliverCompletionResult:nil error:e completion:completion];
-            return;
-        }
+      if ((uint32_t)prompt.size() > maxPrompt) {
+          NSError *e =
+              [NSError errorWithDomain:@"SkiffLLM"
+                                  code:9
+                              userInfo:@{
+                                  NSLocalizedDescriptionKey :
+                                      @"Prompt still exceeds the context window after trimming; "
+                                      @"increase Context in Settings or shorten the conversation."
+                              }];
+          [self deliverCompletionResult:nil error:e completion:completion];
+          return;
+      }
 
-        if (![self buildSamplerWithTemperature:temperature
-                                         topP:topP
-                                         topK:topK
-                                         minP:minP
-                                      typicalP:typicalP
-                                repeatPenalty:repeatPenalty
-                                repeatLastN:repeatLastN
-                                     seed:seed
-                                     error:&localError]) {
-            [self deliverCompletionResult:nil error:localError completion:completion];
-            return;
-        }
+      if (![self buildSamplerWithTemperature:temperature
+                                        topP:topP
+                                        topK:topK
+                                        minP:minP
+                                    typicalP:typicalP
+                               repeatPenalty:repeatPenalty
+                                 repeatLastN:repeatLastN
+                                        seed:seed
+                                       error:&localError]) {
+          [self deliverCompletionResult:nil error:localError completion:completion];
+          return;
+      }
 
-        if (llama_memory_t mem = llama_get_memory(self->_ctx)) {
-            llama_memory_clear(mem, true);
-        }
-        llama_sampler_reset(self->_sampler);
+      if (llama_memory_t mem = llama_get_memory(self->_ctx)) {
+          llama_memory_clear(mem, true);
+      }
+      llama_sampler_reset(self->_sampler);
 
-        const double promptStart = now_ms();
-        uint32_t nBatch = self->_ctx ? llama_n_batch(self->_ctx) : 0;
-        if (nBatch == 0) nBatch = (uint32_t)prompt.size();
-        size_t offset = 0;
-        while (offset < prompt.size()) {
-            size_t count = std::min((size_t)nBatch, prompt.size() - offset);
-            std::vector<llama_token> chunk(prompt.begin() + offset, prompt.begin() + offset + count);
-            if (![self decode:chunk error:&localError]) {
-                [self deliverCompletionResult:nil error:localError completion:completion];
-                return;
-            }
-            offset += count;
-        }
-        const double promptEnd = now_ms();
+      const double promptStart = now_ms();
+      uint32_t nBatch = self->_ctx ? llama_n_batch(self->_ctx) : 0;
+      if (nBatch == 0)
+          nBatch = (uint32_t)prompt.size();
+      size_t offset = 0;
+      while (offset < prompt.size()) {
+          size_t count = std::min((size_t)nBatch, prompt.size() - offset);
+          std::vector<llama_token> chunk(prompt.begin() + offset, prompt.begin() + offset + count);
+          if (![self decode:chunk error:&localError]) {
+              [self deliverCompletionResult:nil error:localError completion:completion];
+              return;
+          }
+          offset += count;
+      }
+      const double promptEnd = now_ms();
 
-        int32_t promptTokens = (int32_t)prompt.size();
-        int32_t target = std::min(maxTokens > 0 ? maxTokens : 512, (int)maxPrompt - (int)prompt.size());
-        if (target < 1) target = 0;
+      int32_t promptTokens = (int32_t)prompt.size();
+      int32_t target =
+          std::min(maxTokens > 0 ? maxTokens : 512, (int)maxPrompt - (int)prompt.size());
+      if (target < 1)
+          target = 0;
 
-        std::string output;
-        bool stopped = false;
-        int generated = 0;
-        const double generationStart = now_ms();
+      std::string output;
+      bool stopped = false;
+      int generated = 0;
+      const double generationStart = now_ms();
 
-        while (generated < target) {
-            if (self->_stopping.load()) {
-                stopped = true;
-                break;
-            }
-            llama_token token = llama_sampler_sample(self->_sampler, self->_ctx, -1);
-            if (token < 0) break;
-            if (llama_vocab_is_eog(self->_vocab, token)) break;
+      while (generated < target) {
+          if (self->_stopping.load()) {
+              stopped = true;
+              break;
+          }
+          llama_token token = llama_sampler_sample(self->_sampler, self->_ctx, -1);
+          if (token < 0)
+              break;
+          if (llama_vocab_is_eog(self->_vocab, token))
+              break;
 
-            std::vector<llama_token> next = {token};
-            if (![self decode:next error:&localError]) {
-                [self deliverCompletionResult:nil error:localError completion:completion];
-                return;
-            }
-            char buf[512] = {0};
-            int32_t len = llama_token_to_piece(_vocab, token, buf, sizeof(buf), 0, false);
-            if (len > 0) {
-                std::string piece(buf, (size_t)len);
-                output += piece;
-                if (tokenCallback) {
-                    tokenCallback(utf8_to_ns(piece));
-                }
-            }
-            for (NSString *rawStop in stopSequences) {
-                std::string stop = ns_to_utf8(rawStop);
-                if (stop.empty() || output.size() < stop.size()) continue;
-                if (output.compare(output.size() - stop.size(), stop.size(), stop) == 0) {
-                    output.resize(output.size() - stop.size());
-                    stopped = true;
-                    break;
-                }
-            }
-            if (stopped) break;
-            ++generated;
-        }
-        const double generationEnd = now_ms();
+          std::vector<llama_token> next = {token};
+          if (![self decode:next error:&localError]) {
+              [self deliverCompletionResult:nil error:localError completion:completion];
+              return;
+          }
+          char buf[512] = {0};
+          int32_t len = llama_token_to_piece(_vocab, token, buf, sizeof(buf), 0, false);
+          if (len > 0) {
+              std::string piece(buf, (size_t)len);
+              output += piece;
+              if (tokenCallback) {
+                  tokenCallback(utf8_to_ns(piece));
+              }
+          }
+          for (NSString *rawStop in stopSequences) {
+              std::string stop = ns_to_utf8(rawStop);
+              if (stop.empty() || output.size() < stop.size())
+                  continue;
+              if (output.compare(output.size() - stop.size(), stop.size(), stop) == 0) {
+                  output.resize(output.size() - stop.size());
+                  stopped = true;
+                  break;
+              }
+          }
+          if (stopped)
+              break;
+          ++generated;
+      }
+      const double generationEnd = now_ms();
 
-        LlamaGenerationResult *result = [[LlamaGenerationResult alloc] init];
-        result.text = utf8_to_ns(output);
-        result.promptTokens = promptTokens;
-        result.generatedTokens = generated;
-        result.promptMs = promptEnd - promptStart;
-        result.generationMs = generationEnd - generationStart;
-        result.tokensPerSecond = generated > 0 && result.generationMs > 0
-            ? (double)generated / (result.generationMs / 1000.0)
-            : 0.0;
-        result.stopped = stopped;
-        skiffllm::record_generation(_config, result.promptTokens, result.generatedTokens,
-                                    result.promptMs, result.generationMs, result.tokensPerSecond);
+      LlamaGenerationResult *result = [[LlamaGenerationResult alloc] init];
+      result.text = utf8_to_ns(output);
+      result.promptTokens = promptTokens;
+      result.generatedTokens = generated;
+      result.promptMs = promptEnd - promptStart;
+      result.generationMs = generationEnd - generationStart;
+      result.tokensPerSecond = generated > 0 && result.generationMs > 0
+                                   ? (double)generated / (result.generationMs / 1000.0)
+                                   : 0.0;
+      result.stopped = stopped;
+      skiffllm::record_generation(_config, result.promptTokens, result.generatedTokens,
+                                  result.promptMs, result.generationMs, result.tokensPerSecond);
 
-        if (completion) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                completion(result, nil);
-            });
-        }
+      if (completion) {
+          dispatch_async(dispatch_get_main_queue(), ^{
+            completion(result, nil);
+          });
+      }
     });
 }
 
@@ -665,7 +710,8 @@ std::map<std::string, std::string> parse_args_json(const std::string &input) {
     const auto catalog = skiffllm::skill_catalog();
     bool first = true;
     for (const auto &name : catalog) {
-        if (!first) out << ",";
+        if (!first)
+            out << ",";
         first = false;
         out << "{\"name\":" << json_escape(name);
         out << ",\"description\":" << json_escape(skiffllm::skill_description(name));
@@ -676,9 +722,7 @@ std::map<std::string, std::string> parse_args_json(const std::string &input) {
     return utf8_to_ns(out.str());
 }
 
-- (NSString *)executeSkill:(NSString *)name
-                   argsJSON:(NSString *)argsJSON
-                      error:(NSError **)error {
+- (NSString *)executeSkill:(NSString *)name argsJSON:(NSString *)argsJSON error:(NSError **)error {
     skiffllm::SkillRequest request;
     request.name = ns_to_utf8(name);
     request.args = parse_args_json(ns_to_utf8(argsJSON));
@@ -690,8 +734,9 @@ std::map<std::string, std::string> parse_args_json(const std::string &input) {
     out << ",\"error\":" << json_escape(error_text);
     out << "}";
     if (!error_text.empty() && error) {
-        *error = [NSError errorWithDomain:@"SkiffLLM" code:20
-                                 userInfo:@{NSLocalizedDescriptionKey: utf8_to_ns(error_text)}];
+        *error = [NSError errorWithDomain:@"SkiffLLM"
+                                     code:20
+                                 userInfo:@{NSLocalizedDescriptionKey : utf8_to_ns(error_text)}];
     }
     return utf8_to_ns(out.str());
 }
@@ -704,8 +749,10 @@ std::map<std::string, std::string> parse_args_json(const std::string &input) {
     std::string error_text;
     if (!skiffllm::append_memory(_config, ns_to_utf8(text), error_text)) {
         if (error) {
-            *error = [NSError errorWithDomain:@"SkiffLLM" code:21
-                                     userInfo:@{NSLocalizedDescriptionKey: utf8_to_ns(error_text)}];
+            *error =
+                [NSError errorWithDomain:@"SkiffLLM"
+                                    code:21
+                                userInfo:@{NSLocalizedDescriptionKey : utf8_to_ns(error_text)}];
         }
         return NO;
     }
@@ -716,8 +763,10 @@ std::map<std::string, std::string> parse_args_json(const std::string &input) {
     std::string error_text;
     if (!skiffllm::clear_memories(_config, error_text)) {
         if (error) {
-            *error = [NSError errorWithDomain:@"SkiffLLM" code:22
-                                     userInfo:@{NSLocalizedDescriptionKey: utf8_to_ns(error_text)}];
+            *error =
+                [NSError errorWithDomain:@"SkiffLLM"
+                                    code:22
+                                userInfo:@{NSLocalizedDescriptionKey : utf8_to_ns(error_text)}];
         }
         return NO;
     }
