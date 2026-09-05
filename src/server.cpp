@@ -686,14 +686,33 @@ class JsonParser {
 
     bool parse_number(double& output) {
         const size_t start = index_;
-        if (text_[index_] == '-') {
+        if (index_ < text_.size() && text_[index_] == '-') {
             index_ += 1;
         }
-        while (index_ < text_.size() && text_[index_] >= '0' && text_[index_] <= '9') {
+        if (index_ >= text_.size()) {
+            error_ = "invalid number";
+            return false;
+        }
+        if (text_[index_] == '0') {
             index_ += 1;
+            if (index_ < text_.size() && text_[index_] >= '0' && text_[index_] <= '9') {
+                error_ = "invalid number";
+                return false;
+            }
+        } else if (text_[index_] >= '1' && text_[index_] <= '9') {
+            while (index_ < text_.size() && text_[index_] >= '0' && text_[index_] <= '9') {
+                index_ += 1;
+            }
+        } else {
+            error_ = "invalid number";
+            return false;
         }
         if (index_ < text_.size() && text_[index_] == '.') {
             index_ += 1;
+            if (index_ >= text_.size() || text_[index_] < '0' || text_[index_] > '9') {
+                error_ = "invalid number";
+                return false;
+            }
             while (index_ < text_.size() && text_[index_] >= '0' && text_[index_] <= '9') {
                 index_ += 1;
             }
@@ -702,6 +721,10 @@ class JsonParser {
             index_ += 1;
             if (index_ < text_.size() && (text_[index_] == '+' || text_[index_] == '-')) {
                 index_ += 1;
+            }
+            if (index_ >= text_.size() || text_[index_] < '0' || text_[index_] > '9') {
+                error_ = "invalid number";
+                return false;
             }
             while (index_ < text_.size() && text_[index_] >= '0' && text_[index_] <= '9') {
                 index_ += 1;
@@ -868,6 +891,9 @@ void handle_chat_completions(skiffllm_socket_t socket_fd, const Config& config, 
         }
         options.token_callback = [socket_fd, write_ok, &send_error, &request_id, &model,
                                   created](const std::string& part) {
+            if (!*write_ok) {
+                return;
+            }
             std::ostringstream chunk;
             chunk << "data: {";
             chunk << "\"id\":" << json_escape(request_id) << ",";
@@ -877,6 +903,9 @@ void handle_chat_completions(skiffllm_socket_t socket_fd, const Config& config, 
             chunk << "\"choices\":[{\"index\":0,\"delta\":{\"content\":";
             chunk << json_escape(part);
             chunk << "},\"finish_reason\":null}]}\n\n";
+            if (!send_all(socket_fd, chunk.str(), send_error)) {
+                *write_ok = false;
+            }
         };
 
         GenerationResult result;
@@ -905,6 +934,7 @@ void handle_chat_completions(skiffllm_socket_t socket_fd, const Config& config, 
     GenerationResult result;
     std::string error;
     std::vector<ChatMessage> conversation = messages;
+    const bool skills_enabled = config.skills_enabled && !config.enabled_skills.empty();
     bool ok = false;
     for (int round = 0; round < 8; ++round) {
         GenerationResult round_result;
@@ -913,6 +943,9 @@ void handle_chat_completions(skiffllm_socket_t socket_fd, const Config& config, 
             break;
         }
         result = round_result;
+        if (!skills_enabled) {
+            break;
+        }
         std::vector<SkillRequest> requests;
         std::string skill_error;
         if (!parse_skill_requests(result.text, requests, skill_error) || requests.empty()) {
@@ -923,7 +956,11 @@ void handle_chat_completions(skiffllm_socket_t socket_fd, const Config& config, 
         for (const SkillRequest& request : requests) {
             std::string result_text;
             std::string execute_error;
-            result_text = execute_skill(config, request, execute_error);
+            if (!skill_available(request.name, config.enabled_skills)) {
+                execute_error = "skill is not enabled";
+            } else {
+                result_text = execute_skill(config, request, execute_error);
+            }
             conversation.push_back(
                 {"user", "Skill result for " + request.name + ":\n" +
                              (execute_error.empty() ? result_text : "Error: " + execute_error)});

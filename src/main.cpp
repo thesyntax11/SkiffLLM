@@ -1318,6 +1318,21 @@ int run_bare_console(skiffllm::Config& cfg) {
     std::unique_ptr<skiffllm::SkiffEngine> engine;
     skiffllm::Session session(cfg);
     session.set_system_prompt(cfg.system_prompt);
+    {
+        std::string load_error;
+        if (!session.load(load_error)) {
+            terminal.error(load_error);
+            llama_backend_free();
+            return 1;
+        }
+        const std::string memories = skiffllm::load_memories(cfg);
+        if (!memories.empty()) {
+            const std::string current = session.system_prompt();
+            session.set_system_prompt(current.empty()
+                                          ? "Persistent user facts:\n" + memories
+                                          : current + "\n\nPersistent user facts:\n" + memories);
+        }
+    }
     skiffllm::GenerationOptions options;
     options.n_predict = cfg.n_predict;
     options.temperature = cfg.temperature;
@@ -1358,7 +1373,65 @@ int run_bare_console(skiffllm::Config& cfg) {
         }
         if (command == "clear") {
             session.messages().clear();
+            if (cfg.save_history) {
+                std::string save_error;
+                session.save(save_error);
+            }
             std::cout << "Conversation cleared.\n";
+            continue;
+        }
+        if (command.rfind("system ", 0) == 0) {
+            const std::string text = skiffllm::trim(command.substr(7));
+            if (text.empty()) {
+                std::cout << "System prompt: " << session.system_prompt() << "\n";
+            } else {
+                session.set_system_prompt(text);
+                std::cout << "System prompt updated.\n";
+            }
+            continue;
+        }
+        if (command.rfind("remember ", 0) == 0) {
+            const std::string text = skiffllm::trim(command.substr(9));
+            std::string memory_error;
+            if (text.empty() || !skiffllm::append_memory(cfg, text, memory_error)) {
+                std::cout << (text.empty() ? "Usage: remember <text>\n" : memory_error + "\n");
+            } else {
+                std::cout << "Remembered.\n";
+            }
+            continue;
+        }
+        if (command.rfind("forget ", 0) == 0) {
+            const std::string text = skiffllm::trim(command.substr(7));
+            std::string memory_error;
+            size_t removed = 0;
+            if (text.empty() || !skiffllm::remove_memory(cfg, text, removed, memory_error)) {
+                std::cout << (text.empty() ? "Usage: forget <text>\n" : memory_error + "\n");
+            } else {
+                std::cout << "Forgot " << removed << " matching memory line(s).\n";
+            }
+            continue;
+        }
+        if (command == "memories" || command == "memory") {
+            const std::string memory = skiffllm::load_memories(cfg);
+            std::cout << (memory.empty() ? "Memories: (none)\n" : "Memories:\n" + memory + "\n");
+            continue;
+        }
+        if (command == "clear-memories") {
+            std::string memory_error;
+            if (!skiffllm::clear_memories(cfg, memory_error)) {
+                std::cout << memory_error << "\n";
+            } else {
+                std::cout << "All memories cleared.\n";
+            }
+            continue;
+        }
+        if (command == "save") {
+            std::string save_error;
+            if (!session.save(save_error)) {
+                std::cout << save_error << "\n";
+            } else {
+                std::cout << "History saved.\n";
+            }
             continue;
         }
         if (command.rfind("model ", 0) == 0) {
@@ -1367,11 +1440,13 @@ int run_bare_console(skiffllm::Config& cfg) {
                 std::cout << "Usage: model <path.gguf>\n";
                 continue;
             }
+            const std::string previous = cfg.model_path.string();
             cfg.model_path = skiffllm::expand_path(path);
             cfg.model_dir.clear();
             engine.reset();
             std::string error;
             if (!choose_model(cfg, engine, error)) {
+                cfg.model_path = previous;
                 std::cerr << error << "\n";
                 continue;
             }

@@ -148,16 +148,39 @@ bool Session::save(std::string& error) const {
     }
     output.close();
 
-    std::filesystem::rename(temporary_path, config_.history_path, ec);
-    if (ec) {
-        std::error_code remove_error;
-        std::filesystem::remove(config_.history_path, remove_error);
-        std::filesystem::rename(temporary_path, config_.history_path, ec);
-    }
-    if (ec) {
-        error = "cannot replace history file: " + config_.history_path.string();
-        std::filesystem::remove(temporary_path, ec);
-        return false;
+    std::error_code rename_error;
+    std::filesystem::rename(temporary_path, config_.history_path, rename_error);
+    if (rename_error) {
+        std::error_code exists_error;
+        if (std::filesystem::exists(config_.history_path, exists_error)) {
+            const std::filesystem::path backup_path = config_.history_path.string() + ".bak";
+            std::error_code backup_error;
+            std::filesystem::remove(backup_path, backup_error);
+            std::filesystem::rename(config_.history_path, backup_path, backup_error);
+            if (!backup_error) {
+                std::filesystem::rename(temporary_path, config_.history_path, rename_error);
+                if (rename_error) {
+                    std::error_code restore_error;
+                    std::filesystem::rename(backup_path, config_.history_path, restore_error);
+                    std::error_code cleanup_error;
+                    std::filesystem::remove(temporary_path, cleanup_error);
+                    error = "cannot replace history file: " + config_.history_path.string();
+                    return false;
+                }
+                std::error_code cleanup_error;
+                std::filesystem::remove(backup_path, cleanup_error);
+            } else {
+                std::error_code cleanup_error;
+                std::filesystem::remove(temporary_path, cleanup_error);
+                error = "cannot replace history file: " + config_.history_path.string();
+                return false;
+            }
+        } else {
+            std::error_code cleanup_error;
+            std::filesystem::remove(temporary_path, cleanup_error);
+            error = "cannot replace history file: " + config_.history_path.string();
+            return false;
+        }
     }
     return true;
 }

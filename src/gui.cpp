@@ -290,14 +290,33 @@ class JsonParser {
 
     bool parse_number(double& output) {
         const size_t start = index_;
-        if (text_[index_] == '-') {
+        if (index_ < text_.size() && text_[index_] == '-') {
             ++index_;
         }
-        while (index_ < text_.size() && text_[index_] >= '0' && text_[index_] <= '9') {
+        if (index_ >= text_.size()) {
+            error_ = "bad number";
+            return false;
+        }
+        if (text_[index_] == '0') {
             ++index_;
+            if (index_ < text_.size() && text_[index_] >= '0' && text_[index_] <= '9') {
+                error_ = "bad number";
+                return false;
+            }
+        } else if (text_[index_] >= '1' && text_[index_] <= '9') {
+            while (index_ < text_.size() && text_[index_] >= '0' && text_[index_] <= '9') {
+                ++index_;
+            }
+        } else {
+            error_ = "bad number";
+            return false;
         }
         if (index_ < text_.size() && text_[index_] == '.') {
             ++index_;
+            if (index_ >= text_.size() || text_[index_] < '0' || text_[index_] > '9') {
+                error_ = "bad number";
+                return false;
+            }
             while (index_ < text_.size() && text_[index_] >= '0' && text_[index_] <= '9') {
                 ++index_;
             }
@@ -306,6 +325,10 @@ class JsonParser {
             ++index_;
             if (index_ < text_.size() && (text_[index_] == '+' || text_[index_] == '-')) {
                 ++index_;
+            }
+            if (index_ >= text_.size() || text_[index_] < '0' || text_[index_] > '9') {
+                error_ = "bad number";
+                return false;
             }
             while (index_ < text_.size() && text_[index_] >= '0' && text_[index_] <= '9') {
                 ++index_;
