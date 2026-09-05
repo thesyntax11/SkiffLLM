@@ -765,7 +765,7 @@ struct ChatView: View {
     }
 
     private var topBar: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Image("BrandMark")
                 .resizable()
                 .scaledToFit()
@@ -775,31 +775,39 @@ struct ChatView: View {
             Text("SkiffLLM")
                 .font(.headline)
                 .foregroundColor(.accentColor)
+                .lineLimit(1)
             Text(app.currentConversation)
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .lineLimit(1)
-            Spacer()
+                .truncationMode(.middle)
+                .layoutPriority(1)
+            Spacer(minLength: 4)
             Button { app.showConversations = true } label: {
                 Image(systemName: "bubble.left.and.bubble.right")
             }
             Button { app.showTools = true } label: {
                 Image(systemName: "wrench.and.screwdriver")
             }
-            Button { app.copyLastAnswer() } label: {
-                Image(systemName: "doc.on.doc")
-            }
             Button { app.showModels = true } label: {
+                Image(systemName: "cpu")
+            }
+            Menu {
+                Button { app.copyLastAnswer() } label: {
+                    Label("Copy last answer", systemImage: "doc.on.doc")
+                }
+                Button { app.showSettings = true } label: {
+                    Label("Settings", systemImage: "gearshape")
+                }
+                ShareLink(item: app.exportMarkdown()) {
+                    Label("Export conversation", systemImage: "square.and.arrow.up")
+                }
+                Divider()
+                Button(role: .destructive) { app.clear() } label: {
+                    Label("Clear conversation", systemImage: "trash")
+                }
+            } label: {
                 Image(systemName: "ellipsis.circle")
-            }
-            ShareLink(item: app.exportMarkdown()) {
-                Image(systemName: "square.and.arrow.up")
-            }
-            Button { app.showSettings = true } label: {
-                Image(systemName: "gearshape")
-            }
-            Button { app.clear() } label: {
-                Image(systemName: "trash")
             }
         }
         .font(.body)

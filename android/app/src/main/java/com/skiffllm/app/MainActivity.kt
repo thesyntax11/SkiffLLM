@@ -29,6 +29,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -1462,6 +1464,7 @@ private fun ChatTopBar(
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
+            var menuOpen by remember { mutableStateOf(false) }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
@@ -1477,32 +1480,67 @@ private fun ChatTopBar(
                 Text(
                     "SkiffLLM",
                     style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
                     conversationName,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.secondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
                 )
-                TextButton(onClick = { onConversations() }) {
-                    Text("Chats")
+                TextButton(onClick = { menuOpen = true }) {
+                    Text("\u22ef")
                 }
-                TextButton(onClick = { onTools() }) {
-                    Text("Tools")
-                }
-                TextButton(onClick = { onCopy() }) {
-                    Text("Copy")
-                }
-                TextButton(onClick = { onExport() }) {
-                    Text("Export")
-                }
-                TextButton(onClick = { onClear() }) {
-                    Text("Clear")
-                }
-                TextButton(onClick = { onSettings() }) {
-                    Text("Settings")
+                DropdownMenu(
+                    expanded = menuOpen,
+                    onDismissRequest = { menuOpen = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Chats") },
+                        onClick = {
+                            menuOpen = false
+                            onConversations()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Tools") },
+                        onClick = {
+                            menuOpen = false
+                            onTools()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Copy last answer") },
+                        onClick = {
+                            menuOpen = false
+                            onCopy()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Export conversation") },
+                        onClick = {
+                            menuOpen = false
+                            onExport()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Clear conversation") },
+                        onClick = {
+                            menuOpen = false
+                            onClear()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Settings") },
+                        onClick = {
+                            menuOpen = false
+                            onSettings()
+                        }
+                    )
                 }
             }
             Text(
