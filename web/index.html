@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#141210">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%201024%201024%22%3E%3Crect%20width%3D%221024%22%20height%3D%221024%22%20fill%3D%22%230c0c0d%22%2F%3E%3Cpath%20fill%3D%22%23ffffff%22%20d%3D%22M326%20350L742%20186L852%20262L436%20426ZM272%20492L722%20314L836%20395L386%20573Z%22%2F%3E%3Cpath%20fill%3D%22%23ffffff%22%20d%3D%22M165%20880C220%20930%20310%20910%20390%20850C560%20700%20760%20560%20850%20470C905%20410%20875%20350%20810%20365C720%20390%20620%20500%20510%20610C410%20710%20280%20790%20195%20820C160%20832%20145%20850%20165%20880Z%22%2F%3E%3C%2Fsvg%3E">
 <title>SkiffLLM</title>
 <style>
 :root{
@@ -88,14 +89,15 @@ a:hover{text-decoration:underline}
   width:40px;
   height:40px;
   border-radius:var(--radius-sm);
+  border:1px solid var(--border);
   display:grid;
   place-items:center;
-  font-size:18px;
-  font-weight:800;
-  letter-spacing:.4px;
-  color:var(--accent-ink);
-  background:var(--accent);
+  overflow:hidden;
+  background:#0c0c0d;
+  box-shadow:0 0 0 1px rgba(255,255,255,.04), 0 4px 14px rgba(0,0,0,.28);
 }
+.brand-logo svg{width:100%;height:100%;display:block}
+.brand-divider{width:1px;align-self:stretch;background:var(--border-strong);margin:3px 0}
 .brand-name{font-weight:750;font-size:16px;letter-spacing:.1px}
 .brand-sub{font-size:12px;color:var(--muted)}
 .sidebar-content{
@@ -318,7 +320,8 @@ textarea:focus{outline:none;border-color:var(--accent)}
 .chat::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:8px}
 .chat-inner{max-width:860px;margin:0 auto;padding:0 22px}
 .welcome{min-height:100%;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;text-align:left;padding:30px 22px}
-.welcome-mark{width:52px;height:52px;border-radius:var(--radius);display:grid;place-items:center;font-size:22px;font-weight:800;color:var(--accent-ink);background:var(--accent);margin-bottom:22px}
+.welcome-mark{width:64px;height:64px;border-radius:var(--radius);display:grid;place-items:center;overflow:hidden;background:#0c0c0d;border:1px solid var(--border);box-shadow:0 6px 20px rgba(0,0,0,.18);margin-bottom:22px}
+.welcome-mark svg{width:100%;height:100%;display:block}
 .welcome h1{font-size:28px;font-weight:800;letter-spacing:-.4px;margin-bottom:10px;color:var(--ink-strong)}
 .welcome p{color:var(--muted);max-width:520px;margin-bottom:22px}
 .welcome .note{font-size:11.5px;color:var(--muted-2);margin-top:16px}
@@ -331,7 +334,10 @@ textarea:focus{outline:none;border-color:var(--accent)}
 .avatar{
   width:32px;height:32px;flex:0 0 32px;border-radius:var(--radius-sm);
   display:grid;place-items:center;font-size:12px;font-weight:750;color:var(--accent-ink);background:var(--accent);
+  overflow:hidden;
 }
+.msg:not(.user) .avatar{background:#0c0c0d;border:1px solid var(--border)}
+.msg:not(.user) .avatar svg{width:100%;height:100%;display:block}
 .msg.user .avatar{background:var(--ink-strong);color:var(--bg)}
 .msg-body{min-width:0;flex:1;padding-top:1px}
 .msg-role{font-size:10.5px;color:var(--muted-2);font-weight:650;letter-spacing:.4px;margin-bottom:5px;display:flex;align-items:center;gap:7px}
@@ -409,7 +415,8 @@ textarea:focus{outline:none;border-color:var(--accent)}
 <div class="app">
   <aside class="sidebar" id="sidebar">
     <div class="brand">
-      <div class="brand-logo">S</div>
+      <div class="brand-logo" aria-hidden="true"><svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><rect width="1024" height="1024" fill="#0c0c0d"/><path fill="#ffffff" d="M326 350L742 186L852 262L436 426ZM272 492L722 314L836 395L386 573Z"/><path fill="#ffffff" d="M165 880C220 930 310 910 390 850C560 700 760 560 850 470C905 410 875 350 810 365C720 390 620 500 510 610C410 710 280 790 195 820C160 832 145 850 165 880Z"/></svg></div>
+      <div class="brand-divider"></div>
       <div>
         <div class="brand-name">SkiffLLM</div>
         <div class="brand-sub">Local model on your machine</div>
@@ -516,7 +523,7 @@ textarea:focus{outline:none;border-color:var(--accent)}
     <section class="chat" id="chatScroll">
       <div class="chat-inner">
         <div class="welcome" id="welcome">
-          <div class="welcome-mark">S</div>
+          <div class="welcome-mark" aria-hidden="true"><svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><rect width="1024" height="1024" fill="#0c0c0d"/><path fill="#ffffff" d="M326 350L742 186L852 262L436 426ZM272 492L722 314L836 395L386 573Z"/><path fill="#ffffff" d="M165 880C220 930 310 910 390 850C560 700 760 560 850 470C905 410 875 350 810 365C720 390 620 500 510 610C410 710 280 790 195 820C160 832 145 850 165 880Z"/></svg></div>
           <h1>Chat with a model that stays on this machine.</h1>
           <p>Load a GGUF model, set the sampling, then ask something. Skills let the assistant read files, search folders, fetch a page, run a command, use the clock, or save a memory. Nothing you type has to leave the device.</p>
           <div class="quick-row">
@@ -678,13 +685,17 @@ textarea:focus{outline:none;border-color:var(--accent)}
     flushPara();flushCode();flushList();
     return html.join("");
   }
+  function brandMark(){
+    return '<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><rect width="1024" height="1024" fill="#0c0c0d"/><path fill="#ffffff" d="M326 350L742 186L852 262L436 426ZM272 492L722 314L836 395L386 573Z"/><path fill="#ffffff" d="M165 880C220 930 310 910 390 850C560 700 760 560 850 470C905 410 875 350 810 365C720 390 620 500 510 610C410 710 280 790 195 820C160 832 145 850 165 880Z"/></svg>';
+  }
   function scrollBottom(){
     requestAnimationFrame(function(){if(state.autoScroll){chatScroll.scrollTop=chatScroll.scrollHeight;}});
   }
   function appendBubble(role,text){
     var wrap=document.createElement("div");
     wrap.className="msg "+(role==="user"?"user":"assistant");
-    var avatar=document.createElement("div");avatar.className="avatar";avatar.textContent=role==="user"?"U":"S";
+    var avatar=document.createElement("div");avatar.className="avatar";
+    if(role==="user"){avatar.textContent="U";}else{avatar.innerHTML=brandMark();}
     var body=document.createElement("div");body.className="msg-body";
     var roleLabel=document.createElement("div");roleLabel.className="msg-role";roleLabel.textContent=role==="user"?"You":"SkiffLLM";
     var bubble=document.createElement("div");bubble.className="bubble";bubble.innerHTML=renderMarkdown(text);
@@ -717,7 +728,7 @@ textarea:focus{outline:none;border-color:var(--accent)}
   function makeAssistantBubble(){
     welcomeEl.style.display="none";
     var wrap=document.createElement("div");wrap.className="msg assistant";
-    var avatar=document.createElement("div");avatar.className="avatar";avatar.textContent="S";
+    var avatar=document.createElement("div");avatar.className="avatar";avatar.innerHTML=brandMark();
     var body=document.createElement("div");body.className="msg-body";
     var roleLabel=document.createElement("div");roleLabel.className="msg-role";roleLabel.textContent="SkiffLLM";
     var bubble=document.createElement("div");bubble.className="bubble";bubble.innerHTML='<span class="typing"><span></span><span></span><span></span></span>';

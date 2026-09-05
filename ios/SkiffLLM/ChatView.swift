@@ -766,6 +766,12 @@ struct ChatView: View {
 
     private var topBar: some View {
         HStack(spacing: 10) {
+            Image("BrandMark")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 30, height: 30)
+                .cornerRadius(8)
+                .accessibilityLabel("SkiffLLM")
             Text("SkiffLLM")
                 .font(.headline)
                 .foregroundColor(.accentColor)
