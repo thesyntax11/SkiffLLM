@@ -1083,10 +1083,21 @@ std::string make_request_id() {
     return out.str();
 }
 
+bool is_loopback_host(const std::string& host) {
+    return host == "localhost" || host == "127.0.0.1" || host == "::1" || host == "[::1]" ||
+           host.rfind("127.", 0) == 0;
+}
+
 }
 
 int run_server(Config& config, SkiffEngine& engine, Terminal& terminal,
                const GenerationOptions& options, const std::function<bool()>& interrupted) {
+    if (!is_loopback_host(config.server_host) && config.api_key.empty()) {
+        terminal.error(
+            "Refusing to bind non-loopback server_host without an API key. "
+            "Set api_key in the config, or keep server_host at 127.0.0.1.");
+        return 1;
+    }
     skiffllm_socket_t listener = invalid_socket;
     std::string error;
     if (!create_listener(config.server_host, config.server_port, listener, error)) {
