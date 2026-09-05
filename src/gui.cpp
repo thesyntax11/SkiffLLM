@@ -685,8 +685,8 @@ std::filesystem::path default_export_directory() {
 std::string safe_filename(std::string value) {
     for (char& ch : value) {
         const unsigned char c = static_cast<unsigned char>(ch);
-        if (c == '/' || c == '\\' || c == ':' || c == '*' || c == '?' ||
-            c == '"' || c == '<' || c == '>' || c == '|' || std::isspace(c)) {
+        if (c == '/' || c == '\\' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<' ||
+            c == '>' || c == '|' || std::isspace(c)) {
             ch = '_';
         }
     }
@@ -936,8 +936,7 @@ bool save_gui_settings(const AppStatePtr& state, const GuiJsonValue& params, std
     out << ",\"context\":" << (context == nullptr ? 4096 : json_number(*context, 4096.0));
     out << ",\"threads\":" << (threads == nullptr ? 0 : json_number(*threads, 0.0));
     out << ",\"theme\":";
-    const std::string saved_theme =
-        theme == nullptr ? std::string() : json_string(*theme);
+    const std::string saved_theme = theme == nullptr ? std::string() : json_string(*theme);
     out << json_escape(saved_theme == "dark" || saved_theme == "light" || saved_theme == "system"
                            ? saved_theme
                            : "system");
