@@ -574,7 +574,7 @@ textarea:focus{outline:none;border-color:var(--accent)}
       <p><strong>Skills:</strong> enabled skills let the assistant read files, search folders, fetch a page, run a command, use the clock, or save a memory. Disable them any time from the sidebar.</p>
       <p><strong>Memory:</strong> saved facts are injected into every conversation and stay local.</p>
       <p><strong>Conversations:</strong> stored beside your history. Export writes Markdown to your Downloads folder and reports the path.</p>
-      <p><strong>Stop</strong> interrupts a run; <strong>Clear</strong> starts a new conversation; <strong>Theme</strong> cycles Auto, Dark, and Light.</p>
+      <p><strong>Stop</strong> interrupts a run; <strong>Clear</strong> discards the current view and starts fresh (use <strong>New</strong> to save first); <strong>Theme</strong> cycles Auto, Dark, and Light.</p>
       <p class="modal-note">Enter sends · Shift+Enter adds a line · Ctrl+K clears the box · Ctrl+T toggles the theme.</p>
     </div>
   </div>
@@ -913,6 +913,12 @@ textarea:focus{outline:none;border-color:var(--accent)}
       el("conversationText").textContent="";setStatus("Idle","ok");native("newConversation",{}).then(refreshConversations);
     });
   }
+  function clearCurrentConversation(){
+    state.messages=[];state.currentConversation="default";state.draft="";
+    messagesEl.innerHTML="";emptyEl.innerHTML="";welcomeEl.style.display="flex";
+    el("conversationText").textContent="";setStatus("Idle","ok");
+    native("newConversation",{}).then(refreshConversations);
+  }
   function loadConversation(name){
     native("loadConversation",{name:name}).then(function(res){
       var data=parse(res);if(!data.ok){toast(data.error||"Could not load");return;}
@@ -1082,7 +1088,7 @@ textarea:focus{outline:none;border-color:var(--accent)}
     el("saveConvBtn").addEventListener("click",function(){saveCurrentConversation().then(function(){toast("Conversation saved");});});
     el("exportBtn").addEventListener("click",exportConversation);
     el("themeToggle").addEventListener("click",toggleTheme);
-    el("clearBtn").addEventListener("click",function(){newConversation();});
+    el("clearBtn").addEventListener("click",function(){clearCurrentConversation();});
     el("helpBtn").addEventListener("click",function(){
       var modal=el("helpModal");modal.classList.add("open");
       el("helpClose").addEventListener("click",function(){modal.classList.remove("open");});
