@@ -1052,7 +1052,10 @@ textarea:focus{outline:none;border-color:var(--accent)}
     var order=["system","dark","light"];
     state.theme=order[(order.indexOf(state.theme)+1)%order.length];
     try{localStorage.setItem("skiffllm-theme",state.theme);}catch(e){}
-    applyTheme();toast(state.theme+" theme");
+    applyTheme();
+    updateSettings();
+    native("saveSettings",state.settings).catch(function(){});
+    toast(state.theme+" theme");
   }
   function bindEvents(){
     bindSlider("temp","tempVal",function(v){return rnd(v/100).toFixed(2);});
