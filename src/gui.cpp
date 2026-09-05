@@ -11,6 +11,7 @@
 #include <windows.h>
 #include <commdlg.h>
 #include <objbase.h>
+#include <shlobj.h>
 #endif
 
 #include <webview/webview.h>
@@ -19,6 +20,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
@@ -657,6 +659,81 @@ bool delete_conversation(AppStatePtr state, const std::string& name, std::string
     return true;
 }
 
+std::filesystem::path default_export_directory() {
+#ifdef _WIN32
+    PWSTR path = nullptr;
+    if (SUCCEEDED(SHGetKnownFolderPath(FOLDERID_Downloads, 0, nullptr, &path))) {
+        std::filesystem::path result(path);
+        CoTaskMemFree(path);
+        if (!result.empty()) {
+            return result;
+        }
+    }
+    return std::filesystem::current_path();
+#else
+    if (const char* home = std::getenv("HOME")) {
+        const std::filesystem::path downloads = std::filesystem::path(home) / "Downloads";
+        if (std::filesystem::exists(downloads)) {
+            return downloads;
+        }
+        return std::filesystem::path(home);
+    }
+    return std::filesystem::current_path();
+#endif
+}
+
+std::string safe_filename(std::string value) {
+    for (char& ch : value) {
+        const unsigned char c = static_cast<unsigned char>(ch);
+        if (c == '/' || c == '\\' || c == ':' || c == '*' || c == '?' ||
+            c == '"' || c == '<' || c == '>' || c == '|' || std::isspace(c)) {
+            ch = '_';
+        }
+    }
+    if (value.empty()) {
+        value = "conversation";
+    }
+    return value;
+}
+
+bool export_markdown(const std::string& name, const GuiJsonValue& messages_value,
+                     std::string& path_out, std::string& error) {
+    if (messages_value.kind != GuiJsonValue::Kind::ArrayValue) {
+        error = "No messages to export";
+        return false;
+    }
+    const std::string base = safe_filename(name.empty() ? "conversation" : name);
+    const std::filesystem::path dir = default_export_directory();
+    std::filesystem::path file = dir / (base + ".md");
+    const std::time_t now = std::time(nullptr);
+    if (std::filesystem::exists(file)) {
+        file = dir / (base + "-" + std::to_string(now) + ".md");
+    }
+    std::ofstream out(file, std::ios::binary | std::ios::trunc);
+    if (!out) {
+        error = "cannot create " + file.string();
+        return false;
+    }
+    out << "# SkiffLLM conversation\n\n";
+    for (const auto& item : messages_value.array_values) {
+        const GuiJsonValue* role = json_find(item, "role");
+        const GuiJsonValue* content = json_find(item, "content");
+        if (role == nullptr || content == nullptr) {
+            continue;
+        }
+        const std::string role_name = json_string(*role) == "user" ? "You" : "SkiffLLM";
+        out << "## " << role_name << "\n\n";
+        out << json_string(*content) << "\n\n";
+    }
+    out.flush();
+    if (!out) {
+        error = "failed while writing " + file.string();
+        return false;
+    }
+    path_out = file.string();
+    return true;
+}
+
 void post_event(std::string event) {
     if (g_view == nullptr) {
         return;
@@ -722,7 +799,8 @@ std::string browse_model() {
     result += "}";
     return result;
 #else
-    return "{\"ok\":false,\"error\":\"Type the model path in the sidebar\"}";
+    return "{\"ok\":false,\"error\":\"On this platform type a .gguf path or pick one from the \""
+           "model list\"}";
 #endif
 }
 
@@ -849,6 +927,7 @@ bool save_gui_settings(const AppStatePtr& state, const GuiJsonValue& params, std
     const GuiJsonValue* max_tokens = json_find(params, "max_tokens");
     const GuiJsonValue* context = json_find(params, "context");
     const GuiJsonValue* threads = json_find(params, "threads");
+    const GuiJsonValue* theme = json_find(params, "theme");
     out << "{\"system_prompt\":";
     out << json_escape(system == nullptr ? std::string() : json_string(*system));
     out << ",\"temperature\":" << (temperature == nullptr ? 0.7 : json_number(*temperature, 0.7));
@@ -856,6 +935,12 @@ bool save_gui_settings(const AppStatePtr& state, const GuiJsonValue& params, std
     out << ",\"max_tokens\":" << (max_tokens == nullptr ? 512 : json_number(*max_tokens, 512.0));
     out << ",\"context\":" << (context == nullptr ? 4096 : json_number(*context, 4096.0));
     out << ",\"threads\":" << (threads == nullptr ? 0 : json_number(*threads, 0.0));
+    out << ",\"theme\":";
+    const std::string saved_theme =
+        theme == nullptr ? std::string() : json_string(*theme);
+    out << json_escape(saved_theme == "dark" || saved_theme == "light" || saved_theme == "system"
+                           ? saved_theme
+                           : "system");
     out << "}\n";
     return true;
 }
@@ -1192,6 +1277,26 @@ void handle_skiff(const char* id, const std::string& method, const GuiJsonValue&
         out << conversations_json(state);
         out << "}";
         reply(id, out.str());
+        return;
+    }
+    if (method == "exportConversation") {
+        const GuiJsonValue* messages = json_find(params, "messages");
+        if (messages == nullptr || messages->kind != GuiJsonValue::Kind::ArrayValue) {
+            reply_error(id, "No messages to export");
+            return;
+        }
+        const GuiJsonValue* name = json_find(params, "name");
+        const std::string conversation = name == nullptr ? "conversation" : json_string(*name);
+        std::string path;
+        std::string error;
+        if (!export_markdown(conversation, *messages, path, error)) {
+            reply_error(id, error);
+            return;
+        }
+        std::string out = "{\"ok\":true,\"path\":";
+        out += json_escape(path);
+        out += "}";
+        reply(id, out);
         return;
     }
     if (method == "deleteConversation") {

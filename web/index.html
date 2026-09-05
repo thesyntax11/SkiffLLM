@@ -393,6 +393,13 @@ textarea:focus{outline:none;border-color:var(--accent)}
 .sidebar-toggle-btn{display:none}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(14px);background:var(--surface);color:var(--ink);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:10px 15px;font-size:12.5px;box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:opacity .22s ease,transform .22s ease;z-index:50;max-width:90vw}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.modal{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:22px;background:rgba(0,0,0,.35);opacity:0;pointer-events:none;transition:opacity .18s ease}
+.modal.open{opacity:1;pointer-events:auto}
+.modal-card{width:min(560px,92vw);max-height:84vh;overflow:auto;background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px 20px}
+.modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.modal-head h2{font-size:17px;font-weight:800;margin:0}
+.modal-body p{font-size:13px;line-height:1.55;color:var(--ink);margin:0 0 10px}
+.modal-note{font-size:11.5px;color:var(--muted-2);margin:0}
 .shortcut-hint{font-size:10px;color:var(--muted-2);padding:5px 12px 0;text-align:center}
 .empty{margin-top:18px}
 @media(max-width:900px){
@@ -556,6 +563,22 @@ textarea:focus{outline:none;border-color:var(--accent)}
   </main>
 </div>
 <div class="toast" id="toast"></div>
+<div class="modal" id="helpModal" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+  <div class="modal-card">
+    <div class="modal-head">
+      <h2 id="helpTitle">How SkiffLLM works</h2>
+      <button class="icon-btn ghost" id="helpClose" aria-label="Close help">Close</button>
+    </div>
+    <div class="modal-body">
+      <p><strong>Start:</strong> load a GGUF model, then ask something. Settings apply immediately; the model stays on this machine.</p>
+      <p><strong>Skills:</strong> enabled skills let the assistant read files, search folders, fetch a page, run a command, use the clock, or save a memory. Disable them any time from the sidebar.</p>
+      <p><strong>Memory:</strong> saved facts are injected into every conversation and stay local.</p>
+      <p><strong>Conversations:</strong> stored beside your history. Export writes Markdown to your Downloads folder and reports the path.</p>
+      <p><strong>Stop</strong> interrupts a run; <strong>Clear</strong> starts a new conversation; <strong>Theme</strong> cycles Auto, Dark, and Light.</p>
+      <p class="modal-note">Enter sends · Shift+Enter adds a line · Ctrl+K clears the box · Ctrl+T toggles the theme.</p>
+    </div>
+  </div>
+</div>
 <script>
 (function(){
   var state={models:[],selected:0,path:"",loaded:false,generating:false,messages:[],settings:{},conversations:[],skills:{enabled:true,catalog:[]},currentConversation:"default",theme:"system",draft:"",autoScroll:true,persona:"",personas:{}};
@@ -912,12 +935,12 @@ textarea:focus{outline:none;border-color:var(--accent)}
     });
   }
   function exportConversation(){
-    var md="# SkiffLLM conversation\n\n";
-    state.messages.forEach(function(m){md+="## "+(m.role==="user"?"User":"Assistant")+"\n\n"+m.content+"\n\n";});
-    var blob=new Blob([md],{type:"text/markdown;charset=utf-8"});
-    var a=document.createElement("a");a.href=URL.createObjectURL(blob);
-    a.download=(state.currentConversation==="default"?"conversation":state.currentConversation)+".md";
-    document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(a.href);
+    if(!state.messages.length){toast("Nothing to export yet");return;}
+    native("exportConversation",{name:state.currentConversation,messages:state.messages}).then(function(res){
+      var data=parse(res);
+      if(data.ok){toast("Saved "+data.path);}
+      else{toast(data.error||"Export failed");}
+    }).catch(function(){toast("Export failed");});
   }
   function loadModel(){
     var typed=el("modelPath").value.trim();
@@ -986,7 +1009,8 @@ textarea:focus{outline:none;border-color:var(--accent)}
       max_tokens:Number(el("tokens").value),
       context:Number(el("ctx").value),
       threads:Number(el("threads").value),
-      system_prompt:el("systemPrompt").value
+      system_prompt:el("systemPrompt").value,
+      theme:state.theme
     };
   }
   function bindSlider(id,val,fn){
@@ -1001,6 +1025,7 @@ textarea:focus{outline:none;border-color:var(--accent)}
     if(obj.max_tokens!==undefined){el("tokens").value=obj.max_tokens;touched=true;}
     if(obj.context!==undefined){el("ctx").value=obj.context;touched=true;}
     if(obj.threads!==undefined){el("threads").value=obj.threads;touched=true;}
+    if(obj.theme==="dark"||obj.theme==="light"||obj.theme==="system"){state.theme=obj.theme;applyTheme();touched=true;}
     if(touched){updateSettings();}
     return touched;
   }
@@ -1059,7 +1084,8 @@ textarea:focus{outline:none;border-color:var(--accent)}
     el("themeToggle").addEventListener("click",toggleTheme);
     el("clearBtn").addEventListener("click",function(){newConversation();});
     el("helpBtn").addEventListener("click",function(){
-      appendBubble("assistant","Load a GGUF model, then ask.\n\nSkills let the model read files, search folders, fetch a page, run a command, use the clock, or save memory. Memory stays in this app. Conversations are stored as .skif files beside the history. Stop interrupts a run; Clear starts a new conversation; Export writes Markdown to your Downloads folder.");
+      var modal=el("helpModal");modal.classList.add("open");
+      el("helpClose").addEventListener("click",function(){modal.classList.remove("open");});
     });
     var sidebar=el("sidebar");el("sidebarToggle").addEventListener("click",function(){sidebar.classList.toggle("open");});
     sendBtn.addEventListener("click",function(){send();});
