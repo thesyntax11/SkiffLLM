@@ -83,6 +83,8 @@ struct Config {
     bool backend_info = false;
     bool skills_enabled = false;
     std::vector<std::string> enabled_skills;
+    std::filesystem::path focus_path;
+    std::vector<std::filesystem::path> allowed_paths;
 };
 
 Config default_config();

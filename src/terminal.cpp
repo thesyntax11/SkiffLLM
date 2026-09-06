@@ -402,6 +402,17 @@ void Terminal::print_help() const {
     write("  /attach <path>        Alias for /file\n");
     write("  /detach <name>        Remove an attached file\n");
     write("  /clear-attach         Remove all attached files\n");
+    write("  /scope                Show the file access scope\n");
+    write("  /allow <path>         Allow skill access to a file or folder\n");
+    write("  /deny <path>          Remove a file or folder from the scope\n");
+    write("  /focus <dir> [file]   Focus file skills on an existing folder\n");
+    write("  /ls [path]            List files in an existing folder\n");
+    write("  /read <path>          Read an existing text file\n");
+    write("  /find <text>          Search for files by name\n");
+    write("  /time | /date         Show the current local date and time\n");
+    write("  /pwd | /cwd           Print the current working directory\n");
+    write("  /hostname             Print the machine hostname\n");
+    write("  /uuid                 Print a short unique identifier\n");
     write("  /remember <text>      Save a persistent memory line\n");
     write("  /forget <text>        Remove matching persistent memories\n");
     write("  /memories             Show persistent memories (/memory)\n");

@@ -354,6 +354,36 @@ bool apply_key_value(Config& cfg, const std::string& key, const std::string& val
         cfg.model_path = expand_path(value);
     } else if (key == "model-dir") {
         cfg.model_dir = expand_path(value);
+    } else if (key == "focus") {
+        const std::filesystem::path path = expand_path(value);
+        std::error_code ec;
+        if (!path.empty() &&
+            (!std::filesystem::exists(path, ec) || !std::filesystem::is_directory(path, ec))) {
+            error = "focus directory does not exist: " + path.string();
+            return false;
+        }
+        cfg.focus_path = path;
+    } else if (key == "allow" || key == "allow-path") {
+        const std::filesystem::path path = expand_path(value);
+        if (path.empty()) {
+            error = "allowed path is empty";
+            return false;
+        }
+        std::error_code ec;
+        if (!std::filesystem::exists(path, ec)) {
+            error = "allowed path does not exist: " + path.string();
+            return false;
+        }
+        bool present = false;
+        for (const auto& existing : cfg.allowed_paths) {
+            if (std::filesystem::equivalent(existing, path, ec)) {
+                present = true;
+                break;
+            }
+        }
+        if (!present) {
+            cfg.allowed_paths.push_back(path);
+        }
     } else if (key == "config") {
         cfg.config_path = expand_path(value);
     } else if (key == "history") {
@@ -868,7 +898,8 @@ bool parse_args(int argc, char** argv, Config& cfg, std::string& error) {
             key == "file" || key == "chat-template" || key == "prompt" || key == "prompt-file" ||
             key == "project" || key == "summarize" || key == "remember" || key == "forget" ||
             key == "tokenize" || key == "host" || key == "port" || key == "api-key" ||
-            key == "key" || key == "benchmark" || key == "enable-skill" || key == "disable-skill") {
+            key == "key" || key == "benchmark" || key == "enable-skill" || key == "disable-skill" ||
+            key == "focus" || key == "allow" || key == "allow-path") {
             const std::string value = option_value(i, argc, argv, "--" + key, error);
             if (!error.empty()) {
                 return false;
@@ -949,6 +980,26 @@ void apply_environment(Config& cfg) {
     } else if (const char* value = std::getenv("SKIFFLLM_SERVER_KEY")) {
         cfg.api_key = value;
     }
+    if (const char* value = std::getenv("SKIFFLLM_FOCUS")) {
+        std::string error;
+        apply_key_value(cfg, "focus", value, error);
+    }
+    if (const char* value = std::getenv("SKIFFLLM_ALLOW")) {
+        std::string text = value;
+        while (!text.empty()) {
+            const size_t comma = text.find(',');
+            const std::string item =
+                trim(comma == std::string::npos ? text : text.substr(0, comma));
+            if (!item.empty()) {
+                std::string error;
+                apply_key_value(cfg, "allow", item, error);
+            }
+            if (comma == std::string::npos) {
+                break;
+            }
+            text = text.substr(comma + 1);
+        }
+    }
 }
 
 std::string usage(const std::string& program) {
@@ -972,6 +1023,8 @@ std::string usage(const std::string& program) {
     out << "  --stop <text>                 Stop sequence; can be repeated\n";
     out << "  --attach <path>               Attach a file; can be repeated\n";
     out << "  --file <path>                 Alias for --attach; can be repeated\n";
+    out << "  --focus <dir>                 Focus file skills on an existing directory\n";
+    out << "  --allow <path>                Add an existing file/dir to the skill access scope\n";
     out << "  --chat-template <name>        Override the model chat template\n";
     out << "  --export <path>               Export the loaded conversation as Markdown\n";
     out << "  --serve                       Serve a local OpenAI-compatible API\n";
@@ -1145,6 +1198,16 @@ void print_config(const Config& cfg, bool as_json) {
             }
             std::cout << "\"" << json_escape(cfg.enabled_skills[i]) << "\"";
         }
+        std::cout << "],\n";
+        std::cout << "  \"focus_path\":\""
+                  << json_escape(cfg.focus_path.empty() ? "" : cfg.focus_path.string()) << "\",\n";
+        std::cout << "  \"allowed_paths\":[";
+        for (size_t i = 0; i < cfg.allowed_paths.size(); ++i) {
+            if (i > 0) {
+                std::cout << ",";
+            }
+            std::cout << "\"" << json_escape(cfg.allowed_paths[i].string()) << "\"";
+        }
         std::cout << "]\n";
         std::cout << "}\n";
         return;
@@ -1225,6 +1288,20 @@ void print_config(const Config& cfg, bool as_json) {
                 std::cout << ", ";
             }
             std::cout << cfg.enabled_skills[i];
+        }
+    }
+    std::cout << "\n";
+    std::cout << "focus_path       "
+              << (cfg.focus_path.empty() ? "(none)" : cfg.focus_path.string()) << "\n";
+    std::cout << "allowed_paths    ";
+    if (cfg.allowed_paths.empty()) {
+        std::cout << "(none)";
+    } else {
+        for (size_t i = 0; i < cfg.allowed_paths.size(); ++i) {
+            if (i != 0) {
+                std::cout << ", ";
+            }
+            std::cout << cfg.allowed_paths[i].string();
         }
     }
     std::cout << "\n";

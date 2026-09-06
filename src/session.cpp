@@ -208,7 +208,7 @@ std::vector<ChatMessage> Session::conversation() const {
         result.push_back({"system", system_prompt_});
     }
     if (config_.skills_enabled && !config_.enabled_skills.empty()) {
-        const std::string instructions = skill_instructions(config_.enabled_skills);
+        const std::string instructions = skill_instructions(config_.enabled_skills, config_);
         if (result.empty()) {
             result.push_back({"system", instructions});
         } else if (result[0].role == "system") {

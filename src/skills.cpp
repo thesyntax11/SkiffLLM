@@ -350,6 +350,51 @@ class JsonParser {
     std::string error_;
 };
 
+std::filesystem::path resolve_skill_path(const Config& cfg, const std::string& raw) {
+    std::filesystem::path path = expand_path(raw);
+    if (!cfg.focus_path.empty() && path.is_relative()) {
+        return cfg.focus_path / path;
+    }
+    return path;
+}
+
+bool path_exists_for_access(const std::filesystem::path& path, bool require_target,
+                            std::string& error) {
+    std::error_code ec;
+    std::filesystem::path effective = require_target ? path : path.parent_path();
+    if (effective.empty()) {
+        effective = path;
+    }
+    if (effective.empty()) {
+        error = "path is empty";
+        return false;
+    }
+    if (!std::filesystem::exists(effective, ec)) {
+        error = (require_target ? "path does not exist: " : "directory does not exist: ") +
+                effective.string();
+        return false;
+    }
+    return true;
+}
+
+bool path_inside_root(const std::filesystem::path& path, const std::filesystem::path& root) {
+    std::error_code ec;
+    const std::filesystem::path child = std::filesystem::weakly_canonical(path, ec);
+    const std::filesystem::path parent = std::filesystem::weakly_canonical(root, ec);
+    if (ec || parent.empty()) {
+        return false;
+    }
+    const std::string c = child.generic_string();
+    const std::string r = parent.generic_string();
+    if (c == r) {
+        return true;
+    }
+    if (c.size() <= r.size()) {
+        return false;
+    }
+    return c.compare(0, r.size(), r) == 0 && c[r.size()] == '/';
+}
+
 bool is_hidden(const std::filesystem::path& path) {
     std::string name = path.filename().string();
     if (name == ".git" || name == ".hg" || name == ".svn" || name == "build" ||
@@ -687,6 +732,28 @@ std::string memory_load(const Config& cfg) {
 
 }
 
+bool path_in_scope(const Config& cfg, const std::filesystem::path& path, bool require_target,
+                   std::string& error) {
+    error.clear();
+    if (cfg.allowed_paths.empty() && cfg.focus_path.empty()) {
+        return true;
+    }
+    if (!path_exists_for_access(path, require_target, error)) {
+        return false;
+    }
+    std::vector<std::filesystem::path> roots = cfg.allowed_paths;
+    if (!cfg.focus_path.empty()) {
+        roots.push_back(cfg.focus_path);
+    }
+    for (const auto& root : roots) {
+        if (path_inside_root(path, root)) {
+            return true;
+        }
+    }
+    error = "path is outside the allowed file access scope: " + path.string();
+    return false;
+}
+
 bool parse_skill_requests(const std::string& text, std::vector<SkillRequest>& requests,
                           std::string& error) {
     requests.clear();
@@ -750,7 +817,7 @@ std::string strip_skill_markers(const std::string& text) {
     return trimmed(out.str());
 }
 
-std::string skill_instructions(const std::vector<std::string>& enabled) {
+std::string skill_instructions(const std::vector<std::string>& enabled, const Config& cfg) {
     if (enabled.empty()) {
         return "";
     }
@@ -763,6 +830,26 @@ std::string skill_instructions(const std::vector<std::string>& enabled) {
            "Available skills:\n";
     for (const auto& name : enabled) {
         out << "- " << name << "\n";
+    }
+    if (!cfg.focus_path.empty()) {
+        out << "\nFocus directory: " << cfg.focus_path.string()
+            << "\nPrefer paths relative to this directory.\n";
+    } else if (!cfg.allowed_paths.empty()) {
+        out << "\nNo focus directory is set. Use an allowed path as the base of file operations.\n";
+    }
+    if (!cfg.allowed_paths.empty()) {
+        out << "Allowed paths:\n";
+        for (const auto& path : cfg.allowed_paths) {
+            out << "- " << path.string() << "\n";
+        }
+    }
+    if (!cfg.focus_path.empty() || !cfg.allowed_paths.empty()) {
+        out << "File skills may only read, list, search or write inside the focus directory and "
+               "the allowed paths above. Never request a path outside that scope, and never "
+               "pretend a missing file or folder exists.\n";
+    } else {
+        out << "\nFile skills are currently unrestricted. Use /focus and /allow in the CLI to "
+               "limit file access for this session.\n";
     }
     out << "\nSkills are executed automatically when enabled. Use file and command skills "
            "carefully because they can change files on this machine. Only use skills from the "
@@ -857,7 +944,11 @@ std::string execute_skill(const Config& cfg, const SkillRequest& request, std::s
             error = "read_file requires path";
             return {};
         }
-        return read_file_text(expand_path(it->second), error);
+        const std::filesystem::path path = resolve_skill_path(cfg, it->second);
+        if (!path_in_scope(cfg, path, true, error)) {
+            return {};
+        }
+        return read_file_text(path, error);
     }
     if (request.name == "write_file") {
         const auto ipath = request.args.find("path");
@@ -867,15 +958,26 @@ std::string execute_skill(const Config& cfg, const SkillRequest& request, std::s
             error = "write_file requires path and content";
             return {};
         }
-        if (!write_file_text(expand_path(ipath->second), icontent->second, error)) {
+        const std::filesystem::path path = resolve_skill_path(cfg, ipath->second);
+        if (!path_in_scope(cfg, path, false, error)) {
             return {};
         }
-        return "File written: " + expand_path(ipath->second).string();
+        if (!write_file_text(path, icontent->second, error)) {
+            return {};
+        }
+        return "File written: " + path.string();
     }
     if (request.name == "list_files") {
         const auto it = request.args.find("path");
-        const std::string path = it == request.args.end() ? cfg.model_dir.string() : it->second;
-        return list_directory(expand_path(path), error);
+        const std::string path =
+            it == request.args.end()
+                ? (cfg.focus_path.empty() ? cfg.model_dir.string() : cfg.focus_path.string())
+                : it->second;
+        const std::filesystem::path target = resolve_skill_path(cfg, path);
+        if (!path_in_scope(cfg, target, true, error)) {
+            return {};
+        }
+        return list_directory(target, error);
     }
     if (request.name == "search_files") {
         const auto ipath = request.args.find("path");
@@ -885,8 +987,14 @@ std::string execute_skill(const Config& cfg, const SkillRequest& request, std::s
             return {};
         }
         const std::string path =
-            ipath == request.args.end() ? cfg.model_dir.string() : ipath->second;
-        return search_files(expand_path(path), iquery->second, error);
+            ipath == request.args.end()
+                ? (cfg.focus_path.empty() ? cfg.model_dir.string() : cfg.focus_path.string())
+                : ipath->second;
+        const std::filesystem::path target = resolve_skill_path(cfg, path);
+        if (!path_in_scope(cfg, target, true, error)) {
+            return {};
+        }
+        return search_files(target, iquery->second, error);
     }
     if (request.name == "run_command") {
         const auto it = request.args.find("command");

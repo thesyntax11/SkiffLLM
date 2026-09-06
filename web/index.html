@@ -485,6 +485,20 @@ textarea:focus{outline:none;border-color:var(--accent)}
         <div class="skill-list" id="skillList"></div>
       </div>
       <div class="panel">
+        <div class="panel-head">File access <span class="panel-count" id="accessCount">0</span></div>
+        <div class="memory-row">
+          <input id="accessFocusInput" placeholder="Focus folder, e.g. /home/me/ornek">
+          <button class="btn small" id="accessFocusBtn">Set focus</button>
+        </div>
+        <div class="memory-row">
+          <input id="accessAllowInput" placeholder="Allow path, e.g. /home/me/ornek">
+          <button class="btn small" id="accessAllowBtn">Allow</button>
+        </div>
+        <div class="memory-list" id="accessList"></div>
+        <button class="btn danger block" id="accessClearBtn">Remove all allowed</button>
+        <p class="modal-note">Paths must exist. Focused relative paths stay inside the folder; anything outside the allowed list is rejected.</p>
+      </div>
+      <div class="panel">
         <div class="panel-head">Memory <span class="panel-count" id="memoryCount">0</span></div>
         <div class="memory-row">
           <input id="memoryInput" placeholder="Save a fact for later">
@@ -573,6 +587,8 @@ textarea:focus{outline:none;border-color:var(--accent)}
       <p><strong>Start:</strong> load a GGUF model, then ask something. Settings apply immediately; the model stays on this machine.</p>
       <p><strong>Skills:</strong> enabled skills let the assistant read files, search folders, fetch a page, run a command, use the clock, or save a memory. Disable them any time from the sidebar.</p>
       <p><strong>Memory:</strong> saved facts are injected into every conversation and stay local.</p>
+      <p><strong>File access:</strong> set a focus folder or allow individual files from the sidebar. The agent cannot touch anything outside that scope, and a path that does not exist is rejected.</p>
+      <p><strong>Commands:</strong> use /help in the chat for slash commands such as /focus, /allow, /deny, /ls, /read, /find, /time, /pwd, /hostname, /uuid, /memories, /remember, and /forget.</p>
       <p><strong>Conversations:</strong> stored beside your history. Export writes Markdown to your Downloads folder and reports the path.</p>
       <p><strong>Stop</strong> interrupts a run; <strong>Clear</strong> discards the current view and starts fresh (use <strong>New</strong> to save first); <strong>Theme</strong> cycles Auto, Dark, and Light.</p>
       <p class="modal-note">Enter sends · Shift+Enter adds a line · Ctrl+K clears the box · Ctrl+T toggles the theme.</p>
@@ -581,7 +597,7 @@ textarea:focus{outline:none;border-color:var(--accent)}
 </div>
 <script>
 (function(){
-  var state={models:[],selected:0,path:"",loaded:false,generating:false,messages:[],settings:{},conversations:[],skills:{enabled:true,catalog:[]},currentConversation:"default",theme:"system",draft:"",autoScroll:true,persona:"",personas:{}};
+  var state={models:[],selected:0,path:"",loaded:false,generating:false,messages:[],settings:{},conversations:[],skills:{enabled:true,catalog:[]},access:{focus:"",allowed:[]},currentConversation:"default",theme:"system",draft:"",autoScroll:true,persona:"",personas:{}};
   var el=function(id){return document.getElementById(id);}
   var chatScroll=el("chatScroll");
   var messagesEl=el("messages");
@@ -823,6 +839,40 @@ textarea:focus{outline:none;border-color:var(--accent)}
       toast(state.skills.enabled?"Skills on":"Skills off");
     });
   }
+  function renderAccess(){
+    var list=el("accessList");list.innerHTML="";
+    el("accessCount").textContent=(state.access.allowed||[]).length;
+    el("accessFocusInput").value=state.access.focus||"";
+    if(state.access.focus){el("accessFocusBtn").textContent="Focus set";}
+    else{el("accessFocusBtn").textContent="Set focus";}
+    (state.access.allowed||[]).forEach(function(p){
+      var row=document.createElement("div");row.className="memory-row";
+      var label=document.createElement("input");label.readOnly=true;label.value=p;
+      var btn=document.createElement("button");btn.className="btn small danger";btn.textContent="Remove";
+      btn.addEventListener("click",function(){
+        state.access.allowed=state.access.allowed.filter(function(x){return x!==p;});
+        applyAccess();
+      });
+      row.appendChild(label);row.appendChild(btn);list.appendChild(row);
+    });
+  }
+  function refreshAccess(){
+    return native("access",{}).then(function(res){
+      var data=parse(res);
+      if(data.focus!==undefined){state.access={focus:data.focus||"",allowed:data.allowed||[]};renderAccess();}
+      return data;
+    });
+  }
+  function applyAccess(){
+    native("setAccess",{focus:state.access.focus||"",allowed:state.access.allowed||[]}).then(function(res){
+      var data=parse(res);
+      if(data.focus!==undefined){state.access={focus:data.focus||"",allowed:data.allowed||[]};}
+      renderAccess();toast("File access updated");
+    }).catch(function(err){
+      refreshAccess();
+      toast(String(err||"File access not saved"));
+    });
+  }
   function loadMemories(){
     return native("getMemories",{}).then(function(res){
       var data=parse(res);
@@ -960,10 +1010,195 @@ textarea:focus{outline:none;border-color:var(--accent)}
   function currentPayloadMessages(){
     return state.messages.map(function(m){return {role:m.role,content:m.content};});
   }
+  var SLASH_HELP=[
+    "/help or /commands   Show this list",
+    "/scope or /access    Show the current file-access scope",
+    "/focus <dir> [file]  Set the working folder for file skills",
+    "/allow <path>        Add a file or folder to the access scope",
+    "/deny <path>         Remove a file, folder, or the focus from the scope",
+    "/ls [path]           List files under the focused folder",
+    "/read <path>         Read a file inside the scope",
+    "/find <text>         Search the focused folder",
+    "/time or /date       Print the current local time",
+    "/pwd or /cwd         Print the current working directory",
+    "/hostname            Print the machine hostname",
+    "/uuid                Print a short unique identifier",
+    "/version             Print the SkiffLLM version",
+    "/models              List discovered models",
+    "/skills              Show enabled skills",
+    "/settings            Show the active generation settings",
+    "/stats               Show usage statistics",
+    "/memories            List saved memories",
+    "/remember <text>     Save a memory",
+    "/forget <text>       Remove matching memories",
+    "/clear-memories      Remove all memories",
+    "/system [text]       Show or set the system prompt",
+    "/clear               Start a fresh conversation view"
+  ].join("\n");
+  function accessText(access){
+    var focus=access&&access.focus||"";
+    var allowed=access&&access.allowed||[];
+    var restricted=focus||allowed.length;
+    return "Focus: "+(focus||"(none)")+"\nAllowed: "+(allowed.length?allowed.join(", "):"(none)")+"\nMode: "+(restricted?"restricted":"unrestricted");
+  }
+  function skillResultText(data){
+    return data&&data.ok===false?(data.error||"Command failed"):(data&&data.result||"(empty)");
+  }
+  function respondCommand(result){
+    state.messages.push({role:"assistant",content:result});
+    appendBubble("assistant",result);scrollBottom();updateChatMeta();saveCurrentConversation();
+  }
+  function runSlashCommand(text){
+    var parsed=text.slice(1).trim();
+    var parts=parsed.split(/\s+/);
+    var cmd=(parts.shift()||"").toLowerCase();
+    var arg=parts.join(" ");
+    function fail(err){respondCommand(String(err||"Command failed"));}
+    if(cmd==="clear"){
+      clearCurrentConversation();return;
+    }
+    state.messages.push({role:"user",content:text});
+    appendBubble("user",text);input.value="";resizeInput();updateChatMeta();
+    if(cmd===""||cmd==="help"||cmd==="commands"||cmd==="?"){
+      respondCommand(SLASH_HELP);return;
+    }
+    if(cmd==="scope"||cmd==="access"){
+      native("access",{}).then(function(res){
+        var d=parse(res);respondCommand(accessText(d));
+      }).catch(fail);return;
+    }
+    if(cmd==="focus"){
+      var fparts=arg.split(/\s+/);
+      var dir=fparts[0]||"";
+      var file=fparts.slice(1).join(" ");
+      if(!dir){respondCommand("Usage: /focus <dir> [file]");return;}
+      var allowed=(state.access.allowed||[]).slice();
+      if(file&&allowed.indexOf(file)===-1){allowed.push(file);}
+      native("setAccess",{focus:dir,allowed:allowed}).then(function(res){
+        var d=parse(res);state.access={focus:d.focus||"",allowed:d.allowed||[]};
+        renderAccess();respondCommand("Focus: "+(d.focus||"(none)")+"\n\n"+accessText(d));
+      }).catch(fail);return;
+    }
+    if(cmd==="allow"){
+      if(!arg){respondCommand("Usage: /allow <path>");return;}
+      var allowed=(state.access.allowed||[]).slice();
+      if(allowed.indexOf(arg)===-1){allowed.push(arg);}
+      native("setAccess",{focus:state.access.focus||"",allowed:allowed}).then(function(res){
+        var d=parse(res);state.access={focus:d.focus||"",allowed:d.allowed||[]};
+        renderAccess();respondCommand(accessText(d));
+      }).catch(fail);return;
+    }
+    if(cmd==="deny"){
+      if(!arg){respondCommand("Usage: /deny <path>");return;}
+      var focus=state.access.focus||"";
+      var allowed=(state.access.allowed||[]).slice();
+      var idx=allowed.indexOf(arg);
+      var wasFocus=focus&&focus===arg;
+      if(idx===-1&&!wasFocus){respondCommand("Not in the allowed list: "+arg);return;}
+      if(idx!==-1){allowed.splice(idx,1);}
+      native("setAccess",{focus:wasFocus?"":focus,allowed:allowed}).then(function(res){
+        var d=parse(res);state.access={focus:d.focus||"",allowed:d.allowed||[]};
+        renderAccess();respondCommand(accessText(d));
+      }).catch(fail);return;
+    }
+    if(cmd==="ls"||cmd==="files"){
+      native("executeSkill",{name:"list_files",args:{path:arg||"."}}).then(function(res){
+        respondCommand(skillResultText(parse(res)));
+      }).catch(fail);return;
+    }
+    if(cmd==="read"){
+      if(!arg){respondCommand("Usage: /read <path>");return;}
+      native("executeSkill",{name:"read_file",args:{path:arg}}).then(function(res){
+        respondCommand(skillResultText(parse(res)));
+      }).catch(fail);return;
+    }
+    if(cmd==="find"){
+      if(!arg){respondCommand("Usage: /find <text>");return;}
+      native("executeSkill",{name:"search_files",args:{path:".",query:arg}}).then(function(res){
+        respondCommand(skillResultText(parse(res)));
+      }).catch(fail);return;
+    }
+    if(cmd==="time"||cmd==="date"){
+      native("executeSkill",{name:"current_time",args:{}}).then(function(res){
+        respondCommand(skillResultText(parse(res)));
+      }).catch(fail);return;
+    }
+    if(cmd==="pwd"||cmd==="cwd"||cmd==="hostname"||cmd==="uuid"){
+      native("systemInfo",{}).then(function(res){
+        var d=parse(res);
+        if(cmd==="pwd"||cmd==="cwd"){respondCommand(d.cwd||"(unknown)");}
+        else if(cmd==="hostname"){respondCommand(d.hostname||"hostname unavailable");}
+        else{respondCommand(d.uuid||"(unknown)");}
+      }).catch(fail);return;
+    }
+    if(cmd==="version"){
+      native("version",{}).then(function(res){
+        var d=parse(res);respondCommand("SkiffLLM "+(d.version||""));
+      }).catch(fail);return;
+    }
+    if(cmd==="models"){
+      native("listModels",{}).then(function(res){
+        var d=parse(res);respondCommand((d.items&&d.items.length?d.items.join("\n"):"No models found"));
+      }).catch(fail);return;
+    }
+    if(cmd==="skills"){
+      native("skills",{}).then(function(res){
+        var d=parse(res);var names=d.catalog||[];
+        var on=names.filter(function(s){return s&&s.enabled;}).map(function(s){return s.name;});
+        respondCommand((d.enabled?"Skills enabled: ":"Skills disabled: ")+(on.length?on.join(", "):"(none)"));
+      }).catch(fail);return;
+    }
+    if(cmd==="settings"){
+      updateSettings();
+      var s=state.settings;
+      respondCommand("Temperature: "+s.temperature+"\nTop-p: "+s.top_p+"\nMax tokens: "+s.max_tokens+"\nContext: "+s.context+"\nThreads: "+(s.threads||"auto")+"\nSystem prompt: "+(s.system_prompt||"(none)"));
+      return;
+    }
+    if(cmd==="stats"){
+      native("getStats",{}).then(function(res){
+        var d=parse(res);
+        respondCommand("Sessions: "+d.sessions+"\nMessages: "+d.messages+"\nPrompt tokens: "+d.prompt_tokens+"\nGenerated tokens: "+d.generated_tokens);
+      }).catch(fail);return;
+    }
+    if(cmd==="memories"||cmd==="memory"){
+      native("getMemories",{}).then(function(res){
+        var d=parse(res);var text=(d.memories||"").trim();
+        respondCommand(text||"No saved memories.");
+      }).catch(fail);return;
+    }
+    if(cmd==="remember"){
+      if(!arg){respondCommand("Usage: /remember <text>");return;}
+      native("saveMemory",{text:arg}).then(function(res){
+        var d=parse(res);respondCommand(d&&d.ok===false?(d.error||"Could not save"):"Memory saved.");
+      }).catch(fail);return;
+    }
+    if(cmd==="forget"){
+      if(!arg){respondCommand("Usage: /forget <text>");return;}
+      native("removeMemory",{text:arg}).then(function(res){
+        var d=parse(res);respondCommand(d&&d.ok===false?(d.error||"Could not remove"):"Forgot "+(d.removed||0)+" matching memory line(s).");
+      }).catch(fail);return;
+    }
+    if(cmd==="clear-memories"){
+      native("clearMemories",{}).then(function(res){
+        var d=parse(res);respondCommand(d&&d.ok===false?(d.error||"Could not clear"):"All memories cleared.");
+      }).catch(fail);return;
+    }
+    if(cmd==="system"){
+      updateSettings();
+      var settings={temperature:state.settings.temperature,top_p:state.settings.top_p,max_tokens:state.settings.max_tokens,context:state.settings.context,threads:state.settings.threads,system_prompt:state.settings.system_prompt,theme:state.theme};
+      if(!arg){respondCommand("System prompt: "+(settings.system_prompt||"(none)"));return;}
+      settings.system_prompt=arg;
+      native("saveSettings",settings).then(function(res){
+        var d=parse(res);respondCommand(d&&d.ok===false?(d.error||"Settings not saved"):"System prompt updated.");
+      }).catch(fail);return;
+    }
+    respondCommand("Unknown command: /"+cmd+"\n\n"+SLASH_HELP);
+  }
   function send(text){
     text=(text||input.value).trim();
     if(!text)return;
     if(state.generating)return;
+    if(text.charAt(0)==="/"){runSlashCommand(text);return;}
     if(!state.loaded){setStatus("Load a model first","warn");return;}
     state.messages.push({role:"user",content:text});
     appendBubble("user",text);input.value="";resizeInput();
@@ -1084,6 +1319,23 @@ textarea:focus{outline:none;border-color:var(--accent)}
     el("modelPath").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();loadModel();}});
     el("saveSettingsBtn").addEventListener("click",saveSettings);
     el("skillsSwitch").addEventListener("click",toggleSkills);
+    el("accessFocusBtn").addEventListener("click",function(){
+      state.access.focus=el("accessFocusInput").value.trim();
+      applyAccess();
+    });
+    el("accessAllowBtn").addEventListener("click",function(){
+      var value=el("accessAllowInput").value.trim();
+      if(!value){toast("Enter a path first");return;}
+      var next=(state.access.allowed||[]).slice();
+      if(next.indexOf(value)===-1){next.push(value);}
+      state.access.allowed=next;el("accessAllowInput").value="";
+      applyAccess();
+    });
+    el("accessClearBtn").addEventListener("click",function(){
+      state.access.focus="";state.access.allowed=[];
+      applyAccess();
+    });
+    el("accessAllowInput").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();el("accessAllowBtn").click();}});
     el("memorySaveBtn").addEventListener("click",saveMemory);
     el("memoryClearBtn").addEventListener("click",clearMemories);
     el("memoryInput").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();saveMemory();}});
@@ -1164,6 +1416,11 @@ textarea:focus{outline:none;border-color:var(--accent)}
         state.skills.list=state.skills.catalog.filter(function(s){return s.enabled;}).map(function(s){return s.name;});
         renderSkills();
       }
+      native("access",{}).then(function(res){
+        var data=parse(res);
+        if(data.focus!==undefined){state.access.focus=data.focus||"";state.access.allowed=data.allowed||[];}
+        renderAccess();
+      });
       if(data.backend){backendChip.textContent=data.backend;}
       if(data.system_prompt!==undefined){el("systemPrompt").value=data.system_prompt;updateSettings();}
       native("loadSettings",{}).then(function(res){applySavedSettings(parse(res));});

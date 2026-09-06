@@ -1,10 +1,18 @@
 #include <llama.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
+
 #include <algorithm>
 #include <chrono>
 #include <csignal>
 #include <cstdio>
+#include <ctime>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <sstream>
 #include <thread>
@@ -484,6 +492,158 @@ bool resolve_skill_calls(const skiffllm::Config& cfg, skiffllm::SkiffEngine& eng
     return true;
 }
 
+void print_access_scope(const skiffllm::Config& cfg, const skiffllm::Terminal& terminal) {
+    terminal.info("File access scope");
+    terminal.write("  Focus:    " +
+                   (cfg.focus_path.empty() ? std::string("(none)") : cfg.focus_path.string()) +
+                   "\n");
+    terminal.write("  Allowed:  ");
+    if (cfg.allowed_paths.empty()) {
+        terminal.write_raw("(none)");
+    } else {
+        for (size_t i = 0; i < cfg.allowed_paths.size(); ++i) {
+            if (i != 0) {
+                terminal.write_raw(", ");
+            }
+            terminal.write_raw(cfg.allowed_paths[i].string());
+        }
+    }
+    terminal.write_raw("\n");
+    const bool restricted = !cfg.focus_path.empty() || !cfg.allowed_paths.empty();
+    terminal.write("  Mode:     " + std::string(restricted ? "restricted" : "unrestricted") + "\n");
+    terminal.write(
+        "  Use /allow <path> to add a file or folder, /deny <path> to remove one, "
+        "and /focus <dir> [file] to set the working folder.\n");
+}
+
+bool persist_access_config(skiffllm::Config& cfg, const skiffllm::Terminal& terminal) {
+    std::string error;
+    if (!skiffllm::write_config_file(cfg.config_path, cfg, error)) {
+        terminal.warning("Scope updated for this session but not saved: " + error);
+        return false;
+    }
+    return true;
+}
+
+bool add_allowed_path(skiffllm::Config& cfg, const std::string& raw,
+                      const skiffllm::Terminal& terminal) {
+    const std::filesystem::path path = skiffllm::expand_path(raw);
+    std::error_code ec;
+    if (path.empty() || !std::filesystem::exists(path, ec)) {
+        terminal.error("Allowed path does not exist: " + raw);
+        return false;
+    }
+    for (const auto& existing : cfg.allowed_paths) {
+        if (std::filesystem::equivalent(existing, path, ec)) {
+            terminal.info("Already allowed: " + path.string());
+            return true;
+        }
+    }
+    cfg.allowed_paths.push_back(path);
+    terminal.success("Allowed: " + path.string());
+    persist_access_config(cfg, terminal);
+    return true;
+}
+
+bool remove_allowed_path(skiffllm::Config& cfg, const std::string& raw,
+                         const skiffllm::Terminal& terminal) {
+    const std::filesystem::path path = skiffllm::expand_path(raw);
+    std::error_code ec;
+    size_t index = cfg.allowed_paths.size();
+    for (size_t i = 0; i < cfg.allowed_paths.size(); ++i) {
+        if (std::filesystem::equivalent(cfg.allowed_paths[i], path, ec)) {
+            index = i;
+            break;
+        }
+    }
+    if (index == cfg.allowed_paths.size()) {
+        terminal.info("Not in the allowed list: " + raw);
+        return true;
+    }
+    cfg.allowed_paths.erase(cfg.allowed_paths.begin() + static_cast<std::ptrdiff_t>(index));
+    if (!cfg.focus_path.empty() && std::filesystem::equivalent(cfg.focus_path, path, ec)) {
+        cfg.focus_path.clear();
+        terminal.warning("Removed the focus directory too: " + raw);
+    }
+    terminal.success("Denied: " + raw);
+    persist_access_config(cfg, terminal);
+    return true;
+}
+
+bool set_focus_path(skiffllm::Config& cfg, const std::string& raw,
+                    std::vector<std::filesystem::path>& attached,
+                    const skiffllm::Terminal& terminal) {
+    std::istringstream parts(raw);
+    std::string directory;
+    std::string file;
+    parts >> directory >> file;
+    if (directory.empty()) {
+        terminal.error("Usage: /focus <dir> [file]");
+        return false;
+    }
+    const std::filesystem::path dir = skiffllm::expand_path(directory);
+    std::error_code ec;
+    if (!std::filesystem::exists(dir, ec) || !std::filesystem::is_directory(dir, ec)) {
+        terminal.error("Focus directory does not exist: " + directory);
+        return false;
+    }
+    cfg.focus_path = dir;
+    if (!file.empty()) {
+        const std::filesystem::path file_path = skiffllm::expand_path(file);
+        if (!std::filesystem::exists(file_path, ec) ||
+            !std::filesystem::is_regular_file(file_path, ec)) {
+            terminal.error("Attached file does not exist: " + file);
+            return false;
+        }
+        bool present = false;
+        for (const auto& existing : attached) {
+            if (std::filesystem::equivalent(existing, file_path, ec)) {
+                present = true;
+                break;
+            }
+        }
+        if (!present) {
+            attached.push_back(file_path);
+        }
+        terminal.success("Attached: " + file_path.string());
+    }
+    terminal.success("Focus: " + dir.string());
+    persist_access_config(cfg, terminal);
+    print_access_scope(cfg, terminal);
+    return true;
+}
+
+void scope_file_skill(const skiffllm::Config& cfg, const std::string& name,
+                      const std::map<std::string, std::string>& args,
+                      const skiffllm::Terminal& terminal) {
+    skiffllm::SkillRequest request;
+    request.name = name;
+    request.args = args;
+    std::string error;
+    const std::string result = skiffllm::execute_skill(cfg, request, error);
+    if (!error.empty()) {
+        terminal.error(error);
+        return;
+    }
+    terminal.write_raw(result);
+    if (result.empty() || result.back() != '\n') {
+        terminal.write_raw("\n");
+    }
+}
+
+std::string current_local_time() {
+    const std::time_t now = std::time(nullptr);
+    char buffer[64] = {};
+    struct tm local {};
+#ifdef _WIN32
+    localtime_s(&local, &now);
+#else
+    localtime_r(&now, &local);
+#endif
+    std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S %Z", &local);
+    return buffer;
+}
+
 bool compact_session(const skiffllm::Config& cfg, skiffllm::SkiffEngine& engine,
                      skiffllm::Session& session, skiffllm::Terminal& terminal,
                      const skiffllm::GenerationOptions& options) {
@@ -647,6 +807,76 @@ int run_interactive(skiffllm::Config& cfg, std::unique_ptr<skiffllm::SkiffEngine
             }
             if (command == "/info") {
                 print_session_info(*engine, session, terminal, cfg);
+                print_access_scope(cfg, terminal);
+                continue;
+            }
+            if (command == "/scope") {
+                print_access_scope(cfg, terminal);
+                continue;
+            }
+            if (command == "/allow") {
+                add_allowed_path(cfg, argument, terminal);
+                continue;
+            }
+            if (command == "/deny") {
+                remove_allowed_path(cfg, argument, terminal);
+                continue;
+            }
+            if (command == "/focus") {
+                set_focus_path(cfg, argument, attached, terminal);
+                continue;
+            }
+            if (command == "/ls" || command == "/files") {
+                const std::string target = argument.empty() ? "." : argument;
+                scope_file_skill(cfg, "list_files", {{"path", target}}, terminal);
+                continue;
+            }
+            if (command == "/read") {
+                scope_file_skill(cfg, "read_file", {{"path", argument}}, terminal);
+                continue;
+            }
+            if (command == "/find") {
+                scope_file_skill(cfg, "search_files", {{"path", "."}, {"query", argument}},
+                                 terminal);
+                continue;
+            }
+            if (command == "/time" || command == "/date") {
+                std::cout << current_local_time() << "\n";
+                continue;
+            }
+            if (command == "/pwd" || command == "/cwd") {
+                std::error_code ec;
+                terminal.info(std::filesystem::current_path(ec).string());
+                continue;
+            }
+            if (command == "/hostname") {
+#ifdef _WIN32
+                char host_name[256] = {};
+                DWORD size = sizeof(host_name);
+                if (GetComputerNameA(host_name, &size)) {
+                    terminal.info(host_name);
+                } else {
+                    terminal.warning("hostname unavailable");
+                }
+#else
+                char host_name[256] = {};
+                if (gethostname(host_name, sizeof(host_name)) == 0) {
+                    terminal.info(host_name);
+                } else {
+                    terminal.warning("hostname unavailable");
+                }
+#endif
+                continue;
+            }
+            if (command == "/version") {
+                std::cout << "SkiffLLM " << kVersion << "\n";
+                continue;
+            }
+            if (command == "/uuid") {
+                std::ostringstream out;
+                const long long now = static_cast<long long>(
+                    std::chrono::steady_clock::now().time_since_epoch().count());
+                std::cout << "skiff-" << now << "\n";
                 continue;
             }
             if (command == "/regenerate" || command == "/retry") {
@@ -1316,6 +1546,7 @@ int run_bare_console(skiffllm::Config& cfg) {
     llama_log_set(discard_log, nullptr);
     skiffllm::Terminal terminal(cfg);
     std::unique_ptr<skiffllm::SkiffEngine> engine;
+    std::vector<std::filesystem::path> attached;
     skiffllm::Session session(cfg);
     session.set_system_prompt(cfg.system_prompt);
     {
@@ -1379,6 +1610,55 @@ int run_bare_console(skiffllm::Config& cfg) {
             }
             std::cout << "Conversation cleared.\n";
             continue;
+        }
+        {
+            const std::string bare = strip_command(command);
+            const std::string bare_arg = command_argument(command);
+            if (bare == "scope" || bare == "/scope") {
+                print_access_scope(cfg, terminal);
+                continue;
+            }
+            if (bare == "allow" || bare == "/allow") {
+                add_allowed_path(cfg, bare_arg, terminal);
+                continue;
+            }
+            if (bare == "deny" || bare == "/deny") {
+                remove_allowed_path(cfg, bare_arg, terminal);
+                continue;
+            }
+            if (bare == "focus" || bare == "/focus") {
+                set_focus_path(cfg, bare_arg, attached, terminal);
+                continue;
+            }
+            if (bare == "ls" || bare == "/ls" || bare == "files" || bare == "/files") {
+                scope_file_skill(cfg, "list_files", {{"path", bare_arg.empty() ? "." : bare_arg}},
+                                 terminal);
+                continue;
+            }
+            if (bare == "read" || bare == "/read") {
+                scope_file_skill(cfg, "read_file", {{"path", bare_arg}}, terminal);
+                continue;
+            }
+            if (bare == "find" || bare == "/find") {
+                scope_file_skill(cfg, "search_files", {{"path", "."}, {"query", bare_arg}},
+                                 terminal);
+                continue;
+            }
+            if (bare == "time" || bare == "/time" || bare == "date" || bare == "/date") {
+                std::cout << current_local_time() << "\n";
+                continue;
+            }
+            if (bare == "pwd" || bare == "/pwd" || bare == "cwd" || bare == "/cwd") {
+                std::error_code ec;
+                std::cout << std::filesystem::current_path(ec).string() << "\n";
+                continue;
+            }
+            if (bare == "uuid" || bare == "/uuid") {
+                const long long now = static_cast<long long>(
+                    std::chrono::steady_clock::now().time_since_epoch().count());
+                std::cout << "skiff-" << now << "\n";
+                continue;
+            }
         }
         if (command.rfind("system ", 0) == 0) {
             const std::string text = skiffllm::trim(command.substr(7));

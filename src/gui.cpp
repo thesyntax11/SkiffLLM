@@ -18,9 +18,14 @@
 
 #include <llama.h>
 
+#ifndef _WIN32
+#include <unistd.h>
+#endif
+
 #include <algorithm>
 #include <atomic>
 #include <cctype>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
@@ -51,6 +56,7 @@ using skiffllm::SkiffEngine;
 namespace {
 
 std::string desktop_backend_name();
+std::string system_info_json();
 
 constexpr int kWebResourceId = 100;
 
@@ -619,6 +625,72 @@ void apply_skill_settings(AppStatePtr state, const GuiJsonValue& params) {
     skiffllm::write_config_file(state->cfg.config_path, state->cfg, save_error);
 }
 
+std::string access_json(const AppStatePtr& state) {
+    std::ostringstream out;
+    out << "{\"focus\":";
+    out << json_escape(state->cfg.focus_path.empty() ? "" : state->cfg.focus_path.string());
+    out << ",\"allowed\":[";
+    for (size_t i = 0; i < state->cfg.allowed_paths.size(); ++i) {
+        if (i != 0) {
+            out << ",";
+        }
+        out << json_escape(state->cfg.allowed_paths[i].string());
+    }
+    out << "]}";
+    return out.str();
+}
+
+bool apply_access_settings(AppStatePtr state, const GuiJsonValue& params, std::string& error) {
+    std::lock_guard<std::mutex> guard(state->mutex);
+    std::filesystem::path focus;
+    if (const GuiJsonValue* value = json_find(params, "focus")) {
+        const std::string text = json_string(*value);
+        if (!text.empty()) {
+            focus = skiffllm::expand_path(text);
+            std::error_code ec;
+            if (!std::filesystem::exists(focus, ec) || !std::filesystem::is_directory(focus, ec)) {
+                error = "focus directory does not exist: " + text;
+                return false;
+            }
+        }
+    }
+    std::vector<std::filesystem::path> allowed;
+    if (const GuiJsonValue* list = json_find(params, "allowed")) {
+        if (list->kind == GuiJsonValue::Kind::ArrayValue) {
+            for (const auto& item : list->array_values) {
+                const std::string text = json_string(item);
+                if (text.empty()) {
+                    continue;
+                }
+                const std::filesystem::path path = skiffllm::expand_path(text);
+                std::error_code ec;
+                if (!std::filesystem::exists(path, ec)) {
+                    error = "allowed path does not exist: " + text;
+                    return false;
+                }
+                bool present = false;
+                for (const auto& existing : allowed) {
+                    if (std::filesystem::equivalent(existing, path, ec)) {
+                        present = true;
+                        break;
+                    }
+                }
+                if (!present) {
+                    allowed.push_back(path);
+                }
+            }
+        }
+    }
+    state->cfg.focus_path = focus;
+    state->cfg.allowed_paths = allowed;
+    std::string save_error;
+    if (!skiffllm::write_config_file(state->cfg.config_path, state->cfg, save_error)) {
+        error = save_error;
+        return false;
+    }
+    return true;
+}
+
 std::string conversation_name(const std::string& input) {
     std::string name = skiffllm::trim(input);
     if (name.empty()) {
@@ -1002,7 +1074,8 @@ void generate_messages(AppStatePtr state, const GuiJsonValue& messages_value,
         }
         std::string system = state->system_prompt;
         if (skills_enabled) {
-            const std::string instructions = skiffllm::skill_instructions(enabled_skills);
+            const std::string instructions =
+                skiffllm::skill_instructions(enabled_skills, state->cfg);
             system = system.empty() ? instructions : system + "\n\n" + instructions;
         }
         if (!system.empty()) {
@@ -1346,6 +1419,21 @@ void handle_skiff(const char* id, const std::string& method, const GuiJsonValue&
         reply(id, skills_json(state));
         return;
     }
+    if (method == "access") {
+        std::lock_guard<std::mutex> guard(state->mutex);
+        reply(id, access_json(state));
+        return;
+    }
+    if (method == "setAccess") {
+        std::string error;
+        if (!apply_access_settings(state, params, error)) {
+            reply_error(id, error);
+            return;
+        }
+        std::lock_guard<std::mutex> guard(state->mutex);
+        reply(id, access_json(state));
+        return;
+    }
     if (method == "executeSkill") {
         const GuiJsonValue* name = json_find(params, "name");
         if (name == nullptr || json_string(*name).empty()) {
@@ -1436,6 +1524,27 @@ void handle_skiff(const char* id, const std::string& method, const GuiJsonValue&
             return;
         }
         reply(id, "{\"ok\":true}");
+        return;
+    }
+    if (method == "removeMemory") {
+        const GuiJsonValue* text = json_find(params, "text");
+        if (text == nullptr || json_string(*text).empty()) {
+            reply_error(id, "No memory text provided");
+            return;
+        }
+        std::string error;
+        size_t removed = 0;
+        if (!skiffllm::remove_memory(state->cfg, json_string(*text), removed, error)) {
+            reply_error(id, error);
+            return;
+        }
+        std::ostringstream out;
+        out << "{\"ok\":true,\"removed\":" << removed << "}";
+        reply(id, out.str());
+        return;
+    }
+    if (method == "systemInfo") {
+        reply(id, system_info_json());
         return;
     }
     if (method == "getStats") {
@@ -1535,6 +1644,49 @@ std::string desktop_backend_name() {
 #else
     return "WebKitGTK - llama.cpp";
 #endif
+}
+
+std::string current_local_time() {
+    const std::time_t now = std::time(nullptr);
+    char buffer[64] = {};
+    struct tm local {};
+#ifdef _WIN32
+    localtime_s(&local, &now);
+#else
+    localtime_r(&now, &local);
+#endif
+    std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S %Z", &local);
+    return buffer;
+}
+
+std::string system_info_json() {
+    std::ostringstream out;
+    std::error_code ec;
+    out << "{\"cwd\":";
+    out << json_escape(std::filesystem::current_path(ec).string());
+    out << ",\"hostname\":";
+    std::string hostname;
+#ifdef _WIN32
+    char host_name[256] = {};
+    DWORD size = sizeof(host_name);
+    if (GetComputerNameA(host_name, &size)) {
+        hostname = host_name;
+    }
+#else
+    char host_name[256] = {};
+    if (gethostname(host_name, sizeof(host_name)) == 0) {
+        hostname = host_name;
+    }
+#endif
+    out << json_escape(hostname);
+    out << ",\"uuid\":";
+    const long long now =
+        static_cast<long long>(std::chrono::steady_clock::now().time_since_epoch().count());
+    out << json_escape("skiff-" + std::to_string(now));
+    out << ",\"time\":";
+    out << json_escape(current_local_time());
+    out << "}";
+    return out.str();
 }
 
 int run_app() {

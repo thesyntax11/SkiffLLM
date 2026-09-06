@@ -362,6 +362,12 @@ bool write_config_file(const std::filesystem::path& path, const Config& cfg, std
     for (const auto& skill : cfg.enabled_skills) {
         out << "enable-skill=" << skill << "\n";
     }
+    if (!cfg.focus_path.empty()) {
+        out << "focus=" << cfg.focus_path.string() << "\n";
+    }
+    for (const auto& path : cfg.allowed_paths) {
+        out << "allow-path=" << path.string() << "\n";
+    }
     out << "host=" << cfg.server_host << "\n";
     out << "port=" << cfg.server_port << "\n";
     if (!cfg.api_key.empty()) {

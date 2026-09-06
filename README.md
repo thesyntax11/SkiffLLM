@@ -320,6 +320,34 @@ skiffllm skill enable run_command
 skiffllm skill disable run_command
 ```
 
+## File access scope
+
+File skills only touch paths you put in scope. With no scope set, file skills
+are unrestricted; once you set a focus folder or allow a path, reads, writes,
+lists, and searches outside that scope fail.
+
+```bash
+# restrict file skills to one folder
+skiffllm --model model.gguf --focus ./project
+
+# add specific files or folders on top of the focus
+skiffllm --model model.gguf --focus ./project --allow ./project/notes.md --allow ./docs
+
+# set the scope from the interactive shell
+/scope
+/focus ./project
+/allow ./project/notes.md
+/deny ./project/notes.md
+/ls
+/read ./src/main.cpp
+/find tokenizer
+```
+
+Every path passed to `/focus`, `/allow`, `--focus`, or `--allow` must exist.
+Non-existent paths are rejected before any file operation happens. The desktop
+GUI exposes the same controls in the File access panel, and the chat accepts
+the same slash commands.
+
 ---
 
 ## Local OpenAI-compatible server

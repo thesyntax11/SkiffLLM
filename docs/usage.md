@@ -44,6 +44,24 @@ Interactive shell commands: `/remember <fact>`, `/forget <text>`,
 into a bullet summary while preserving facts), and `/regenerate` or `/retry`
 (re-run the last user message with the current sampling settings).
 
+## File access scope
+
+File skills (`read_file`, `write_file`, `list_files`, `search_files`) follow
+the configured access scope. By default they are unrestricted. Adding a focus
+folder or an allowed path makes the scope restricted: only paths under those
+roots are usable, and every path must already exist.
+
+```bash
+skiffllm --model model.gguf --focus ./project
+skiffllm --model model.gguf --allow ./project/notes.md
+skiffllm --model model.gguf --focus ./project --allow ./project/data.csv
+```
+
+In the interactive shell the same settings are available as `/scope`, `/focus
+<dir> [file]`, `/allow <path>`, and `/deny <path>`. Use `/ls [path]`, `/read
+<path>`, and `/find <text>` to exercise the scope. The desktop web GUI has a
+File access panel in the sidebar and accepts the same slash commands in chat.
+
 ## Summarize shortcut
 
 ```bash

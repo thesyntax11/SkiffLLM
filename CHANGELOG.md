@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### File access scope and slash commands
+
+- Added a user-selectable file-access scope across the CLI and desktop GUI:
+  `--focus`/`/focus`, `--allow`/`/allow`, `--deny`, and a File access panel in
+  the web UI.
+- File skills now read, write, list, and search only inside the focus folder
+  and allowed paths. Non-existent focus or allowed targets are rejected before
+  any operation runs.
+- Added useful user-facing commands in the interactive shell and the desktop
+  chat: `/scope`, `/ls`, `/read`, `/find`, `/time`, `/pwd`, `/hostname`,
+  `/uuid`, `/memories`, `/remember`, `/forget`, `/clear-memories`, `/models`,
+  `/skills`, `/settings`, `/stats`, and `/system`.
+
 ### Cross-platform desktop parity
 
 - Added the same embedded web GUI to Linux and macOS through the cross-platform
