@@ -157,14 +157,51 @@ case "${ASSET}" in
 esac
 
 BIN="${TMP}/bin/skiffllm"
+BIN_NAME="skiffllm"
 if [[ "${OS}" == "windows" ]]; then
     BIN="${TMP}/bin/skiffllm.exe"
+    BIN_NAME="skiffllm.exe"
 fi
 if [[ ! -f "${BIN}" ]]; then
     echo "error: binary not found in the release archive" >&2
     exit 2
 fi
 
-install -d "${PREFIX}/bin"
-install -m 0755 "${BIN}" "${PREFIX}/bin/skiffllm"
-echo "Installed ${PREFIX}/bin/skiffllm"
+install -d "${PREFIX}/bin" \
+    "${PREFIX}/share/skiffllm/web" \
+    "${PREFIX}/share/skiffllm/completions" \
+    "${PREFIX}/share/doc/skiffllm" \
+    "${PREFIX}/share/man/man1"
+install -m 0755 "${BIN}" "${PREFIX}/bin/${BIN_NAME}"
+if [[ -f "${TMP}/bin/skiffllm-cli" ]]; then
+    install -m 0755 "${TMP}/bin/skiffllm-cli" "${PREFIX}/bin/skiffllm-cli"
+elif [[ -f "${TMP}/bin/skiffllm-cli.exe" ]]; then
+    install -m 0755 "${TMP}/bin/skiffllm-cli.exe" "${PREFIX}/bin/skiffllm-cli.exe"
+fi
+
+if [[ -d "${TMP}/share/skiffllm/web" ]]; then
+    cp -R "${TMP}/share/skiffllm/web/." "${PREFIX}/share/skiffllm/web/"
+fi
+if [[ -f "${TMP}/share/skiffllm.example.conf" ]]; then
+    install -m 0644 "${TMP}/share/skiffllm.example.conf" \
+        "${PREFIX}/share/skiffllm/skiffllm.example.conf"
+fi
+if [[ -d "${TMP}/share/completions" ]]; then
+    cp -R "${TMP}/share/completions/." "${PREFIX}/share/skiffllm/completions/"
+fi
+if [[ -d "${TMP}/share/docs" ]]; then
+    rm -rf "${PREFIX}/share/doc/skiffllm"
+    cp -R "${TMP}/share/docs" "${PREFIX}/share/doc/skiffllm"
+fi
+if [[ -f "${PREFIX}/share/doc/skiffllm/skiffllm.1" ]]; then
+    install -m 0644 "${PREFIX}/share/doc/skiffllm/skiffllm.1" \
+        "${PREFIX}/share/man/man1/skiffllm.1"
+fi
+for doc in README.md LICENSE CHANGELOG.md SECURITY.md CONTRIBUTING.md; do
+    if [[ -f "${TMP}/${doc}" ]]; then
+        install -m 0644 "${TMP}/${doc}" "${PREFIX}/share/doc/skiffllm/${doc}"
+    fi
+done
+
+echo "Installed ${PREFIX}/bin/${BIN_NAME}"
+echo "Installed shared files under ${PREFIX}/share/skiffllm"

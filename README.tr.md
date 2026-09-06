@@ -240,6 +240,43 @@ skiffllm --forget concise
 Etkileşimli kabukta `/remember`, `/forget`, `/memories`,
 `/clear-memories`, `/compact`, `/regenerate` ve `/export` komutlarını kullanın.
 
+## Yetenekler
+
+SkiffLLM küçük ve gerçek işe yarayan bir yetenek kataloğu sunar:
+`read_file`, `write_file`, `list_files`, `search_files`, `run_command`,
+`fetch_url`, `current_time`, `memory_save`, `memory_recall` ve `memory_clear`.
+Masaüstünde ve CLI'da otomatik yetenek çağrıları **opt-in**'dir; GUI anahtarı
+veya `--skills` açık olduğunda model üretim sırasında seçili araçları
+çağırabilir. Android ve iOS aynı kataloğu manuel çalıştırıcıyla sunar.
+
+## Dosya erişim kapsamı
+
+Dosya yetenekleri yalnızca kapsama eklediğiniz yollara dokunur. Kapsam
+ayarlanmadıysa kısıtlama yoktur; bir odak klasörü veya izinli yol
+eklediğinizde bu köklerin dışındaki okuma, yazma, listeleme ve arama işlemleri
+başarısız olur.
+
+```bash
+# dosya yeteneklerini bir klasöre sınırla
+skiffllm --model model.gguf --focus ./project
+
+# odak klasörüne ek dosya veya klasörler ekle
+skiffllm --model model.gguf --focus ./project --allow ./project/notes.md --allow ./docs
+
+# etkileşimli kabukta
+/scope
+/focus ./project
+/allow ./project/notes.md
+/deny ./project/notes.md
+/ls
+/read ./src/main.cpp
+/find tokenizer
+```
+
+`/focus`, `/allow`, `--focus` ve `--allow` ile verilen her yol mevcut olmalıdır;
+var olmayan hedefler herhangi bir dosya işlemi çalışmadan reddedilir. Masaüstü
+GUI'nin File access paneli aynı kontrolleri sunar.
+
 ---
 
 ## Yerel OpenAI uyumlu sunucu

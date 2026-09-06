@@ -12,6 +12,7 @@
 #include <commdlg.h>
 #include <objbase.h>
 #include <shlobj.h>
+#include <shellapi.h>
 #endif
 
 #include <webview/webview.h>
@@ -20,6 +21,9 @@
 
 #ifndef _WIN32
 #include <unistd.h>
+#if defined(__APPLE__)
+#include <mach-o/dyld.h>
+#endif
 #endif
 
 #include <algorithm>
@@ -31,6 +35,7 @@
 #include <ctime>
 #include <filesystem>
 #include <fstream>
+#include <iostream>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -52,6 +57,10 @@ using skiffllm::Config;
 using skiffllm::GenerationOptions;
 using skiffllm::GenerationResult;
 using skiffllm::SkiffEngine;
+
+#ifndef SKIFFLLM_VERSION
+#define SKIFFLLM_VERSION "1.9.0"
+#endif
 
 namespace {
 
@@ -494,6 +503,30 @@ std::string wide_to_utf8(const std::wstring& value) {
 }
 #endif
 
+std::filesystem::path executable_directory() {
+#ifdef __APPLE__
+    std::vector<char> buffer(1024);
+    uint32_t size = static_cast<uint32_t>(buffer.size());
+    const int result = _NSGetExecutablePath(buffer.data(), &size);
+    if (result != 0) {
+        buffer.resize(size);
+        if (_NSGetExecutablePath(buffer.data(), &size) != 0) {
+            return {};
+        }
+    }
+    std::error_code path_error;
+    const auto executable = std::filesystem::weakly_canonical(buffer.data(), path_error);
+    if (path_error) {
+        return {};
+    }
+    return executable.parent_path();
+#else
+    std::error_code path_error;
+    const auto executable = std::filesystem::canonical("/proc/self/exe", path_error);
+    return path_error ? std::filesystem::path() : executable.parent_path();
+#endif
+}
+
 std::string read_ui_html() {
 #ifdef _WIN32
     return read_resource(kWebResourceId);
@@ -504,13 +537,11 @@ std::string read_ui_html() {
         candidates.emplace_back(override_path);
     }
     candidates.emplace_back(SKIFFLLM_WEB_HTML);
-    std::error_code path_error;
-    const auto executable = std::filesystem::canonical("/proc/self/exe", path_error);
-    const auto directory = executable.parent_path();
+    const auto directory = executable_directory();
     candidates.push_back((directory / "web" / "index.html").string());
-    candidates.push_back(
-        (directory.parent_path() / "share" / "skiffllm" / "web" / "index.html").string());
-    candidates.push_back((directory.parent_path() / "share" / "skiffllm" / "index.html").string());
+    const auto prefix = directory.parent_path();
+    candidates.push_back((prefix / "share" / "skiffllm" / "web" / "index.html").string());
+    candidates.push_back((prefix / "share" / "skiffllm" / "index.html").string());
     for (const auto& path : candidates) {
         std::ifstream file(path, std::ios::binary);
         if (!file) {
@@ -1689,6 +1720,38 @@ std::string system_info_json() {
     return out.str();
 }
 
+std::string desktop_usage_text() {
+    return "SkiffLLM " SKIFFLLM_VERSION
+           "\n\n"
+           "Usage: skiffllm [--version] [--help]\n\n"
+           "The desktop GUI is the default binary. The command-line interface is\n"
+           "available as skiffllm-cli. Both binaries share the same local engine,\n"
+           "skills, memory, file-access scope, and conversations.\n";
+}
+
+bool desktop_cli_flag_handled(const std::vector<std::string>& args) {
+    bool version = false;
+    bool help = false;
+    for (const auto& arg : args) {
+        if (arg == "--version" || arg == "-v" || arg == "/version") {
+            version = true;
+        } else if (arg == "--help" || arg == "-h" || arg == "/help" || arg == "/?") {
+            help = true;
+        } else if (arg == "--") {
+            break;
+        }
+    }
+    if (version) {
+        std::cout << "SkiffLLM " SKIFFLLM_VERSION << "\n";
+        return true;
+    }
+    if (help) {
+        std::cout << desktop_usage_text();
+        return true;
+    }
+    return false;
+}
+
 int run_app() {
     llama_backend_init();
     llama_log_set(discard_log, nullptr);
@@ -1759,13 +1822,32 @@ int run_app() {
 
 #ifdef _WIN32
 int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
+    int argument_count = 0;
+    LPWSTR* arguments = CommandLineToArgvW(GetCommandLineW(), &argument_count);
+    std::vector<std::string> args;
+    if (arguments != nullptr) {
+        for (int i = 1; i < argument_count; ++i) {
+            args.push_back(wide_to_utf8(arguments[i]));
+        }
+        LocalFree(arguments);
+    }
+    if (desktop_cli_flag_handled(args)) {
+        return 0;
+    }
     CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
     const int result = run_app();
     CoUninitialize();
     return result;
 }
 #else
-int main(int, char**) {
+int main(int argc, char** argv) {
+    std::vector<std::string> args;
+    for (int i = 1; i < argc; ++i) {
+        args.emplace_back(argv[i]);
+    }
+    if (desktop_cli_flag_handled(args)) {
+        return 0;
+    }
     return run_app();
 }
 #endif

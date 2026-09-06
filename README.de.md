@@ -247,6 +247,44 @@ skiffllm --forget concise
 In der interaktiven Shell nutzen Sie `/remember`, `/forget`, `/memories`,
 `/clear-memories`, `/compact`, `/regenerate` und `/export`.
 
+## Skills
+
+SkiffLLM bringt einen kleinen Skill-Katalog für echte Arbeit mit: `read_file`,
+`write_file`, `list_files`, `search_files`, `run_command`, `fetch_url`,
+`current_time`, `memory_save`, `memory_recall` und `memory_clear`. Auf dem
+Desktop und in der CLI sind automatische Skill-Aufrufe **opt-in**; mit dem
+GUI-Schalter oder `--skills` darf das Modell die aktivierten Werkzeuge während
+der Generierung nutzen. Android und iOS bieten denselben Katalog über einen
+manuellen Runner.
+
+## Datei-Zugriffsbereich
+
+Datei-Skills greifen nur auf Pfade zu, die Sie in den Bereich aufnehmen. Ohne
+Bereich gibt es keine Einschränkung; sobald Sie einen Fokusordner oder einen
+erlaubten Pfad setzen, schlagen Lese-, Schreib-, Listen- und Suchoperationen
+außerhalb dieser Wurzeln fehl.
+
+```bash
+# Datei-Skills auf einen Ordner beschränken
+skiffllm --model model.gguf --focus ./project
+
+# zusätzliche Dateien oder Ordner zum Fokus hinzufügen
+skiffllm --model model.gguf --focus ./project --allow ./project/notes.md --allow ./docs
+
+# in der interaktiven Shell
+/scope
+/focus ./project
+/allow ./project/notes.md
+/deny ./project/notes.md
+/ls
+/read ./src/main.cpp
+/find tokenizer
+```
+
+Jeder an `/focus`, `/allow`, `--focus` oder `--allow` übergebene Pfad muss
+existieren. Nicht vorhandene Ziele werden abgelehnt, bevor eine Dateioperation
+läuft. Das Desktop-GUI bietet dieselben Kontrollen im File-Access-Panel.
+
 ---
 
 ## Lokaler OpenAI-kompatibler Server

@@ -127,7 +127,7 @@ if [[ -f "${PROJECT_DIR}/CMakeLists.txt" ]]; then
 fi
 
 STAGE="${OUTPUT_DIR}/staged"
-mkdir -p "${STAGE}/bin" "${STAGE}/share"
+mkdir -p "${STAGE}/bin" "${STAGE}/share" "${STAGE}/share/skiffllm/web"
 
 BINARY_NAME="skiffllm"
 if [[ "${BINARY}" == *.exe ]]; then
@@ -147,6 +147,7 @@ cp -r scripts/completions "${STAGE}/share/"
 cp configs/skiffllm.example.conf "${STAGE}/share/"
 cp -r packaging "${STAGE}/share/packaging"
 cp -r scripts "${STAGE}/share/scripts"
+cp web/index.html "${STAGE}/share/skiffllm/web/index.html"
 
 # Normalize the asset name to the same `<os>-<arch>` convention that
 # scripts/install-from-release.sh looks for. darwin is published as "macos".

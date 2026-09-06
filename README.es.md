@@ -242,6 +242,43 @@ skiffllm --forget concise
 Dentro del shell interactivo usa `/remember`, `/forget`, `/memories`,
 `/clear-memories`, `/compact`, `/regenerate` y `/export`.
 
+## Skills
+
+SkiffLLM incluye un catálogo pequeño de tools para trabajo real: `read_file`,
+`write_file`, `list_files`, `search_files`, `run_command`, `fetch_url`,
+`current_time`, `memory_save`, `memory_recall` y `memory_clear`. En escritorio
+y CLI, las llamadas automáticas a tools son **opt-in**; con el interruptor del
+GUI o `--skills`, el modelo puede usar las tools activadas durante la
+generación. Android e iOS muestran el mismo catálogo con un ejecutor manual.
+
+## Ámbito de acceso a archivos
+
+Las tools de archivos solo tocan rutas que añadas al ámbito. Sin ámbito no hay
+restricción; en cuanto configuras una carpeta de foco o una ruta permitida, las
+lecturas, escrituras, listados y búsquedas fuera de esas raíces fallan.
+
+```bash
+# limitar las tools de archivos a una carpeta
+skiffllm --model model.gguf --focus ./project
+
+# añadir archivos o carpetas al foco
+skiffllm --model model.gguf --focus ./project --allow ./project/notes.md --allow ./docs
+
+# en el shell interactivo
+/scope
+/focus ./project
+/allow ./project/notes.md
+/deny ./project/notes.md
+/ls
+/read ./src/main.cpp
+/find tokenizer
+```
+
+Toda ruta pasada a `/focus`, `/allow`, `--focus` o `--allow` debe existir. Los
+destinos inexistentes se rechazan antes de ejecutar cualquier operación de
+archivo. El GUI de escritorio ofrece los mismos controles en el panel File
+access.
+
 ---
 
 ## Servidor local compatible con OpenAI

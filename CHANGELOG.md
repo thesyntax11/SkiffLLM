@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Desktop themes and release assets
+
+- Fixed the desktop theme toggle: light, dark, and auto modes now apply with
+  explicit CSS variable blocks and update the browser theme color instead of
+  relying only on the OS media query.
+- Bundled `web/index.html` as `share/skiffllm/web/index.html` in release
+  archives so the Linux and macOS GUI binaries find their embedded UI in a
+  published install, and made the source/release installers copy the web UI,
+  docs, completions, examples, and CLI alongside the main binary.
+
 ### File access scope and slash commands
 
 - Added a user-selectable file-access scope across the CLI and desktop GUI:

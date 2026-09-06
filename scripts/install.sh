@@ -87,18 +87,57 @@ fi
 
 BIN_DIR="${PREFIX}/bin"
 SHARE_DIR="${PREFIX}/share/skiffllm"
+WEB_DIR="${SHARE_DIR}/web"
 MAN_DIR="${PREFIX}/share/man/man1"
 DOC_DIR="${PREFIX}/share/doc/skiffllm"
-COMPLETION_DIR="${PREFIX}/share/skiffllm/completions"
+COMPLETION_DIR="${SHARE_DIR}/completions"
 
-install -d "${BIN_DIR}" "${SHARE_DIR}" "${MAN_DIR}" "${DOC_DIR}" "${COMPLETION_DIR}"
-install -m 0755 "${BUILD_DIR}/skiffllm" "${BIN_DIR}/skiffllm"
+GUI_BIN=""
+GUI_NAME="skiffllm"
+CLI_BIN=""
+CLI_NAME="skiffllm-cli"
+for candidate in \
+    "${BUILD_DIR}/skiffllm" \
+    "${BUILD_DIR}/Release/skiffllm.exe" \
+    "${BUILD_DIR}/skiffllm.exe"; do
+    if [[ -f "${candidate}" ]]; then
+        GUI_BIN="${candidate}"
+        if [[ "${candidate}" == *.exe ]]; then
+            GUI_NAME="skiffllm.exe"
+        fi
+        break
+    fi
+done
+for candidate in \
+    "${BUILD_DIR}/skiffllm-cli" \
+    "${BUILD_DIR}/Release/skiffllm-cli.exe" \
+    "${BUILD_DIR}/skiffllm-cli.exe"; do
+    if [[ -f "${candidate}" ]]; then
+        CLI_BIN="${candidate}"
+        if [[ "${candidate}" == *.exe ]]; then
+            CLI_NAME="skiffllm-cli.exe"
+        fi
+        break
+    fi
+done
+if [[ -z "${GUI_BIN}" ]]; then
+    echo "error: skiffllm binary not found under ${BUILD_DIR}" >&2
+    exit 1
+fi
+
+install -d "${BIN_DIR}" "${SHARE_DIR}" "${WEB_DIR}" "${MAN_DIR}" "${DOC_DIR}" \
+    "${COMPLETION_DIR}"
+install -m 0755 "${GUI_BIN}" "${BIN_DIR}/${GUI_NAME}"
+if [[ -n "${CLI_BIN}" ]]; then
+    install -m 0755 "${CLI_BIN}" "${BIN_DIR}/${CLI_NAME}"
+fi
 install -m 0644 README.md LICENSE CHANGELOG.md SECURITY.md \
     "${DOC_DIR}/"
 install -m 0644 docs/*.md "${DOC_DIR}/"
 install -m 0644 docs/skiffllm.1 "${MAN_DIR}/skiffllm.1"
 install -m 0644 configs/skiffllm.example.conf "${SHARE_DIR}/skiffllm.example.conf"
 install -m 0644 scripts/completions/* "${COMPLETION_DIR}/"
+install -m 0644 web/index.html "${WEB_DIR}/index.html"
 
 echo
 echo "Installed SkiffLLM:"
